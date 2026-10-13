@@ -418,14 +418,15 @@
     "b_dom_fetch": {
       "title": "Поставщик озвучки (кэш + синтез)",
       "layer": "Domain",
-      "file": "src/engine/audio/audioManager.ts",
-      "line": 345,
+      "file": "src/engine/audio/audioFetch.ts",
+      "line": 56,
       "symbol": "getOrFetchAudio",
       "summary": "Поставляет аудио для фразы: ищет в кэше, иначе просит синтез у провайдера и сохраняет в кэш. Работает по запросу Координатора.",
       "fresh": true,
       "flow": "f_audio_intent",
       "res": [
-        "res_audioCache"
+        "res_audioCache",
+        "res_settingsStore"
       ],
       "fns": [
         "fn_getProvider"
@@ -526,7 +527,8 @@
       "summary": "Управляет поставками и ходом воспроизведения: берёт команду UI (play / jump / следующая / предыдущая / глава), у Поставщика фраз получает фразу, у Поставщика озвучки аудио, фиксирует позицию (владелец «Позиции чтения»), отдаёт Оркестратору «играй это».",
       "flow": "f_dom_coord",
       "res": [
-        "res_bookStore"
+        "res_bookStore",
+        "res_settingsStore"
       ],
       "zone": "z_coord"
     }
@@ -597,8 +599,8 @@
       "fn": "AudioManager.run"
     },
     "b_dom_fetch": {
-      "file": "src/engine/audio/audioManager.ts",
-      "fn": "AudioManager.getOrFetchAudio"
+      "file": "src/engine/audio/audioFetch.ts",
+      "fn": "getOrFetchAudio"
     },
     "b_dom_source": {
       "file": "src/engine/pdf/composer.ts",
@@ -871,7 +873,7 @@
     },
     "f_audio_intent": {
       "title": "Намерение: получить аудио фразы (упрощённо)",
-      "source": "src/engine/audio/audioManager.ts · AudioManager.getOrFetchAudio",
+      "source": "src/engine/audio/audioFetch.ts · getOrFetchAudio",
       "nodes": [
         {
           "id": "s",

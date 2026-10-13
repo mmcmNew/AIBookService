@@ -34,6 +34,7 @@ import {
   getDesktopProxy, 
   restartDesktopApp 
 } from '../../engine/proxy/proxyManager';
+import { setOpenRouterModel as setOpenRouterModelDomain } from '../../engine/settings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -100,7 +101,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     geminiModel,
     setGeminiModel,
     openRouterModel,
-    setOpenRouterModel,
     openRouterBaseUrl,
     setOpenRouterBaseUrl,
     proxy,
@@ -668,7 +668,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
 
                         <select
                           value={openRouterModel || ''}
-                          onChange={(e) => setOpenRouterModel(e.target.value)}
+                          onChange={(e) => setOpenRouterModelDomain(e.target.value)}
                           className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-medium text-slate-800 dark:text-zinc-100 outline-none focus:border-amber-500 mb-2"
                         >
                           <option value="" disabled>-- Выберите модель из списка --</option>
@@ -690,7 +690,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                       <input
                         type="text"
                         value={openRouterModel || ''}
-                        onChange={(e) => setOpenRouterModel(e.target.value)}
+                        onChange={(e) => setOpenRouterModelDomain(e.target.value)}
                         placeholder="например, openai/gpt-4o-mini-audio-preview"
                         className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-mono text-slate-800 dark:text-zinc-100 outline-none focus:border-amber-500"
                       />

@@ -15,7 +15,7 @@ import {
   type ComposedBook,
 } from './pdf/composer';
 import { coordinator } from './audio/coordinator';
-import { deleteAudioCacheForBook, purgeOrphanAudioCache } from './audio/audioManager';
+import { deleteAudioCacheForBook, purgeOrphanAudioCache } from './audio/audioFetch';
 
 // ---------------------------------------------------------------------------
 // Сохранение прогресса чтения: накапливаем патчи и пишем в IndexedDB с задержкой,

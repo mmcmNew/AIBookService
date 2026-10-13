@@ -1,12 +1,10 @@
 import { create } from 'zustand';
 import {
   INITIAL_PLAYER_STATE,
-  PlayerEvent,
   PlayerState,
   PlayerStatus,
   isPausedStatus,
   isPlayingStatus,
-  reducePlayer,
 } from '../engine/audio/playerState';
 
 export interface AudioState {
@@ -25,7 +23,7 @@ export interface AudioState {
   isPaused: boolean;
   isBuffering: boolean;
 
-  dispatch: (event: PlayerEvent) => PlayerState;
+  applyPlayerState: (next: PlayerState) => void;
   clearError: () => void;
   setNotice: (notice: string | null) => void;
   setWaitingPage: (page: number | null) => void;
@@ -40,7 +38,7 @@ function derive(status: PlayerStatus) {
   };
 }
 
-export const useAudioStore = create<AudioState>((set, get) => ({
+export const useAudioStore = create<AudioState>((set) => ({
   status: INITIAL_PLAYER_STATE.status,
   error: null,
   notice: null,
@@ -48,15 +46,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   waitingPage: null,
   ...derive('idle'),
 
-  dispatch: (event: PlayerEvent): PlayerState => {
-    const cur = get();
-    const prev: PlayerState = { status: cur.status, error: cur.error, token: cur.playToken };
-    const next = reducePlayer(prev, event);
-    if (next !== prev) {
-      set({ status: next.status, error: next.error, playToken: next.token, ...derive(next.status) });
-    }
-    return next;
-  },
+  applyPlayerState: (next: PlayerState) =>
+    set({
+      status: next.status,
+      error: next.error,
+      playToken: next.token,
+      ...derive(next.status),
+    }),
 
   clearError: () => set({ error: null }),
   setNotice: (notice: string | null) => set({ notice }),

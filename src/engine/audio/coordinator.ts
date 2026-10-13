@@ -81,9 +81,7 @@ export function setChapterInternally(index: number): void {
 }
 
 export function stopAll(notice: string | null = null): void {
-  audioManager.stop();
-  useAudioStore.getState().dispatch({ type: 'stop' });
-  useAudioStore.setState({ notice, waitingPage: null });
+  audioManager.stopPlayer(notice);
 }
 
 /** Ключ «главы» для аудиокэша: по странице, а не по главе — главы достраиваются и могут менять id */
@@ -94,10 +92,8 @@ const isPaged = () => Boolean(useBookStore.getState().currentBook?.metadata.page
 
 /** Чтение ждёт страницу: плеер в статусе loading, сообщение «Распознаём страницу N…» показывает панель страниц */
 export function beginWait(page: number, mode: 'jump' | 'next'): void {
-  audioManager.stop();
-  useAudioStore.getState().dispatch({ type: 'request' });
   waitMode = mode;
-  useAudioStore.setState({ notice: null, waitingPage: page });
+  audioManager.beginPlayerWait(page);
   setFocusPage(page);
 }
 
@@ -143,8 +139,7 @@ export function startPagedPlayback(trigger: PlayTrigger): void {
   const chapterIndex = composed.chapterOfSentence.get(sentenceId) ?? 0;
   const chapter = composed.chapters[chapterIndex];
 
-  const state = useAudioStore.getState().dispatch({ type: 'request' });
-  useAudioStore.setState({ notice: null, waitingPage: null });
+  const state = audioManager.startPlayerRequest();
 
   // Следующая фраза для предзагрузки (только если следующая страница уже распознана)
   const step = nextStep(composed, (p) => paged.stateOf(p), sentence.id);
@@ -203,12 +198,12 @@ export function checkWait(): void {
   const w = audioState.waitingPage;
   if (w == null) return;
   if (audioState.status !== 'loading') {
-    useAudioStore.setState({ waitingPage: null });
+    audioManager.clearWaitingPage();
     return;
   }
   const composed = usePagedStore.getState().composed;
   if (!composed || !readyPageState(composed, w)) return;
-  useAudioStore.setState({ waitingPage: null });
+  audioManager.clearWaitingPage();
   if (waitMode === 'jump' || useBookStore.getState().currentSentenceId == null) startPlayback('navigate');
   else advancePaged(false);
 }
@@ -229,8 +224,7 @@ export function startPlayback(trigger: PlayTrigger): void {
   const sentenceIndex = book.getCurrentSentenceIndex();
   const sentence = chapter.sentences[sentenceIndex];
 
-  const state = useAudioStore.getState().dispatch({ type: 'request' });
-  useAudioStore.setState({ notice: null });
+  const state = audioManager.startPlayerRequest();
 
   // Следующая фраза (в т.ч. первая в следующей главе) — для предзагрузки
   let next: { chapterId: string; sentence: typeof sentence } | null = null;
@@ -289,7 +283,7 @@ export function advance(auto: boolean): void {
 }
 
 export function onStarted(token: number): void {
-  useAudioStore.getState().dispatch({ type: 'started', token });
+  audioManager.onPlayerStarted(token);
 }
 
 export function onEnded(token: number): void {
@@ -300,7 +294,7 @@ export function onEnded(token: number): void {
 
 export function onFailed(token: number, message: string): void {
   const before = useAudioStore.getState().playToken;
-  const next = useAudioStore.getState().dispatch({ type: 'failed', token, message });
+  const next = audioManager.onPlayerFailed(token, message);
   if (next.token !== before) audioManager.stop();
 }
 
@@ -313,8 +307,7 @@ export async function play(): Promise<void> {
 export function pause(): void {
   const status = useAudioStore.getState().status;
   if (status === 'playing') {
-    audioManager.pause();
-    useAudioStore.getState().dispatch({ type: 'pause' });
+    audioManager.pausePlayer();
   } else if (status === 'loading') {
     stopAll();
   }
@@ -322,8 +315,7 @@ export function pause(): void {
 
 export function resume(): void {
   if (useAudioStore.getState().status !== 'paused') return;
-  useAudioStore.getState().dispatch({ type: 'resume' });
-  audioManager.resume();
+  audioManager.resumePlayer();
 }
 
 export function stop(): void {
@@ -360,7 +352,7 @@ export async function jumpToSentence(sentenceId: number): Promise<void> {
 }
 
 export function clearError(): void {
-  useAudioStore.getState().clearError();
+  audioManager.clearError();
 }
 
 // ---------------------------------------------------------------------------
@@ -476,7 +468,7 @@ usePagedStore.subscribe((state, prev) => {
   if (state.navNonce !== prev.navNonce) {
     const status = useAudioStore.getState().status;
     if (status === 'loading' || status === 'playing') {
-      useAudioStore.setState({ waitingPage: null });
+      audioManager.clearWaitingPage();
       startPlayback('chapter');
     } else if (status !== 'idle') {
       stopAll();

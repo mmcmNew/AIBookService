@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { FontFamily, PdfRecognitionMode, ReaderTheme, ReplacementRule, UserSettings } from '../types/settings';
 import { AggregatorApiMode, TTSProviderType } from '../types/tts';
-import { getCatalogModelInfo, isVoiceValidForModel, normalizeAggregatorVoice } from '../engine/providers/openRouterTts';
+import { normalizeAggregatorVoice } from '../engine/providers/openRouterTts';
 import { DEFAULT_RULES } from '../engine/tokenizer/dictionaryReplacer';
 
 interface SettingsState extends UserSettings {
@@ -93,16 +93,7 @@ export const useSettingsStore = create<SettingsState>()(
       setPitch: (pitch) => set({ pitch }),
       setVolume: (volume) => set({ volume: Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1 }),
       setGeminiModel: (geminiModel) => set({ geminiModel }),
-      setOpenRouterModel: (openRouterModel) =>
-        set((state) => {
-          // При смене модели голос, неподходящий новой модели, сбрасывается на «по умолчанию»
-          const cur = state.selectedVoiceIds.openrouter ?? '';
-          const keep = isVoiceValidForModel(cur, openRouterModel, [], getCatalogModelInfo(state.openRouterBaseUrl, openRouterModel)?.voices);
-          return {
-            openRouterModel,
-            selectedVoiceIds: keep ? state.selectedVoiceIds : { ...state.selectedVoiceIds, openrouter: '' },
-          };
-        }),
+      setOpenRouterModel: (openRouterModel) => set({ openRouterModel }),
       setOpenRouterBaseUrl: (openRouterBaseUrl) => set({ openRouterBaseUrl }),
       setPdfRecognitionMode: (pdfRecognitionMode) => set({ pdfRecognitionMode }),
       setAlwaysAskPdfMode: (alwaysAskPdfMode) => set({ alwaysAskPdfMode }),

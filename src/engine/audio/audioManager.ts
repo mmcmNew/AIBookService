@@ -1,16 +1,32 @@
-import { db } from '../../storage/db';
 import { SentenceItem } from '../../types/book';
 import { SynthesisOptions, TTSProviderType } from '../../types/tts';
-import { getProvider } from '../providers';
 import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useAudioStore } from '../../store/audioStore';
+import { PlayerEvent, PlayerState, reducePlayer } from './playerState';
 import { playChime } from './chime';
-import { htmlAudioPlayer, sniffAudioMime } from '../../infra/audio/htmlAudioPlayer';
+import { htmlAudioPlayer } from '../../infra/audio/htmlAudioPlayer';
+import {
+  getOrFetchAudio,
+  prefetchAudio,
+  cancelPrefetch,
+  buildCacheKey,
+  buildChapterCacheKey,
+  purgeOrphanAudioCache,
+  deleteAudioCacheForBook,
+} from './audioFetch';
+
+export {
+  buildCacheKey,
+  buildChapterCacheKey,
+  getOrFetchAudio,
+  purgeOrphanAudioCache,
+  deleteAudioCacheForBook,
+};
 
 /**
  * AudioManager — «исполнитель»: проигрывает одну фразу (при необходимости с объявлением главы)
- * и сообщает о событиях. Состояния воспроизведения (играет/пауза/…) он НЕ хранит —
- * единственный источник истины см. playerState.ts / audioStore.ts.
+ * и сообщает о событиях. Владелец состояния плеера (st_player, b_dom_audio).
  * Каждое событие несёт token команды; всё, что относится к устаревшему токену, молча отбрасывается.
  */
 
@@ -36,7 +52,6 @@ export interface SpeakJob {
   next?: { chapterId: string; sentence: SentenceItem } | null;
 }
 
-const MEMORY_CACHE_LIMIT = 40;
 const CHAPTER_PAUSE_MS = 600;
 const SPEECH_INTRO_TIMEOUT_MS = 20000;
 
@@ -46,39 +61,6 @@ function sanitizeSpeed(v: number | undefined): number {
 
 function sanitizeVolume(v: number | undefined): number {
   return Number.isFinite(v) ? Math.max(0, Math.min(1, v as number)) : 1;
-}
-
-/** Ключ кэша учитывает провайдера, модель, голос, шлюз и режим API — кэши разных источников не смешиваются */
-export function buildCacheKey(
-  bookId: string,
-  chapterId: string,
-  sentenceId: number,
-  providerType: TTSProviderType,
-  options: SynthesisOptions,
-  text: string
-): string {
-  return [
-    bookId,
-    chapterId,
-    sentenceId,
-    providerType,
-    options.model || '',
-    options.voiceId || '',
-    options.baseUrl || '',
-    options.apiMode || '',
-    text,
-  ].join('_');
-}
-
-/** Ключ кэша объявления главы: префикс 'chapter:' отличает его от обычных предложений */
-export function buildChapterCacheKey(
-  bookId: string,
-  chapterId: string,
-  providerType: TTSProviderType,
-  options: SynthesisOptions,
-  title: string
-): string {
-  return 'chapter:' + buildCacheKey(bookId, chapterId, -1, providerType, options, title);
 }
 
 export class AudioManager {
@@ -91,12 +73,8 @@ export class AudioManager {
   private mode: 'audio' | 'speech' = 'audio';
   private utterance: SpeechSynthesisUtterance | null = null;
   private abort: AbortController | null = null;
-  private prefetchAbort: AbortController | null = null;
   /** Функции, будящие ожидающие await (пауза, конец объявления) при отмене */
   private cancelHooks = new Set<() => void>();
-
-  private memoryAudioCache = new Map<string, ArrayBuffer>();
-  private inflight = new Map<string, Promise<ArrayBuffer>>();
 
   constructor() {
     htmlAudioPlayer.setCallbacks({
@@ -134,8 +112,7 @@ export class AudioManager {
     this.utterance = null;
     this.abort?.abort();
     this.abort = null;
-    this.prefetchAbort?.abort();
-    this.prefetchAbort = null;
+    cancelPrefetch();
     for (const hook of Array.from(this.cancelHooks)) hook();
     this.cancelHooks.clear();
     htmlAudioPlayer.stop();
@@ -206,7 +183,7 @@ export class AudioManager {
       }
 
       const key = buildCacheKey(job.bookId, job.chapterId, job.sentence.id, providerType, options, text);
-      const buffer = await this.getOrFetchAudio(key, job.bookId, job.chapterId, job.sentence.id, text, providerType, options, signal);
+      const buffer = await getOrFetchAudio(key, job.bookId, job.chapterId, job.sentence.id, text, providerType, options, signal);
       if (!this.isCurrent(token)) return;
 
       htmlAudioPlayer.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
@@ -215,7 +192,7 @@ export class AudioManager {
       if (!this.isCurrent(token)) return;
       this.handlers.onStarted(token);
 
-      if (job.next) this.prefetch(job.bookId, job.next.chapterId, job.next.sentence, providerType, options);
+      if (job.next) prefetchAudio(job.bookId, job.next.chapterId, job.next.sentence, providerType, options);
     } catch (err) {
       if (!this.isCurrent(token)) return;
       const e = err as { name?: string; message?: string };
@@ -249,7 +226,7 @@ export class AudioManager {
         }, undefined);
       } else {
         const key = buildChapterCacheKey(job.bookId, job.chapterId, providerType, options, title);
-        const buffer = await this.getOrFetchAudio(key, job.bookId, job.chapterId, -1, title, providerType, options, signal);
+        const buffer = await getOrFetchAudio(key, job.bookId, job.chapterId, -1, title, providerType, options, signal);
         if (!this.isCurrent(token)) return;
         htmlAudioPlayer.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
         const finished = this.wait<void>((resolve) => {
@@ -283,137 +260,51 @@ export class AudioManager {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = sanitizeSpeed(options.speed);
-    utterance.pitch = (options.pitch ?? 0) / 10 + 1; // приводим к диапазону 0-2
-    utterance.volume = sanitizeVolume(options.volume);
-    if (options.voiceId) {
-      const match = window.speechSynthesis.getVoices().find((v) => v.name === options.voiceId);
-      if (match) utterance.voice = match;
-    }
     this.utterance = utterance;
 
-    // После cancel() браузеры часто вызывают onend/onerror старой реплики — отсекаем по идентичности и токену
-    const stale = () => this.utterance !== utterance || !this.isCurrent(token);
+    const voices = window.speechSynthesis.getVoices();
+    if (options.voiceId) {
+      const match = voices.find((v) => v.name === options.voiceId);
+      if (match) utterance.voice = match;
+    }
+
+    utterance.rate = sanitizeSpeed(options.speed);
+    utterance.pitch = Math.max(0, Math.min(2, 1 + (options.pitch || 0) / 10));
+    utterance.volume = sanitizeVolume(options.volume);
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      onDone?.();
+    };
+
     utterance.onend = () => {
-      if (stale()) return;
-      this.utterance = null;
-      if (role === 'intro') {
-        onDone?.();
-        return;
-      }
-      if (this.mainToken === token) {
-        this.mainToken = null;
-        this.handlers.onEnded(token);
+      if (!this.isCurrent(token)) return;
+      if (role === 'main') {
+        if (this.mainToken === token) {
+          this.mainToken = null;
+          this.handlers.onEnded(token);
+        }
+      } else {
+        finish();
       }
     };
+
     utterance.onerror = (e) => {
-      if (stale() || e.error === 'canceled' || e.error === 'interrupted') return;
-      this.utterance = null;
-      if (role === 'intro') {
-        onDone?.();
-        return;
+      if (!this.isCurrent(token)) return;
+      if (role === 'main') {
+        if (this.mainToken === token) {
+          this.mainToken = null;
+          this.handlers.onFailed(token, 'Ошибка системного синтеза речи.');
+        }
+      } else {
+        finish();
       }
-      this.mainToken = null;
-      this.handlers.onFailed(token, `Ошибка Web Speech: ${e.error}`);
     };
 
     window.speechSynthesis.speak(utterance);
     return true;
-  }
-
-  /** Предзагрузка следующей фразы в фоне; ошибки игнорируются */
-  private prefetch(
-    bookId: string,
-    chapterId: string,
-    sentence: SentenceItem,
-    providerType: TTSProviderType,
-    options: SynthesisOptions
-  ) {
-    if (providerType === 'webspeech') return;
-    this.prefetchAbort?.abort();
-    this.prefetchAbort = new AbortController();
-
-    const rules = useSettingsStore.getState().replacementRules;
-    const text = applyPronunciationDictionary(sentence.rawText, rules, bookId);
-    const key = buildCacheKey(bookId, chapterId, sentence.id, providerType, options, text);
-    this.getOrFetchAudio(key, bookId, chapterId, sentence.id, text, providerType, options, this.prefetchAbort.signal).catch(
-      () => undefined
-    );
-  }
-
-  /** Аудио из памяти, IndexedDB или сети (с сохранением в кэш) */
-  private async getOrFetchAudio(
-    cacheKey: string,
-    bookId: string,
-    chapterId: string,
-    sentenceId: number,
-    speechText: string,
-    providerType: TTSProviderType,
-    options: SynthesisOptions,
-    signal?: AbortSignal
-  ): Promise<ArrayBuffer> {
-    const mem = this.memoryAudioCache.get(cacheKey);
-    if (mem) return mem;
-
-    // Такой же запрос уже выполняется (например, prefetch) — ждём его, а не дублируем
-    const pending = this.inflight.get(cacheKey);
-    if (pending) {
-      try {
-        return await pending;
-      } catch {
-        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-        // prefetch упал/отменён — пробуем сами
-      }
-    }
-
-    try {
-      const cached = await db.audioCache.get(cacheKey);
-      if (cached && cached.audioBlob) {
-        const buffer = await cached.audioBlob.arrayBuffer();
-        this.rememberInMemory(cacheKey, buffer);
-        return buffer;
-      }
-    } catch (e) {
-      console.warn('Ошибка чтения из IndexedDB:', e);
-    }
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-
-    const request = getProvider(providerType).synthesize(speechText, { ...options, signal });
-    this.inflight.set(cacheKey, request);
-    let audioBuffer: ArrayBuffer;
-    try {
-      audioBuffer = await request;
-    } finally {
-      if (this.inflight.get(cacheKey) === request) this.inflight.delete(cacheKey);
-    }
-    if (!audioBuffer || audioBuffer.byteLength === 0) {
-      throw new Error('Провайдер вернул пустое аудио.');
-    }
-    this.rememberInMemory(cacheKey, audioBuffer);
-
-    // В IndexedDB пишем в фоне (воспроизведение не ждёт)
-    db.audioCache
-      .put({
-        cacheKey,
-        bookId,
-        chapterId,
-        sentenceId,
-        voiceId: options.voiceId,
-        audioBlob: new Blob([audioBuffer], { type: sniffAudioMime(audioBuffer) }),
-        createdAt: Date.now(),
-      })
-      .catch((e) => console.warn('Ошибка записи аудио в IndexedDB:', e));
-
-    return audioBuffer;
-  }
-
-  private rememberInMemory(key: string, buffer: ArrayBuffer) {
-    this.memoryAudioCache.set(key, buffer);
-    while (this.memoryAudioCache.size > MEMORY_CACHE_LIMIT) {
-      const oldest = this.memoryAudioCache.keys().next().value;
-      if (oldest === undefined) break;
-      this.memoryAudioCache.delete(oldest);
-    }
   }
 
   /** Пауза текущей фразы (вызывается хранилищем только из статуса playing) */
@@ -452,23 +343,76 @@ export class AudioManager {
   public setVolume(volume: number) {
     htmlAudioPlayer.setVolume(volume);
   }
+
+  // ---------------------------------------------------------------------------
+  // Управление состоянием плеера (st_player).
+  // Блок b_dom_audio — единственный владелец этого среза состояния.
+  // ---------------------------------------------------------------------------
+
+  public dispatch(event: PlayerEvent): PlayerState {
+    const cur = useAudioStore.getState();
+    const prev: PlayerState = { status: cur.status, error: cur.error, token: cur.playToken };
+    const next = reducePlayer(prev, event);
+    if (next !== prev) {
+      useAudioStore.getState().applyPlayerState(next);
+    }
+    return next;
+  }
+
+  public clearError(): void {
+    useAudioStore.getState().clearError();
+  }
+
+  public setNotice(notice: string | null): void {
+    useAudioStore.getState().setNotice(notice);
+  }
+
+  public setWaitingPage(page: number | null): void {
+    useAudioStore.getState().setWaitingPage(page);
+  }
+
+  public clearWaitingPage(): void {
+    useAudioStore.getState().setWaitingPage(null);
+  }
+
+  public stopPlayer(notice: string | null = null): void {
+    this.stop();
+    this.dispatch({ type: 'stop' });
+    useAudioStore.getState().setNotice(notice);
+    useAudioStore.getState().setWaitingPage(null);
+  }
+
+  public beginPlayerWait(page: number): void {
+    this.stop();
+    this.dispatch({ type: 'request' });
+    useAudioStore.getState().setNotice(null);
+    useAudioStore.getState().setWaitingPage(page);
+  }
+
+  public startPlayerRequest(): PlayerState {
+    const next = this.dispatch({ type: 'request' });
+    useAudioStore.getState().setNotice(null);
+    useAudioStore.getState().setWaitingPage(null);
+    return next;
+  }
+
+  public onPlayerStarted(token: number): void {
+    this.dispatch({ type: 'started', token });
+  }
+
+  public onPlayerFailed(token: number, message: string): PlayerState {
+    return this.dispatch({ type: 'failed', token, message });
+  }
+
+  public pausePlayer(): void {
+    this.pause();
+    this.dispatch({ type: 'pause' });
+  }
+
+  public resumePlayer(): void {
+    this.dispatch({ type: 'resume' });
+    this.resume();
+  }
 }
 
 export const audioManager = new AudioManager();
-
-/** Удаляет записи кэша для предложений, которых больше нет в книге (владелец res_audioCache: b_dom_fetch) */
-export async function purgeOrphanAudioCache(
-  bookId: string,
-  validSentencesByChapter: Map<string, Set<number>>,
-): Promise<void> {
-  await db.audioCache
-    .where('bookId')
-    .equals(bookId)
-    .filter((a) => !validSentencesByChapter.get(a.chapterId)?.has(a.sentenceId))
-    .delete();
-}
-
-/** Удаляет весь аудиокэш книги */
-export async function deleteAudioCacheForBook(bookId: string): Promise<void> {
-  await db.audioCache.where('bookId').equals(bookId).delete();
-}
