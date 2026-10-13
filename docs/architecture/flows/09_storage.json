@@ -1,0 +1,87 @@
+{
+  "id": "09_storage",
+  "title": "Хранилище (Client IndexedDB & Server Storage)",
+  "level": 1,
+  "description": "Схемы локальной базы данных Dexie (IndexedDB), управление версиями схемы и атомарные серверные хранилища",
+  "rootModule": "src/storage/db.ts",
+  "nodes": [
+    {
+      "id": "dexie_init",
+      "label": "ReaderDatabase (Dexie.js)",
+      "type": "step",
+      "file": "src/storage/db.ts",
+      "line": 37,
+      "symbol": "ReaderDatabase",
+      "summary": "Инициализация БД AIBookReaderDatabase со схемой v1 и миграцией на v2 (постраничный PDF)",
+      "isRisky": true,
+      "riskReason": "При открытии в нескольких вкладках требуется обработчик versionchange (this.close()), чтобы не блокировать апгрейд",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: схема v2 с таблицами pdfPages и pdfFiles"
+    },
+    {
+      "id": "tbl_books",
+      "label": "Таблица: db.books",
+      "type": "io",
+      "file": "src/storage/db.ts",
+      "line": 39,
+      "symbol": "db.books",
+      "summary": "Метаданные книг, оглавление, сноски и главы (id, addedAt, lastReadAt)",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "tbl_pdf_files",
+      "label": "Таблица: db.pdfFiles (v2)",
+      "type": "io",
+      "file": "src/storage/db.ts",
+      "line": 48,
+      "symbol": "db.pdfFiles",
+      "summary": "Хранение сырых бинарников PDF (ArrayBuffer) отдельно от метаданных книги",
+      "isRisky": true,
+      "riskReason": "Изолирует сотни МБ исходных файлов, чтобы запись прогресса чтения не перезаписывала весь файл",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: разделение данных книги и тяжёлых бинарников"
+    },
+    {
+      "id": "tbl_pdf_pages",
+      "label": "Таблица: db.pdfPages (v2)",
+      "type": "io",
+      "file": "src/storage/db.ts",
+      "line": 47,
+      "symbol": "db.pdfPages",
+      "summary": "Индексированное хранение распознанных страниц: составной ключ [bookId+page], статус, блоки",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: сохранение состояния распознавания для каждой страницы отдельно"
+    },
+    {
+      "id": "tbl_audio_cache",
+      "label": "Таблица: db.audioCache",
+      "type": "io",
+      "file": "src/storage/db.ts",
+      "line": 40,
+      "symbol": "db.audioCache",
+      "summary": "Кэш озвученных фраз: составной ключ [bookId+chapterId+sentenceId+voiceId], Blob аудио",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "server_atomic_storage",
+      "label": "Сервер: JsonFile (tmp + rename)",
+      "type": "io",
+      "file": "server/src/db.ts",
+      "line": 41,
+      "symbol": "JsonFile",
+      "summary": "Неблокирующая сериализованная атомарная запись файлов users.json и payments.json без race conditions",
+      "isRisky": true,
+      "riskReason": "Атомарное переименование защищает от повреждения базы при внезапной остановке сервера",
+      "recentlyChanged": false
+    }
+  ],
+  "edges": [
+    { "from": "dexie_init", "to": "tbl_books", "label": "books schema" },
+    { "from": "dexie_init", "to": "tbl_pdf_files", "label": "pdfFiles schema" },
+    { "from": "dexie_init", "to": "tbl_pdf_pages", "label": "pdfPages schema" },
+    { "from": "dexie_init", "to": "tbl_audio_cache", "label": "audioCache schema" }
+  ]
+}

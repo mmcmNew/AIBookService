@@ -1,0 +1,225 @@
+{
+  "id": "level0_overview",
+  "title": "AIBookReaderWeb — Общая функциональная схема системы",
+  "level": 0,
+  "description": "Крупные функциональные блоки приложения и основные информационные потоки между ними",
+  "blocks": [
+    {
+      "id": "b1_library",
+      "flowId": "01_library_and_import",
+      "title": "Библиотека и импорт книги",
+      "icon": "Library",
+      "color": "amber",
+      "summary": "Drag-and-Drop загрузка FB2, EPUB, TXT, PDF. Foliate-парсеры, выбор движка PDF, сохранение в базу.",
+      "rootModule": "src/components/library/LibraryView.tsx",
+      "mainFiles": [
+        "src/components/library/LibraryView.tsx",
+        "src/engine/parsers/index.ts",
+        "src/store/bookStore.ts"
+      ]
+    },
+    {
+      "id": "b2_pdf",
+      "flowId": "02_pdf_recognition",
+      "title": "Распознавание PDF",
+      "icon": "FileSearch",
+      "color": "indigo",
+      "summary": "Постраничное открытие, инспекция оглавления, планировщик окон (urgent/фон), Sidecar/pdf.js/Gemini OCR, склейка переносов.",
+      "rootModule": "src/engine/pdf/pagedSession.ts",
+      "mainFiles": [
+        "src/engine/pdf/pagedSession.ts",
+        "src/engine/pdf/recognizers.ts",
+        "src/engine/pdf/pageScheduler.ts",
+        "src/engine/pdf/pageCompose.ts",
+        "src/engine/parsers/pdfSidecar.ts"
+      ]
+    },
+    {
+      "id": "b3_editor",
+      "flowId": "03_cleanup_and_editor",
+      "title": "Очистка и редактор",
+      "icon": "Edit3",
+      "color": "emerald",
+      "summary": "Конвейер предпросмотра (DiffView), удаление колонтитулов и номеров страниц, чистка сдвинутой кириллицы, поблочный редактор PDF.",
+      "rootModule": "src/components/editor/BookEditor.tsx",
+      "mainFiles": [
+        "src/engine/cleanup/pipeline.ts",
+        "src/engine/cleanup/shiftedCyrillic.ts",
+        "src/components/editor/BookEditor.tsx",
+        "src/components/editor/PagedBookEditor.tsx"
+      ]
+    },
+    {
+      "id": "b4_chapters",
+      "flowId": "04_chapters_and_toc",
+      "title": "Главы и содержание",
+      "icon": "BookOpen",
+      "color": "blue",
+      "summary": "Интеллектуальное планирование глав (chapterPlan), парсинг PDF Outline, объединение/разделение глав в редакторе, навигация.",
+      "rootModule": "src/components/reader/ChapterSidebar.tsx",
+      "mainFiles": [
+        "src/engine/pdf/chapterPlan.ts",
+        "src/engine/cleanup/chapters.ts",
+        "src/components/reader/ChapterSidebar.tsx"
+      ]
+    },
+    {
+      "id": "b5_reader",
+      "flowId": "05_reading_and_highlight",
+      "title": "Чтение и подсветка",
+      "icon": "Glasses",
+      "color": "violet",
+      "summary": "Intl.Segmenter токенизация, словарь произношений, оптимизированный рендеринг предложений, автоскролл с паузой от жестов.",
+      "rootModule": "src/components/reader/BookView.tsx",
+      "mainFiles": [
+        "src/components/reader/BookView.tsx",
+        "src/components/reader/PagedTextView.tsx",
+        "src/engine/tokenizer/sentenceTokenizer.ts",
+        "src/components/reader/readerScroll.tsx"
+      ]
+    },
+    {
+      "id": "b6_tts",
+      "flowId": "06_tts_and_player",
+      "title": "Озвучка (плеер, кэш, провайдеры)",
+      "icon": "Volume2",
+      "color": "rose",
+      "summary": "Машина состояний плеера с токенами, многоуровневый кэш (RAM + IndexedDB), 6 TTS-провайдеров, авто-смена эндпоинта OpenRouter.",
+      "rootModule": "src/engine/audio/audioManager.ts",
+      "mainFiles": [
+        "src/engine/audio/playerState.ts",
+        "src/engine/audio/audioManager.ts",
+        "src/engine/providers/openRouterTts.ts",
+        "src/store/audioStore.ts"
+      ]
+    },
+    {
+      "id": "b7_billing",
+      "flowId": "07_billing_and_payment",
+      "title": "Баланс и оплата",
+      "icon": "CreditCard",
+      "color": "amber",
+      "summary": "Покупка пакетов символов, создание платежа ЮKassa, безопасный вебхук с перепроверкой по API и атомарное начисление баланса.",
+      "rootModule": "server/src/routes/payment.ts",
+      "mainFiles": [
+        "server/src/routes/payment.ts",
+        "server/src/services/yookassa.ts",
+        "server/src/db.ts",
+        "src/components/billing/TopUpModal.tsx"
+      ]
+    },
+    {
+      "id": "b8_settings",
+      "flowId": "08_settings",
+      "title": "Настройки",
+      "icon": "Settings",
+      "color": "teal",
+      "summary": "Zustand хранилище c localStorage, темы оформления (Dark/Sepia/OLED), BYOK API-ключи, выбор голосов, словарь замен.",
+      "rootModule": "src/store/settingsStore.ts",
+      "mainFiles": [
+        "src/store/settingsStore.ts",
+        "src/components/settings/SettingsModal.tsx",
+        "src/types/settings.ts"
+      ]
+    },
+    {
+      "id": "b9_storage",
+      "flowId": "09_storage",
+      "title": "Хранилище",
+      "icon": "Database",
+      "color": "cyan",
+      "summary": "Клиентский Dexie (IndexedDB: книги, бинарники PDF, страницы, аудиокэш) и серверный атомарный JSON-сторадж (пользователи, платежи).",
+      "rootModule": "src/storage/db.ts",
+      "mainFiles": [
+        "src/storage/db.ts",
+        "server/src/db.ts"
+      ]
+    }
+  ],
+  "arrows": [
+    {
+      "from": "b1_library",
+      "to": "b2_pdf",
+      "label": "PDF-файл на постраничную инспекцию",
+      "data": "File, ArrayBuffer"
+    },
+    {
+      "from": "b1_library",
+      "to": "b9_storage",
+      "label": "Сохранение книги (FB2/EPUB/TXT) и обложки",
+      "data": "ParsedBook -> db.books"
+    },
+    {
+      "from": "b2_pdf",
+      "to": "b4_chapters",
+      "label": "Построение плана глав из Outline / эвристик",
+      "data": "PagedOutlineItem[], ChapterSpec[]"
+    },
+    {
+      "from": "b2_pdf",
+      "to": "b9_storage",
+      "label": "Запись распознанных страниц и исходного PDF",
+      "data": "PdfPageRecord -> db.pdfPages, db.pdfFiles"
+    },
+    {
+      "from": "b4_chapters",
+      "to": "b5_reader",
+      "label": "Главы и оглавление для отображения",
+      "data": "Chapter[], SentenceItem[]"
+    },
+    {
+      "from": "b3_editor",
+      "to": "b4_chapters",
+      "label": "Обновление границ глав после правок",
+      "data": "replaceBookChapters"
+    },
+    {
+      "from": "b3_editor",
+      "to": "b9_storage",
+      "label": "Инвалидация устаревшего аудиокэша и сохранение текста",
+      "data": "db.transaction(books, audioCache)"
+    },
+    {
+      "from": "b5_reader",
+      "to": "b6_tts",
+      "label": "Команда на озвучку выбранного предложения",
+      "data": "jumpToSentence(sentenceId)"
+    },
+    {
+      "from": "b6_tts",
+      "to": "b5_reader",
+      "label": "Подсветка активного предложения и караоке",
+      "data": "currentSentenceId, autoscroll"
+    },
+    {
+      "from": "b6_tts",
+      "to": "b9_storage",
+      "label": "Чтение / запись Blob аудиофрагментов",
+      "data": "db.audioCache"
+    },
+    {
+      "from": "b7_billing",
+      "to": "b6_tts",
+      "label": "Проверка баланса перед платным TTS",
+      "data": "user.balance, master keys"
+    },
+    {
+      "from": "b8_settings",
+      "to": "b6_tts",
+      "label": "Провайдер, голос, API-ключи, словарь замен",
+      "data": "SynthesisOptions, ReplacementRule[]"
+    },
+    {
+      "from": "b8_settings",
+      "to": "b5_reader",
+      "label": "Шрифт, размер, тема, режим автоскролла",
+      "data": "UserSettings"
+    },
+    {
+      "from": "b8_settings",
+      "to": "b2_pdf",
+      "label": "Режим PDF (auto/ocr/text/gemini) и Gemini API ключ",
+      "data": "PdfRecognitionMode"
+    }
+  ]
+}

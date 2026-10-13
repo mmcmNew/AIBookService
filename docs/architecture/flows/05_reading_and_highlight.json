@@ -1,0 +1,132 @@
+{
+  "id": "05_reading_and_highlight",
+  "title": "Чтение и подсветка",
+  "level": 1,
+  "description": "Токенизация предложений, караоке-подсветка, виртуализированный рендеринг и умный автоскролл с паузой от жестов",
+  "rootModule": "src/components/reader/BookView.tsx",
+  "nodes": [
+    {
+      "id": "segment_text",
+      "label": "tokenizeSentences (Intl.Segmenter)",
+      "type": "step",
+      "file": "src/engine/tokenizer/sentenceTokenizer.ts",
+      "line": 35,
+      "symbol": "tokenizeSentences",
+      "summary": "Разбивка текста глав на SentenceItem[] через Intl.Segmenter с защитой сокращений ('т.е.')",
+      "isRisky": true,
+      "riskReason": "Некоторые браузеры без поддержки Intl.Segmenter требуют полифила",
+      "recentlyChanged": false,
+      "hasLevel2": true,
+      "level2Id": "l2_tokenizer_details"
+    },
+    {
+      "id": "dict_replace",
+      "label": "applyPronunciationDictionary",
+      "type": "step",
+      "file": "src/engine/tokenizer/dictionaryReplacer.ts",
+      "line": 25,
+      "symbol": "applyPronunciationDictionary",
+      "summary": "Подстановка правил произношения в speechText без изменения экранного rawText",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "view_dispatch",
+      "label": "Выбор компонента читалки",
+      "type": "condition",
+      "file": "src/App.tsx",
+      "line": 80,
+      "symbol": "App.renderReader",
+      "summary": "PagedTextView (постраничный PDF с виртуализацией) vs BookView (стандартная читалка)",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: интеграция PagedTextView"
+    },
+    {
+      "id": "paged_virtual_dom",
+      "label": "Виртуализация страниц (-2…+6)",
+      "type": "step",
+      "file": "src/components/reader/PagedTextView.tsx",
+      "line": 35,
+      "symbol": "aroundPage",
+      "summary": "Рендеринг в DOM только скользящего окна страниц вокруг фокуса, нераспознанные — заглушки",
+      "isRisky": true,
+      "riskReason": "Опасность скачков скролла при появлении готовых страниц над областью видимости",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: динамическое окно MAX_WINDOW = 28"
+    },
+    {
+      "id": "memo_paragraph",
+      "label": "Memoized Paragraph & Sentence",
+      "type": "step",
+      "file": "src/components/reader/BookView.tsx",
+      "line": 44,
+      "symbol": "Paragraph / Sentence",
+      "summary": "Изолированная подписка на currentSentenceId: перерисовываются максимум 2 параграфа",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: исключены лишние ререндеры всей книги"
+    },
+    {
+      "id": "autoscroll_zone",
+      "label": "scrollIntoComfortZone",
+      "type": "step",
+      "file": "src/components/reader/readerScroll.tsx",
+      "line": 50,
+      "symbol": "scrollIntoComfortZone",
+      "summary": "Плавное центрирование активного предложения в комфортную зону (верхняя треть экрана)",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: учёт высоты плавающего бара плеера"
+    },
+    {
+      "id": "user_scroll_pause",
+      "label": "useAutoscrollPause",
+      "type": "step",
+      "file": "src/components/reader/readerScroll.tsx",
+      "line": 95,
+      "symbol": "useAutoscrollPause",
+      "summary": "Детектор ручной прокрутки колёсиком/пальцем: автоскролл замирает, появляется кнопка возврата",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: ResumeAutoscrollButton для возврата к чтению"
+    }
+  ],
+  "edges": [
+    { "from": "segment_text", "to": "dict_replace", "label": "сырой текст" },
+    { "from": "dict_replace", "to": "view_dispatch", "label": "SentenceItem[]" },
+    { "from": "view_dispatch", "to": "paged_virtual_dom", "label": "paged PDF" },
+    { "from": "view_dispatch", "to": "memo_paragraph", "label": "обычная книга" },
+    { "from": "paged_virtual_dom", "to": "memo_paragraph", "label": "готовые страницы" },
+    { "from": "memo_paragraph", "to": "autoscroll_zone", "label": "смена предложения" },
+    { "from": "autoscroll_zone", "to": "user_scroll_pause", "label": "ручной скролл пользователя" }
+  ],
+  "subflows": [
+    {
+      "id": "l2_tokenizer_details",
+      "parentStepId": "segment_text",
+      "title": "Уровень 2: Алгоритм сегментации и защиты сокращений",
+      "description": "Детализация токенизатора в src/engine/tokenizer/sentenceTokenizer.ts",
+      "steps": [
+        {
+          "symbol": "Intl.Segmenter",
+          "file": "src/engine/tokenizer/sentenceTokenizer.ts",
+          "line": 40,
+          "summary": "Сегментация строки с учётом языка книги (granularity: sentence)"
+        },
+        {
+          "symbol": "mergeAbbr",
+          "file": "src/engine/tokenizer/sentenceTokenizer.ts",
+          "line": 65,
+          "summary": "Склейка ложно разорванных предложений на сокращениях ('т. е.', 'и т. д.', 'г-н', 'стр.')"
+        },
+        {
+          "symbol": "applyRules",
+          "file": "src/engine/tokenizer/sentenceTokenizer.ts",
+          "line": 90,
+          "summary": "Генерация speechText для синтезатора с сохранением исходного текста rawText"
+        }
+      ]
+    }
+  ]
+}

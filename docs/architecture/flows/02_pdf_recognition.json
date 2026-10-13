@@ -1,0 +1,300 @@
+{
+  "id": "02_pdf_recognition",
+  "title": "Распознавание PDF (Постраничный конвейер)",
+  "level": 1,
+  "description": "Постраничное открытие, инспекция оглавления, планировщик окон (urgent/фон), Sidecar/pdf.js/Gemini OCR, склейка переносов и сборка глав",
+  "rootModule": "src/engine/pdf/pagedSession.ts",
+  "nodes": [
+    {
+      "id": "pdf_open",
+      "label": "pdf_open / loadPdfjsDocument",
+      "type": "step",
+      "file": "src/engine/pdf/recognizers.ts",
+      "line": 161,
+      "symbol": "openAndInspect",
+      "summary": "Открытие PDF в памяти: sidecar (pdf_open -> handle) либо pdf.js (getDocument)",
+      "isRisky": true,
+      "riskReason": "Sidecar handle может инвалидироваться при крахе процесса или фоновом перезапуске",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: авто-восстановление потерянного handle в ensureHandle",
+      "hasLevel2": true,
+      "level2Id": "l2_pdf_open_details"
+    },
+    {
+      "id": "pdf_info",
+      "label": "pdf_info / pdfjsGetInfo",
+      "type": "step",
+      "file": "src/engine/parsers/pdfSidecar.ts",
+      "line": 117,
+      "symbol": "getInfo",
+      "summary": "Получение метаданных: pageCount, outline, hasTextLayer, corruptedLayerSuspected, bodyFontSize",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: оценка наличия и целостности текстового слоя по первым 8 страницам"
+    },
+    {
+      "id": "has_outline",
+      "label": "Есть ли Outline (TOC)?",
+      "type": "condition",
+      "file": "src/engine/pdf/createPagedBook.ts",
+      "line": 66,
+      "symbol": "createPagedPdfBook",
+      "summary": "Проверка наличия иерархического оглавления в PDF",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "init_session",
+      "label": "activatePaged / PagedSession",
+      "type": "step",
+      "file": "src/engine/pdf/pagedSession.ts",
+      "line": 88,
+      "symbol": "PagedSession.open",
+      "summary": "Загрузка уже распознанных страниц из IndexedDB (db.pdfPages) и создание очереди",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: мгновенный старт с сохранённого места без повторного распознавания"
+    },
+    {
+      "id": "page_scheduler",
+      "label": "PageScheduler (Скользящее окно)",
+      "type": "step",
+      "file": "src/engine/pdf/pageScheduler.ts",
+      "line": 103,
+      "symbol": "PageScheduler",
+      "summary": "Приоритеты: текущая -> срочные (center+1..3) -> фоновые вперёд -> фоновые назад",
+      "isRisky": true,
+      "riskReason": "Гонка при быстрой прокрутке страниц: отмена устаревших задач через isStale(page)",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: разделение очередей срочных (urgent) и фоновых пакетов",
+      "hasLevel2": true,
+      "level2Id": "l2_scheduler_details"
+    },
+    {
+      "id": "engine_branch",
+      "label": "Какой движок распознавания?",
+      "type": "condition",
+      "file": "src/engine/pdf/recognizers.ts",
+      "line": 126,
+      "symbol": "recognizePages",
+      "summary": "Выбор исполнителя: Sidecar (auto/text/ocr), pdf.js (text) или Gemini (AI OCR)",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: унификация формата возврата PdfPageResult"
+    },
+    {
+      "id": "sidecar_pages",
+      "label": "Sidecar: pdf_pages (Tauri)",
+      "type": "step",
+      "file": "src/engine/parsers/pdfSidecar.ts",
+      "line": 127,
+      "symbol": "getPages",
+      "summary": "Вызов встроенного Rust sidecar: пакетирование до 20 страниц, auto/text/ocr (Tesseract)",
+      "isRisky": true,
+      "riskReason": "Tesseract может отсутствовать в системе или дать сбой на повреждённом растре",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: автоматический разбор упавших пакетов на одиночные запросы solo"
+    },
+    {
+      "id": "pdfjs_pages",
+      "label": "pdf.js: pdfjsRecognizePage",
+      "type": "step",
+      "file": "src/engine/pdf/pdfjsPages.ts",
+      "line": 60,
+      "symbol": "pdfjsRecognizePage",
+      "summary": "Браузерное извлечение текстового слоя pdf.js с детекцией колонтитулов и кегля",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "gemini_pages",
+      "label": "Gemini AI OCR (geminiPages)",
+      "type": "step",
+      "file": "src/engine/pdf/geminiPages.ts",
+      "line": 55,
+      "symbol": "geminiRecognizePage",
+      "summary": "Рендер страницы в JPEG через pdf.js -> вызов Gemini Flash Vision по API ключу",
+      "isRisky": true,
+      "riskReason": "Платный вызов: фоновое распознавание отключено, только окно опережения (lookahead 4)",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: защита от расхода токенов и backoff при 429"
+    },
+    {
+      "id": "clean_blocks",
+      "label": "cleanBlocks (pageClean)",
+      "type": "step",
+      "file": "src/engine/pdf/pageClean.ts",
+      "line": 35,
+      "symbol": "cleanBlocks",
+      "summary": "Автоочистка Markdown и пробелов. Управляющие символы 0x10..0x1F защищены от удаления",
+      "isRisky": true,
+      "riskReason": "Удаление символов 0x10..0x1F уничтожает сдвинутую кириллицу (буквы 'А'..'П')",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: безопасная фильтрация операций при наличии сдвинутой кириллицы"
+    },
+    {
+      "id": "stitch_boundaries",
+      "label": "Склейка границ (composePages)",
+      "type": "step",
+      "file": "src/engine/pdf/pageCompose.ts",
+      "line": 80,
+      "symbol": "canJoin / composePages",
+      "summary": "Склейка переносов слов без пробела и продолжения абзацев на границах страниц",
+      "isRisky": true,
+      "riskReason": "Ошибка склейки ломает непрерывность чтения и токенизацию предложений",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: сохранение точных visual bbox и parts для каждой страницы",
+      "hasLevel2": true,
+      "level2Id": "l2_stitch_details"
+    },
+    {
+      "id": "plan_chapters",
+      "label": "Построение глав (planChapters)",
+      "type": "step",
+      "file": "src/engine/pdf/chapterPlan.ts",
+      "line": 68,
+      "symbol": "planChapters",
+      "summary": "Сборка оглавления по Outline / ручным меткам. Скрытие заголовков из потока чтения",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: поддержка ручных пользовательских меток начала глав"
+    },
+    {
+      "id": "compose_sentences",
+      "label": "buildParagraphSentences",
+      "type": "step",
+      "file": "src/engine/pdf/pageSentences.ts",
+      "line": 33,
+      "symbol": "buildParagraphSentences",
+      "summary": "Токенизация абзацев на стабильные SentenceItem с детерминированными ID",
+      "isRisky": true,
+      "riskReason": "Сдвиг ID предложений при пересборке может рассинхронизировать аудиокэш",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: кэширование предложений в createComposeCache"
+    },
+    {
+      "id": "save_storage",
+      "label": "db.pdfPages.bulkPut / usePagedStore",
+      "type": "io",
+      "file": "src/storage/db.ts",
+      "line": 47,
+      "symbol": "db.pdfPages",
+      "summary": "Асинхронное сохранение страниц в IndexedDB и публикация ComposedBook в React",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: пакетный bulkPut без блокировки потока воспроизведения"
+    }
+  ],
+  "edges": [
+    { "from": "pdf_open", "to": "pdf_info", "label": "handle получен" },
+    { "from": "pdf_info", "to": "has_outline", "label": "информация прочитана" },
+    { "from": "has_outline", "to": "init_session", "label": "Да (сохранить TOC)" },
+    { "from": "has_outline", "to": "init_session", "label": "Нет (детекция эвристиками)" },
+    { "from": "init_session", "to": "page_scheduler", "label": "запуск планировщика" },
+    { "from": "page_scheduler", "to": "engine_branch", "label": "пакет страниц" },
+    { "from": "engine_branch", "to": "sidecar_pages", "label": "auto / text / ocr (Tauri)" },
+    { "from": "engine_branch", "to": "pdfjs_pages", "label": "pdfjs (Browser)" },
+    { "from": "engine_branch", "to": "gemini_pages", "label": "gemini (Cloud AI)" },
+    { "from": "sidecar_pages", "to": "clean_blocks", "label": "PdfBlock[]" },
+    { "from": "pdfjs_pages", "to": "clean_blocks", "label": "PdfBlock[]" },
+    { "from": "gemini_pages", "to": "clean_blocks", "label": "PdfBlock[]" },
+    { "from": "clean_blocks", "to": "stitch_boundaries", "label": "очищенные блоки" },
+    { "from": "stitch_boundaries", "to": "plan_chapters", "label": "ComposedPage[]" },
+    { "from": "plan_chapters", "to": "compose_sentences", "label": "ChapterSpec[]" },
+    { "from": "compose_sentences", "to": "save_storage", "label": "ComposedBook" }
+  ],
+  "subflows": [
+    {
+      "id": "l2_pdf_open_details",
+      "parentStepId": "pdf_open",
+      "title": "Уровень 2: Открытие дескриптора и инспекция PDF",
+      "description": "Детализация вызова openAndInspect в src/engine/pdf/recognizers.ts",
+      "steps": [
+        {
+          "symbol": "effectiveEngine",
+          "file": "src/engine/pdf/recognizers.ts",
+          "line": 35,
+          "summary": "Проверка доступности Tauri IPC. Если браузер и выбран sidecar — принудительный fallback на pdfjs"
+        },
+        {
+          "symbol": "openPdf (sidecar)",
+          "file": "src/engine/parsers/pdfSidecar.ts",
+          "line": 107,
+          "summary": "Вызов invoke('pdf_open', { fileBytes, fileName }). Rust кладёт файл во временный каталог и возвращает GUID"
+        },
+        {
+          "symbol": "registerSidecarHandle",
+          "file": "src/engine/pdf/recognizers.ts",
+          "line": 48,
+          "summary": "Сохранение handle в Map<bookId, Promise<string>> для последующих вызовов страниц"
+        },
+        {
+          "symbol": "ensureHandle (recovery)",
+          "file": "src/engine/pdf/recognizers.ts",
+          "line": 52,
+          "summary": "Если sidecar упал или handle утерян — прозрачное переоткрытие из ArrayBuffer без ошибки пользователю",
+          "isRisky": true
+        }
+      ]
+    },
+    {
+      "id": "l2_scheduler_details",
+      "parentStepId": "page_scheduler",
+      "title": "Уровень 2: Логика планировщика окон PageScheduler",
+      "description": "Детализация алгоритма pump() и вычисления приоритетов в src/engine/pdf/pageScheduler.ts",
+      "steps": [
+        {
+          "symbol": "priorityOrder",
+          "file": "src/engine/pdf/pageScheduler.ts",
+          "line": 77,
+          "summary": "Генерация массива страниц: [center, center+1..N, center-1..1]"
+        },
+        {
+          "symbol": "isUrgentPage",
+          "file": "src/engine/pdf/pageScheduler.ts",
+          "line": 85,
+          "summary": "Проверка диапазона center <= page <= center + lookahead"
+        },
+        {
+          "symbol": "batching",
+          "file": "src/engine/pdf/pageScheduler.ts",
+          "line": 130,
+          "summary": "Объединение соседних страниц одного движка в пачки (urgent: 2, background: 3)"
+        },
+        {
+          "symbol": "retryDelay (backoff)",
+          "file": "src/engine/pdf/pageScheduler.ts",
+          "line": 90,
+          "summary": "Экспоненциальная задержка при ошибках: retryBaseMs * 2^(attempt-1)"
+        }
+      ]
+    },
+    {
+      "id": "l2_stitch_details",
+      "parentStepId": "stitch_boundaries",
+      "title": "Уровень 2: Правила склейки на границах страниц (canJoin)",
+      "description": "Детализация эвристик склейки в src/engine/pdf/pageCompose.ts",
+      "steps": [
+        {
+          "symbol": "hyphen check",
+          "file": "src/engine/pdf/pageCompose.ts",
+          "line": 85,
+          "summary": "Если tail.hyphen === true -> соединение без пробела (дефис уже убран)"
+        },
+        {
+          "symbol": "lowercase continuation",
+          "file": "src/engine/pdf/pageCompose.ts",
+          "line": 87,
+          "summary": "Если хвост не окончен точкой/вопросом, а следующая страница начинается со строчной буквы -> склейка через пробел"
+        },
+        {
+          "symbol": "parts mapping",
+          "file": "src/engine/pdf/pageCompose.ts",
+          "line": 120,
+          "summary": "Сохранение метаданных PagePart (bbox, start, end) для связи с координатами оригинального PDF",
+          "isRisky": true
+        }
+      ]
+    }
+  ]
+}

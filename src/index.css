@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-main: #f8fafc;
+    --text-main: #0f172a;
+    --bg-card: #ffffff;
+    --border-color: #e2e8f0;
+    --highlight-bg: #fef08a;
+    --highlight-text: #713f12;
+    --focus-ring: #b45309;
+  }
+
+  .dark {
+    --bg-main: #09090b;
+    --text-main: #f4f4f5;
+    --bg-card: #18181b;
+    --border-color: #27272a;
+    --highlight-bg: #854d0e;
+    --highlight-text: #fef9c3;
+    --focus-ring: #fbbf24;
+  }
+
+  .sepia {
+    --bg-main: #f6f0e2;
+    --text-main: #2b2114;
+    --bg-card: #fbf8f2;
+    --border-color: #e1cdb0;
+    --highlight-bg: #e1c3a0;
+    --highlight-text: #2b2114;
+    --focus-ring: #92400e;
+  }
+
+  .oled {
+    --bg-main: #000000;
+    --text-main: #e4e4e7;
+    --bg-card: #09090b;
+    --border-color: #27272a;
+    --highlight-bg: #713f12;
+    --highlight-text: #fef08a;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    overflow-x: hidden;
+  }
+
+  /* Видимое кольцо фокуса для клавиатурной навигации */
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------------- Тема «Сепия» ----------------
+   Компоненты написаны на slate/zinc + dark:, поэтому для сепии
+   переопределяем основные поверхности и текст через CSS-переменные. */
+.sepia .bg-white,
+.sepia .bg-white\/80,
+.sepia .bg-white\/90 {
+  background-color: var(--bg-card);
+}
+.sepia .bg-slate-50,
+.sepia .bg-slate-50\/50 {
+  background-color: var(--bg-main);
+}
+.sepia .bg-slate-100 {
+  background-color: #efe4cd;
+}
+.sepia .hover\:bg-slate-100:hover {
+  background-color: #efe4cd;
+}
+.sepia .border-slate-100,
+.sepia .border-slate-200,
+.sepia .border-slate-300 {
+  border-color: var(--border-color);
+}
+.sepia .text-slate-900,
+.sepia .text-slate-800,
+.sepia .text-slate-700 {
+  color: var(--text-main);
+}
+.sepia .text-slate-600 {
+  color: #4a3b27;
+}
+.sepia .text-slate-500,
+.sepia .text-slate-400 {
+  color: #6f5d43;
+}
+
+/* ---------------- Караоке-подсветка предложения ----------------
+   Без padding/margin, чтобы подсветка не сдвигала вёрстку и текст не «дёргался». */
+.sentence-interactive {
+  cursor: pointer;
+  border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.sentence-active {
+  background-color: var(--highlight-bg);
+  color: var(--highlight-text);
+  box-shadow: 0 0 0 3px var(--highlight-bg);
+}
+
+.sentence-interactive:hover:not(.sentence-active) {
+  background-color: rgba(234, 179, 8, 0.18);
+}
+
+/* ---------------- Уважение prefers-reduced-motion ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Индикатор загрузки должен оставаться «живым», но медленнее */
+  .animate-spin {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

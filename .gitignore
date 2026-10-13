@@ -1,0 +1,10 @@
+node_modules
+dist
+server/data
+server/temp
+.env
+src-tauri/target
+*.log
+
+tools/blockmap/out/
+.claude/

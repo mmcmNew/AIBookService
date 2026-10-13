@@ -1,0 +1,2475 @@
+{
+  "project": "AIBookReaderWeb",
+  "root": "F:/Projects/AIBookReaderWeb",
+  "layers": [
+    "UI",
+    "State",
+    "Domain",
+    "Data",
+    "Infra"
+  ],
+  "scenarios": [
+    {
+      "id": "sc_tts",
+      "title": "Озвучка",
+      "desc": "Команда → Координатор: берёт фразу у Поставщика фраз, аудио у Поставщика озвучки, фиксирует позицию → Оркестратор аудио управляет Плеером и статусом.",
+      "cols": {
+        "b_ui_play": 0,
+        "b_dom_coord": 0,
+        "b_state_pos": 0,
+        "b_dom_audio": 0,
+        "b_state_player": 0,
+        "b_infra_audioel": 0,
+        "b_dom_source": 0,
+        "b_state_book": 0,
+        "b_dom_fetch": 0,
+        "b_data_cache": 0,
+        "b_infra_router": 0,
+        "b_state_settings": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_coord",
+          "label": "play / jump (команда)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_source",
+          "label": "какая следующая фраза?",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_source",
+          "to": "b_dom_coord",
+          "label": "фраза | ждём страницу | конец"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_dom_source",
+          "label": "текст книги",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_state_pos",
+          "label": "записать позицию",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_fetch",
+          "label": "дай аудио для фразы",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_dom_coord",
+          "label": "аудио"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_fetch",
+          "label": "голос, провайдер",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_data_cache",
+          "label": "кэш аудио: прочитать, сохранить",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_infra_router",
+          "label": "синтез у провайдера",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_router",
+          "to": "b_dom_fetch",
+          "label": "аудио"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "играй это аудио",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_dom_coord",
+          "label": "started / ended / failed"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_audio",
+          "label": "скорость, громкость",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_infra_audioel",
+          "label": "играть",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_audioel",
+          "to": "b_dom_audio",
+          "label": "started / ended / failed"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_state_player",
+          "label": "статус плеера",
+          "kind": "write"
+        }
+      ],
+      "zoneOrder": [
+        "z_screen",
+        "z_text",
+        "z_coord",
+        "z_player",
+        "z_audio",
+        "z_shared"
+      ]
+    },
+    {
+      "id": "sc_read",
+      "title": "Экран чтения (UI)",
+      "desc": "Выбор экрана по типу файла; экран получает предложения или страницы, позицию и режим автоскролла. Команды на озвучку уходят через «Кнопку Play» (сценарий «Озвучка»).",
+      "cols": {
+        "b_ui_router": 1,
+        "b_ui_text": 2,
+        "b_ui_pdf": 0,
+        "b_ui_play": 3,
+        "b_state_pos": 0,
+        "b_dom_coord": 0,
+        "b_dom_tokenize": 1,
+        "b_dom_pdf": 0,
+        "b_state_book": 1,
+        "b_state_paged": 0,
+        "b_state_settings": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_text",
+          "label": "FB2 / EPUB / TXT"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_pdf",
+          "label": "PDF"
+        },
+        {
+          "from": "b_state_pos",
+          "to": "b_ui_text",
+          "label": "currentSentenceId"
+        },
+        {
+          "from": "b_state_pos",
+          "to": "b_ui_pdf",
+          "label": "currentSentenceId"
+        },
+        {
+          "from": "b_ui_text",
+          "to": "b_ui_play",
+          "label": "клик по фразе"
+        },
+        {
+          "from": "b_ui_pdf",
+          "to": "b_ui_play",
+          "label": "клик по фразе"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_text",
+          "label": "автоскролл, шрифт, тема"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_pdf",
+          "label": "автоскролл, шрифт, тема"
+        },
+        {
+          "from": "b_dom_tokenize",
+          "to": "b_state_book",
+          "label": "предложения книги",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_text",
+          "label": "главы и предложения",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_state_paged",
+          "label": "готовность страниц",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_ui_pdf",
+          "label": "распознанные страницы, баннер",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_text",
+          "to": "b_dom_coord",
+          "label": "команды: глава, страница",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_pdf",
+          "to": "b_dom_coord",
+          "label": "команды: страница",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_state_pos",
+          "label": "записать позицию",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_dom_coord",
+          "label": "текст книги: проверить позицию",
+          "kind": "data"
+        }
+      ],
+      "zoneOrder": [
+        "z_text",
+        "z_coord",
+        "z_screen",
+        "z_shared"
+      ]
+    }
+  ],
+  "blocks": {
+    "b_state_pos": {
+      "title": "Позиция чтения",
+      "layer": "State",
+      "file": "src/store/bookStore.ts",
+      "line": 649,
+      "symbol": "setSentenceId",
+      "summary": "Позиция чтения: фраза, глава, страница. Владелец: Координатор воспроизведения.",
+      "res": [
+        "res_bookStore"
+      ],
+      "slice": "st_position",
+      "zone": "z_coord"
+    },
+    "b_dom_audio": {
+      "title": "Оркестратор аудио",
+      "layer": "Domain",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 93,
+      "symbol": "AudioManager",
+      "summary": "Берёт готовое аудио и фразу, управляет Плеером, ведёт статус плеера (владелец). С поставщиками не общается: аудио ему приносит Координатор.",
+      "risk": "Обязательная проверка токена: события с устаревшим токеном отсекаются.",
+      "fresh": true,
+      "fns": [
+        "fn_reducePlayer",
+        "fn_applyPronunciationDictionary"
+      ],
+      "res": [
+        "res_settingsStore"
+      ],
+      "flow": "f_dom_audio",
+      "zone": "z_player"
+    },
+    "b_dom_tokenize": {
+      "title": "Токенизатор предложений",
+      "layer": "Domain",
+      "file": "src/engine/tokenizer/sentenceTokenizer.ts",
+      "line": 35,
+      "symbol": "tokenizeSentences",
+      "summary": "Intl.Segmenter с защитой сокращений («т.е.»).",
+      "risk": "Браузеры без Intl.Segmenter требуют полифила.",
+      "fns": [
+        "fn_tokenizeSentences"
+      ],
+      "flow": "f_dom_tokenize",
+      "zone": "z_text"
+    },
+    "b_data_cache": {
+      "title": "Аудиокэш (RAM + IndexedDB)",
+      "layer": "Data",
+      "file": "src/storage/db.ts",
+      "line": 40,
+      "symbol": "audioCache",
+      "summary": "RAM-LRU до 40 фрагментов и таблица Dexie db.audioCache.",
+      "res": [
+        "res_audioCache"
+      ],
+      "zone": "z_audio"
+    },
+    "b_infra_audioel": {
+      "title": "Плеер (HTML Audio)",
+      "layer": "Infra",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 441,
+      "symbol": "setupAudioBuffer",
+      "summary": "Низкоуровневый плеер: играет звук, сообщает координатору started / ended.",
+      "flow": "f_infra_audioel",
+      "zone": "z_player"
+    },
+    "b_infra_router": {
+      "title": "TTS-провайдеры (адаптеры)",
+      "layer": "Infra",
+      "file": "src/engine/providers/openRouterTts.ts",
+      "line": 330,
+      "symbol": "synthesize",
+      "summary": "WebSpeech, Edge, Gemini, OpenAI, ElevenLabs, OpenRouter. OpenRouter сам выбирает эндпоинт speech или chat и повторяет один раз через другой. Про кэш и состояние не знает.",
+      "risk": "Сторонние шлюзы часто без /audio/speech.",
+      "fresh": true,
+      "flow": "f_openrouter",
+      "res": [
+        "res_settingsStore"
+      ],
+      "zone": "z_audio"
+    },
+    "b_state_player": {
+      "title": "Статус плеера",
+      "layer": "State",
+      "file": "src/store/audioStore.ts",
+      "line": 109,
+      "symbol": "useAudioStore",
+      "summary": "idle / loading / playing / error / waiting. Статус меняется через dispatch (reducePlayer). По замыслу пишет только Домен по подтверждённым событиям.",
+      "risk": "Если UI выставит «играет» заранее, при падении домена статус будет врать.",
+      "res": [
+        "res_bookStore",
+        "res_settingsStore"
+      ],
+      "members": [
+        "dispatch",
+        "derive"
+      ],
+      "slice": "st_player",
+      "zone": "z_player"
+    },
+    "b_ui_router": {
+      "title": "Выбор экрана по типу файла",
+      "layer": "UI",
+      "file": "src/App.tsx",
+      "line": 163,
+      "symbol": "PagedTextView",
+      "summary": "Условие по типу файла: PDF открывается на PDF-экране, остальные форматы в читалке текста. Единственное место, где UI различает типы.",
+      "res": [
+        "res_bookStore",
+        "res_settingsStore"
+      ],
+      "entry": true,
+      "zone": "z_screen"
+    },
+    "b_ui_text": {
+      "title": "Читалка текста",
+      "layer": "UI",
+      "file": "src/components/reader/BookView.tsx",
+      "line": 86,
+      "symbol": "BookView",
+      "summary": "Экран для FB2 / EPUB / TXT. Получает предложения, позицию чтения и режим автоскролла; сам подсвечивает активную фразу и вызывает автоскролл (функции). Клик по фразе отдаёт команду play Домену, состояние не меняет.",
+      "fns": [
+        "fn_scrollIntoComfortZone",
+        "fn_useAutoscrollPause"
+      ],
+      "res": [
+        "res_bookStore",
+        "res_settingsStore"
+      ],
+      "zone": "z_screen"
+    },
+    "b_ui_pdf": {
+      "title": "PDF-экран (оригинал + распознанное)",
+      "layer": "UI",
+      "file": "src/components/reader/PagedTextView.tsx",
+      "line": 215,
+      "symbol": "PagedTextView",
+      "summary": "Отдельный экран для PDF: оригинал страницы и распознанный текст, баннер ожидания. Получает предложения, позицию чтения и режим автоскролла; сам подсвечивает активную фразу и вызывает автоскролл (функции). Клик по фразе отдаёт команду play Домену, состояние не меняет.",
+      "risk": "Скачки скролла при появлении готовых страниц над областью видимости.",
+      "fns": [
+        "fn_scrollIntoComfortZone",
+        "fn_useAutoscrollPause"
+      ],
+      "res": [
+        "res_bookStore",
+        "res_settingsStore"
+      ],
+      "zone": "z_screen"
+    },
+    "b_dom_pdf": {
+      "title": "PDF-координатор",
+      "layer": "Domain",
+      "file": "src/engine/pdf/pagedSession.ts",
+      "line": 513,
+      "symbol": "openPagedSession",
+      "summary": "Открывает постраничную сессию, планирует распознавание окнами, поднимает приоритет нужной страницы, отдаёт готовые страницы PDF-экрану.",
+      "flow": "f_dom_pdf",
+      "res": [
+        "res_settingsStore"
+      ],
+      "zone": "z_text"
+    },
+    "b_dom_fetch": {
+      "title": "Поставщик озвучки (кэш + синтез)",
+      "layer": "Domain",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 367,
+      "symbol": "getOrFetchAudio",
+      "summary": "Поставляет аудио для фразы: ищет в кэше, иначе просит синтез у провайдера и сохраняет в кэш. Работает по запросу Координатора.",
+      "fresh": true,
+      "flow": "f_audio_intent",
+      "res": [
+        "res_audioCache"
+      ],
+      "fns": [
+        "fn_getProvider"
+      ],
+      "zone": "z_audio"
+    },
+    "b_ui_play": {
+      "title": "Кнопка Play / клик по фразе",
+      "layer": "UI",
+      "file": "src/components/reader/BookView.tsx",
+      "line": 22,
+      "symbol": "Sentence",
+      "summary": "Точка входа: клик по фразе. Обработчик handleJump отдаёт команду воспроизведению. Состояние сам не меняет.",
+      "entry": true,
+      "res": [
+        "res_bookStore"
+      ],
+      "members": [
+        "handleJump",
+        "Sentence"
+      ],
+      "zone": "z_screen"
+    },
+    "b_dom_source": {
+      "title": "Поставщик фраз (книга: текст и PDF)",
+      "layer": "Domain",
+      "file": "src/engine/pdf/composer.ts",
+      "line": 253,
+      "symbol": "nextStep",
+      "summary": "Работает с книгами и поставляет фразы: следующую, «ждём страницу» или «конец». Что внутри (PDF или текст) видно только в его блок-схеме.",
+      "risk": "Нельзя перескакивать через нераспознанную страницу.",
+      "flow": "f_dom_source",
+      "zone": "z_text"
+    },
+    "b_state_settings": {
+      "title": "Настройки читалки",
+      "layer": "State",
+      "file": "src/store/settingsStore.ts",
+      "line": 40,
+      "symbol": "useSettingsStore",
+      "summary": "Автоскролл вкл/выкл, шрифт, тема. Хранятся постоянно, экраны только читают. Пауза автоскролла после ручной прокрутки сюда не входит: она временная и живёт внутри экрана.",
+      "res": [
+        "res_settingsStore"
+      ],
+      "slice": "st_settings",
+      "zone": "z_shared"
+    },
+    "b_state_book": {
+      "title": "Текст книги (загруженная)",
+      "layer": "State",
+      "file": "src/store/bookStore.ts",
+      "line": 188,
+      "symbol": "useBookStore",
+      "slice": "st_book",
+      "summary": "Загруженная книга: главы и предложения. Пишет сценарий «Открыть книгу», читают Домен и UI.",
+      "res": [
+        "res_bookStore"
+      ],
+      "zone": "z_text"
+    },
+    "b_state_paged": {
+      "title": "Страницы PDF (готовность)",
+      "layer": "State",
+      "file": "src/store/pagedStore.ts",
+      "line": 77,
+      "symbol": "usePagedStore",
+      "slice": "st_paged",
+      "summary": "Готовность и результат распознавания страниц PDF. Пишет PDF-координатор, читает PDF-экран.",
+      "zone": "z_text"
+    },
+    "b_dom_coord": {
+      "title": "Координатор воспроизведения",
+      "layer": "Domain",
+      "file": "src/store/audioStore.ts",
+      "line": 329,
+      "symbol": "advance",
+      "members": [
+        "setChapterInternally",
+        "stopAll",
+        "beginWait",
+        "startPagedPlayback",
+        "advancePaged",
+        "checkWait",
+        "startPlayback",
+        "advance",
+        "onStarted",
+        "onEnded",
+        "onFailed",
+        "play",
+        "pause",
+        "resume",
+        "stop",
+        "playNextSentence",
+        "playPrevSentence",
+        "jumpToSentence",
+        "clearError"
+      ],
+      "summary": "Управляет поставками и ходом воспроизведения: берёт команду UI (play / jump / следующая / предыдущая / глава), у Поставщика фраз получает фразу, у Поставщика озвучки аудио, фиксирует позицию (владелец «Позиции чтения»), отдаёт Оркестратору «играй это».",
+      "risk": "Код координатора лежит в сторе audioStore (слой State): его нужно перенести в src/engine.",
+      "flow": "f_dom_coord",
+      "res": [
+        "res_bookStore"
+      ],
+      "zone": "z_coord"
+    }
+  },
+  "resources": {
+    "res_audioCache": {
+      "title": "db.audioCache (IndexedDB)",
+      "kind": "db",
+      "nodePattern": "\\.audioCache\\b",
+      "file": "src/storage/db.ts",
+      "line": 40,
+      "pattern": "\\.audioCache\\b",
+      "note": "Таблица кэша озвучки.",
+      "owner": "b_dom_fetch"
+    },
+    "res_bookStore": {
+      "title": "bookStore (Zustand)",
+      "kind": "store",
+      "nodePattern": "useBookStore\\b",
+      "file": "src/store/bookStore.ts",
+      "line": 188,
+      "note": "Текущая книга, глава, предложение."
+    },
+    "res_settingsStore": {
+      "title": "settingsStore (Zustand, localStorage)",
+      "kind": "store",
+      "nodePattern": "useSettingsStore\\b",
+      "file": "src/store/settingsStore.ts",
+      "line": 40,
+      "note": "Провайдер, голос, ключи, словарь замен."
+    }
+  },
+  "functions": {
+    "fn_applyPronunciationDictionary": {
+      "title": "applyPronunciationDictionary",
+      "file": "src/engine/tokenizer/dictionaryReplacer.ts",
+      "line": 127
+    },
+    "fn_reducePlayer": {
+      "title": "reducePlayer",
+      "file": "src/engine/audio/playerState.ts",
+      "line": 40
+    },
+    "fn_getProvider": {
+      "title": "getProvider",
+      "file": "src/engine/providers/index.ts",
+      "line": 20
+    },
+    "fn_tokenizeSentences": {
+      "title": "tokenizeSentences",
+      "file": "src/engine/tokenizer/sentenceTokenizer.ts",
+      "line": 35
+    },
+    "fn_scrollIntoComfortZone": {
+      "title": "scrollIntoComfortZone",
+      "file": "src/components/reader/readerScroll.tsx",
+      "line": 149
+    },
+    "fn_useAutoscrollPause": {
+      "title": "useAutoscrollPause",
+      "file": "src/components/reader/readerScroll.tsx",
+      "line": 35
+    }
+  },
+  "astFlows": {
+    "b_dom_audio": {
+      "file": "src/engine/audio/audioManager.ts",
+      "fn": "AudioManager.run"
+    },
+    "b_dom_fetch": {
+      "file": "src/engine/audio/audioManager.ts",
+      "fn": "AudioManager.getOrFetchAudio"
+    },
+    "b_dom_source": {
+      "file": "src/engine/pdf/composer.ts",
+      "fn": "nextStep"
+    },
+    "b_dom_pdf": {
+      "file": "src/engine/pdf/pagedSession.ts",
+      "fn": "openPagedSession"
+    },
+    "b_dom_tokenize": {
+      "file": "src/engine/tokenizer/sentenceTokenizer.ts",
+      "fn": "tokenizeSentences"
+    },
+    "b_infra_router": {
+      "file": "src/engine/providers/openRouterTts.ts",
+      "fn": "OpenRouterTTSProvider.synthesize"
+    },
+    "b_infra_audioel": {
+      "file": "src/engine/audio/audioManager.ts",
+      "fn": "AudioManager.setupAudioBuffer"
+    }
+  },
+  "flows": {
+    "f_openrouter": {
+      "title": "OpenRouter: выбор эндпоинта и повтор",
+      "source": "src/engine/providers/openRouterTts.ts · OpenRouterTTSProvider.synthesize",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "Запрос синтеза (synthesize)",
+          "col": 0.5,
+          "row": 0,
+          "covers": [
+            [
+              330,
+              330
+            ]
+          ],
+          "bind": []
+        },
+        {
+          "id": "c_key",
+          "t": "cond",
+          "label": "API-ключ указан?",
+          "col": 0.5,
+          "row": 1,
+          "covers": [
+            [
+              331,
+              331
+            ]
+          ],
+          "bind": [
+            "0f67c0cd20#0"
+          ]
+        },
+        {
+          "id": "e_nokey",
+          "t": "end",
+          "label": "Ошибка: отсутствует API-ключ",
+          "col": 1.5,
+          "row": 1,
+          "covers": [
+            [
+              332,
+              332
+            ]
+          ],
+          "bind": [
+            "d8f5a557d1#0"
+          ]
+        },
+        {
+          "id": "c_req",
+          "t": "cond",
+          "label": "Режим эндпоинта (явный chat/speech или auto)?",
+          "col": 0.5,
+          "row": 2,
+          "covers": [
+            [
+              335,
+              358
+            ]
+          ],
+          "bind": [
+            "2af12666db#0",
+            "d2a09e65bf#0"
+          ]
+        },
+        {
+          "id": "n_explicit",
+          "t": "io",
+          "label": "Прямой запрос к указанному эндпоинту",
+          "col": 1.5,
+          "row": 2,
+          "covers": [
+            [
+              359,
+              365
+            ]
+          ],
+          "bind": [
+            "08a4f7cd38#0",
+            "b476bfdaf9#0",
+            "39e43bc8e8#0",
+            "c9d0403581#0",
+            "82e45e922c#0"
+          ]
+        },
+        {
+          "id": "n_primary",
+          "t": "io",
+          "label": "Запрос к первичному эндпоинту (speech или chat)",
+          "col": 0.5,
+          "row": 3,
+          "covers": [
+            [
+              367,
+              371
+            ]
+          ],
+          "bind": [
+            "d69d140ad3#0",
+            "08a4f7cd38#1",
+            "4fac579169#0",
+            "7ba203b23e#0"
+          ]
+        },
+        {
+          "id": "c_switch",
+          "t": "cond",
+          "label": "Переключить эндпоинт (404/400/NoAudio)?",
+          "col": 0.5,
+          "row": 4,
+          "covers": [
+            [
+              373,
+              373
+            ]
+          ],
+          "bind": [
+            "d8f593fd5d#0",
+            "9040317a66#0"
+          ]
+        },
+        {
+          "id": "n_retry",
+          "t": "io",
+          "label": "Повтор через альтернативный эндпоинт (1 раз)",
+          "col": 1.5,
+          "row": 4,
+          "covers": [
+            [
+              374,
+              378
+            ]
+          ],
+          "bind": [
+            "3978a4146c#0",
+            "08a4f7cd38#2",
+            "7b982bacf6#0",
+            "7ba203b23e#1"
+          ]
+        },
+        {
+          "id": "e_fail",
+          "t": "end",
+          "label": "Ошибка синтеза (оба эндпоинта вернули ошибку)",
+          "col": 1.5,
+          "row": 5,
+          "covers": [
+            [
+              380,
+              384
+            ]
+          ],
+          "bind": [
+            "f3e23a10ef#0",
+            "e4cb99264b#0",
+            "1af438b76f#0"
+          ]
+        },
+        {
+          "id": "e_ok",
+          "t": "end",
+          "label": "Вернуть ArrayBuffer аудио",
+          "col": 0.5,
+          "row": 5,
+          "covers": [
+            [
+              371,
+              371
+            ],
+            [
+              378,
+              378
+            ]
+          ],
+          "bind": [
+            "7ba203b23e#0",
+            "7ba203b23e#1"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "c_key"
+        },
+        {
+          "from": "c_key",
+          "to": "e_nokey",
+          "label": "Нет"
+        },
+        {
+          "from": "c_key",
+          "to": "c_req",
+          "label": "Да"
+        },
+        {
+          "from": "c_req",
+          "to": "n_explicit",
+          "label": "Явный"
+        },
+        {
+          "from": "n_explicit",
+          "to": "e_ok"
+        },
+        {
+          "from": "c_req",
+          "to": "n_primary",
+          "label": "auto"
+        },
+        {
+          "from": "n_primary",
+          "to": "e_ok",
+          "label": "Успех"
+        },
+        {
+          "from": "n_primary",
+          "to": "c_switch",
+          "label": "Сбой"
+        },
+        {
+          "from": "c_switch",
+          "to": "e_fail",
+          "label": "Нет"
+        },
+        {
+          "from": "c_switch",
+          "to": "n_retry",
+          "label": "Да"
+        },
+        {
+          "from": "n_retry",
+          "to": "e_ok",
+          "label": "Успех"
+        },
+        {
+          "from": "n_retry",
+          "to": "e_fail",
+          "label": "Сбой"
+        }
+      ]
+    },
+    "f_audio_intent": {
+      "title": "Намерение: получить аудио фразы (упрощённо)",
+      "source": "src/engine/audio/audioManager.ts · AudioManager.getOrFetchAudio",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "получить аудио фразы",
+          "col": 0,
+          "row": 0,
+          "covers": [
+            [
+              367,
+              376
+            ]
+          ],
+          "bind": []
+        },
+        {
+          "id": "c1",
+          "t": "cond",
+          "label": "Есть в RAM-кэше?",
+          "col": 0,
+          "row": 1,
+          "covers": [
+            [
+              377,
+              378
+            ]
+          ],
+          "bind": [
+            "a35323950e#0",
+            "25e4bef4a9#0",
+            "d6cb400a92#0"
+          ]
+        },
+        {
+          "id": "e1",
+          "t": "end",
+          "label": "вернуть из RAM",
+          "col": 1.4,
+          "row": 1,
+          "covers": [
+            [
+              378,
+              378
+            ]
+          ],
+          "bind": [
+            "25e4bef4a9#0",
+            "d6cb400a92#0"
+          ]
+        },
+        {
+          "id": "c2",
+          "t": "cond",
+          "label": "Такой же запрос уже идёт?",
+          "col": 0,
+          "row": 2,
+          "covers": [
+            [
+              381,
+              382
+            ]
+          ],
+          "bind": [
+            "ee49967ed2#0",
+            "e428b27438#0"
+          ]
+        },
+        {
+          "id": "p1",
+          "t": "end",
+          "label": "дождаться его и вернуть результат",
+          "col": 1.4,
+          "row": 2,
+          "covers": [
+            [
+              383,
+              384
+            ]
+          ],
+          "bind": [
+            "08a4f7cd38#0",
+            "e5ef59c3c9#0"
+          ]
+        },
+        {
+          "id": "c3",
+          "t": "cond",
+          "label": "Есть в IndexedDB?",
+          "col": 0,
+          "row": 3,
+          "res": "res_audioCache",
+          "rw": "read",
+          "covers": [
+            [
+              391,
+              393
+            ]
+          ],
+          "bind": [
+            "08a4f7cd38#1",
+            "8eb3ac5d73#0",
+            "65398891a7#0"
+          ]
+        },
+        {
+          "id": "e2",
+          "t": "end",
+          "label": "вернуть из БД, положить в RAM",
+          "col": 1.4,
+          "row": 3,
+          "covers": [
+            [
+              394,
+              396
+            ]
+          ],
+          "bind": [
+            "7f75235708#0",
+            "ba66106480#0"
+          ]
+        },
+        {
+          "id": "n0",
+          "t": "step",
+          "label": "Проверить баланс (платный TTS)",
+          "col": 0,
+          "row": 4,
+          "covers": [],
+          "bind": []
+        },
+        {
+          "id": "n1",
+          "t": "io",
+          "label": "Синтез через провайдера",
+          "col": 0,
+          "row": 5,
+          "covers": [
+            [
+              403,
+              407
+            ]
+          ],
+          "bind": [
+            "c4c4cd6bc1#0",
+            "08a4f7cd38#2",
+            "ebae2bfa67#0"
+          ],
+          "block": "b_infra_router"
+        },
+        {
+          "id": "n2",
+          "t": "cond",
+          "label": "Результат непустой?",
+          "col": 0,
+          "row": 6,
+          "covers": [
+            [
+              411,
+              411
+            ]
+          ],
+          "bind": [
+            "8679c29c03#0"
+          ]
+        },
+        {
+          "id": "e4",
+          "t": "end",
+          "label": "ошибка: пустое аудио",
+          "col": 1.4,
+          "row": 6,
+          "covers": [
+            [
+              412,
+              412
+            ]
+          ],
+          "bind": [
+            "f444a6ac70#0"
+          ]
+        },
+        {
+          "id": "n3",
+          "t": "io",
+          "label": "Сохранить в RAM и IndexedDB (фоном)",
+          "col": 0,
+          "row": 7,
+          "res": "res_audioCache",
+          "rw": "write",
+          "covers": [
+            [
+              414,
+              427
+            ]
+          ],
+          "bind": [
+            "fc5b98a361#0"
+          ]
+        },
+        {
+          "id": "e",
+          "t": "end",
+          "label": "вернуть аудио",
+          "col": 0,
+          "row": 8,
+          "covers": [
+            [
+              429,
+              429
+            ]
+          ],
+          "bind": [
+            "e62f344a0b#0"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "c1"
+        },
+        {
+          "from": "c1",
+          "to": "e1",
+          "label": "Да"
+        },
+        {
+          "from": "c1",
+          "to": "c2",
+          "label": "Нет"
+        },
+        {
+          "from": "c2",
+          "to": "p1",
+          "label": "Да"
+        },
+        {
+          "from": "c2",
+          "to": "c3",
+          "label": "Нет"
+        },
+        {
+          "from": "c3",
+          "to": "e2",
+          "label": "Да"
+        },
+        {
+          "from": "c3",
+          "to": "n0",
+          "label": "Нет"
+        },
+        {
+          "from": "n0",
+          "to": "n1"
+        },
+        {
+          "from": "n1",
+          "to": "n2"
+        },
+        {
+          "from": "n2",
+          "to": "e4",
+          "label": "Нет"
+        },
+        {
+          "from": "n2",
+          "to": "n3",
+          "label": "Да"
+        },
+        {
+          "from": "n3",
+          "to": "e"
+        }
+      ]
+    },
+    "f_dom_audio": {
+      "title": "Управление воспроизведением фразы",
+      "source": "src/engine/audio/audioManager.ts · AudioManager.run",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "Старт озвучки фразы (SpeakJob)",
+          "col": 0,
+          "row": 0,
+          "covers": [
+            [
+              198,
+              205
+            ]
+          ],
+          "bind": [
+            "544c137e76#0"
+          ]
+        },
+        {
+          "id": "c_intro",
+          "t": "cond",
+          "label": "Есть объявление главы?",
+          "col": 0,
+          "row": 1,
+          "covers": [
+            [
+              208,
+              208
+            ]
+          ],
+          "bind": [
+            "8e98e20801#0"
+          ]
+        },
+        {
+          "id": "n_intro",
+          "t": "io",
+          "label": "Озвучить заголовок главы и пауза",
+          "col": 1,
+          "row": 1,
+          "covers": [
+            [
+              209,
+              209
+            ]
+          ],
+          "bind": [
+            "ef8f6071e0#0"
+          ]
+        },
+        {
+          "id": "n_dict",
+          "t": "step",
+          "label": "Применить словарь произношения",
+          "col": 0,
+          "row": 2,
+          "res": "res_settingsStore",
+          "rw": "read",
+          "covers": [
+            [
+              213,
+              214
+            ]
+          ],
+          "bind": [
+            "d51d0c566f#0"
+          ]
+        },
+        {
+          "id": "c_speech",
+          "t": "cond",
+          "label": "Режим Web Speech API?",
+          "col": 0,
+          "row": 3,
+          "covers": [
+            [
+              216,
+              216
+            ]
+          ],
+          "bind": [
+            "2eba92f9fd#0"
+          ]
+        },
+        {
+          "id": "n_speech",
+          "t": "io",
+          "label": "Синтез через Web Speech и старт",
+          "col": 1,
+          "row": 3,
+          "covers": [
+            [
+              217,
+              220
+            ]
+          ],
+          "bind": [
+            "bd0dc416ae#0",
+            "042a136cd3#1"
+          ]
+        },
+        {
+          "id": "n_fetch",
+          "t": "io",
+          "label": "Получить аудио (кэш или синтез)",
+          "col": 0,
+          "row": 4,
+          "covers": [
+            [
+              223,
+              224
+            ]
+          ],
+          "bind": [
+            "11d837ef65#0"
+          ]
+        },
+        {
+          "id": "n_setup",
+          "t": "step",
+          "label": "Загрузить аудио в HTML Audio и играть",
+          "col": 0,
+          "row": 5,
+          "covers": [
+            [
+              227,
+              229
+            ]
+          ],
+          "bind": [
+            "f8145dc34f#0"
+          ]
+        },
+        {
+          "id": "n_start",
+          "t": "step",
+          "label": "Подтвердить старт (onStarted)",
+          "col": 0,
+          "row": 6,
+          "covers": [
+            [
+              231,
+              231
+            ]
+          ],
+          "bind": [
+            "088aedb59b#0"
+          ]
+        },
+        {
+          "id": "n_prefetch",
+          "t": "io",
+          "label": "Запустить предзагрузку следующей фразы",
+          "col": 0,
+          "row": 7,
+          "covers": [
+            [
+              233,
+              233
+            ]
+          ],
+          "bind": [
+            "26114bbb63#0",
+            "3972ff0de6#0"
+          ]
+        },
+        {
+          "id": "n_err",
+          "t": "step",
+          "label": "Ошибка синтеза (onFailed)",
+          "col": 1,
+          "row": 6,
+          "covers": [
+            [
+              238,
+              239
+            ]
+          ],
+          "bind": [
+            "cc9ef477a9#0"
+          ]
+        },
+        {
+          "id": "e",
+          "t": "end",
+          "label": "Воспроизведение активно",
+          "col": 0,
+          "row": 8,
+          "covers": [],
+          "bind": []
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "c_intro"
+        },
+        {
+          "from": "c_intro",
+          "to": "n_intro",
+          "label": "Да"
+        },
+        {
+          "from": "c_intro",
+          "to": "n_dict",
+          "label": "Нет"
+        },
+        {
+          "from": "n_intro",
+          "to": "n_dict"
+        },
+        {
+          "from": "n_dict",
+          "to": "c_speech"
+        },
+        {
+          "from": "c_speech",
+          "to": "n_speech",
+          "label": "Да"
+        },
+        {
+          "from": "c_speech",
+          "to": "n_fetch",
+          "label": "Нет"
+        },
+        {
+          "from": "n_speech",
+          "to": "e"
+        },
+        {
+          "from": "n_fetch",
+          "to": "n_setup"
+        },
+        {
+          "from": "n_setup",
+          "to": "n_start"
+        },
+        {
+          "from": "n_start",
+          "to": "n_prefetch"
+        },
+        {
+          "from": "n_prefetch",
+          "to": "e"
+        },
+        {
+          "from": "n_fetch",
+          "to": "n_err",
+          "label": "Сбой"
+        },
+        {
+          "from": "n_setup",
+          "to": "n_err",
+          "label": "Сбой"
+        },
+        {
+          "from": "n_err",
+          "to": "e"
+        }
+      ]
+    },
+    "f_dom_source": {
+      "title": "Намерение: дай следующую фразу (ветки PDF / текст)",
+      "source": "src/engine/pdf/composer.ts · nextStep",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "дай следующую фразу",
+          "col": 1.5,
+          "row": 0,
+          "covers": [
+            [
+              253,
+              253
+            ]
+          ],
+          "bind": []
+        },
+        {
+          "id": "c1",
+          "t": "cond",
+          "label": "Книга постраничная (PDF)?",
+          "col": 1.5,
+          "row": 1,
+          "covers": [],
+          "bind": []
+        },
+        {
+          "id": "p1",
+          "t": "cond",
+          "label": "Между текущей и следующей есть нераспознанная страница?",
+          "col": 0,
+          "row": 2,
+          "covers": [
+            [
+              268,
+              270
+            ]
+          ],
+          "bind": [
+            "b49d0d6246#0",
+            "3bdbd665bd#0",
+            "e4919bb5f9#0",
+            "b4d6d42a59#0"
+          ]
+        },
+        {
+          "id": "p2",
+          "t": "end",
+          "label": "ждём страницу P, поднять приоритет распознавания",
+          "col": -0.4,
+          "row": 3,
+          "covers": [
+            [
+              270,
+              270
+            ]
+          ],
+          "bind": [
+            "e4919bb5f9#0",
+            "b4d6d42a59#0"
+          ]
+        },
+        {
+          "id": "p3",
+          "t": "cond",
+          "label": "Есть следующая фраза?",
+          "col": 1,
+          "row": 3,
+          "covers": [
+            [
+              272,
+              272
+            ]
+          ],
+          "bind": [
+            "18b79c98ae#0",
+            "692b219f44#0"
+          ]
+        },
+        {
+          "id": "p4",
+          "t": "end",
+          "label": "фраза",
+          "col": 1,
+          "row": 4,
+          "covers": [
+            [
+              273,
+              273
+            ]
+          ],
+          "bind": [
+            "7c23da041f#0"
+          ]
+        },
+        {
+          "id": "p5",
+          "t": "end",
+          "label": "конец книги",
+          "col": 2,
+          "row": 4,
+          "covers": [
+            [
+              272,
+              272
+            ]
+          ],
+          "bind": [
+            "18b79c98ae#0",
+            "692b219f44#0"
+          ]
+        },
+        {
+          "id": "t1",
+          "t": "step",
+          "label": "следующая фраза в главе / следующая глава / конец",
+          "col": 3,
+          "row": 2,
+          "covers": [],
+          "impl": "src/engine/audio/textSource.ts#nextTextStep",
+          "bind": []
+        },
+        {
+          "id": "t2",
+          "t": "end",
+          "label": "фраза",
+          "col": 2.6,
+          "row": 3,
+          "covers": [],
+          "bind": []
+        },
+        {
+          "id": "t3",
+          "t": "end",
+          "label": "следующая глава",
+          "col": 3.4,
+          "row": 3,
+          "covers": [],
+          "bind": []
+        },
+        {
+          "id": "t4",
+          "t": "end",
+          "label": "конец главы / книги",
+          "col": 4.2,
+          "row": 3,
+          "covers": [],
+          "bind": []
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "c1"
+        },
+        {
+          "from": "c1",
+          "to": "p1",
+          "label": "Да (PDF)"
+        },
+        {
+          "from": "c1",
+          "to": "t1",
+          "label": "Нет (текст)"
+        },
+        {
+          "from": "p1",
+          "to": "p2",
+          "label": "Да"
+        },
+        {
+          "from": "p1",
+          "to": "p3",
+          "label": "Нет"
+        },
+        {
+          "from": "p3",
+          "to": "p4",
+          "label": "Да"
+        },
+        {
+          "from": "p3",
+          "to": "p5",
+          "label": "Нет"
+        },
+        {
+          "from": "t1",
+          "to": "t2"
+        },
+        {
+          "from": "t1",
+          "to": "t3"
+        },
+        {
+          "from": "t1",
+          "to": "t4"
+        }
+      ]
+    },
+    "f_dom_pdf": {
+      "title": "Открытие постраничной PDF-сессии",
+      "source": "src/engine/pdf/pagedSession.ts · openPagedSession",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "Открыть постраничную PDF-сессию",
+          "col": 0,
+          "row": 0,
+          "covers": [
+            [
+              513,
+              513
+            ]
+          ],
+          "bind": []
+        },
+        {
+          "id": "n_close",
+          "t": "io",
+          "label": "Закрыть предыдущую активную сессию",
+          "col": 0,
+          "row": 1,
+          "covers": [
+            [
+              514,
+              514
+            ]
+          ],
+          "bind": [
+            "52c0ef248d#0"
+          ]
+        },
+        {
+          "id": "c_paged",
+          "t": "cond",
+          "label": "Книга является постраничной (PDF)?",
+          "col": 0,
+          "row": 2,
+          "covers": [
+            [
+              515,
+              515
+            ]
+          ],
+          "bind": [
+            "c16bf32128#0",
+            "02f1cdb7b3#0"
+          ]
+        },
+        {
+          "id": "e_err",
+          "t": "end",
+          "label": "Ошибка: книга не постраничная",
+          "col": 1,
+          "row": 2,
+          "covers": [
+            [
+              515,
+              515
+            ]
+          ],
+          "bind": [
+            "c16bf32128#0",
+            "02f1cdb7b3#0"
+          ]
+        },
+        {
+          "id": "n_init",
+          "t": "step",
+          "label": "Создать экземпляр PagedSession",
+          "col": 0,
+          "row": 3,
+          "covers": [
+            [
+              516,
+              517
+            ]
+          ],
+          "bind": [
+            "762d0e6e01#0"
+          ]
+        },
+        {
+          "id": "n_db",
+          "t": "io",
+          "label": "Загрузить сохранённые страницы из Dexie db.pdfPages",
+          "col": 0,
+          "row": 4,
+          "covers": [],
+          "bind": []
+        },
+        {
+          "id": "n_sched",
+          "t": "step",
+          "label": "Инициализировать планировщик PageScheduler",
+          "col": 0,
+          "row": 5,
+          "covers": [],
+          "bind": []
+        },
+        {
+          "id": "n_open",
+          "t": "io",
+          "label": "Собрать книгу и опубликовать начальное состояние",
+          "col": 0,
+          "row": 6,
+          "covers": [
+            [
+              518,
+              518
+            ]
+          ],
+          "bind": [
+            "762d0e6e01#0"
+          ]
+        },
+        {
+          "id": "n_start",
+          "t": "step",
+          "label": "Запустить распознавание от фокусной страницы",
+          "col": 0,
+          "row": 7,
+          "covers": [
+            [
+              519,
+              519
+            ]
+          ],
+          "bind": [
+            "762d0e6e01#0"
+          ]
+        },
+        {
+          "id": "e_ok",
+          "t": "end",
+          "label": "Сессия активна, страницы поступают",
+          "col": 0,
+          "row": 8,
+          "covers": [],
+          "bind": []
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "n_close"
+        },
+        {
+          "from": "n_close",
+          "to": "c_paged"
+        },
+        {
+          "from": "c_paged",
+          "to": "e_err",
+          "label": "Нет"
+        },
+        {
+          "from": "c_paged",
+          "to": "n_init",
+          "label": "Да"
+        },
+        {
+          "from": "n_init",
+          "to": "n_db"
+        },
+        {
+          "from": "n_db",
+          "to": "n_sched"
+        },
+        {
+          "from": "n_sched",
+          "to": "n_open"
+        },
+        {
+          "from": "n_open",
+          "to": "n_start"
+        },
+        {
+          "from": "n_start",
+          "to": "e_ok"
+        }
+      ]
+    },
+    "f_dom_tokenize": {
+      "title": "Токенизация текста на предложения",
+      "source": "src/engine/tokenizer/sentenceTokenizer.ts · tokenizeSentences",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "Токенизация текста (tokenizeSentences)",
+          "col": 0,
+          "row": 0,
+          "covers": [
+            [
+              28,
+              34
+            ]
+          ],
+          "bind": []
+        },
+        {
+          "id": "c_empty",
+          "t": "cond",
+          "label": "Текст пустой?",
+          "col": 0,
+          "row": 1,
+          "covers": [
+            [
+              35,
+              35
+            ]
+          ],
+          "bind": [
+            "67c4407881#0",
+            "3a40fa421f#0"
+          ]
+        },
+        {
+          "id": "e_empty",
+          "t": "end",
+          "label": "Вернуть пустой массив []",
+          "col": 1,
+          "row": 1,
+          "covers": [
+            [
+              35,
+              35
+            ]
+          ],
+          "bind": [
+            "67c4407881#0",
+            "3a40fa421f#0"
+          ]
+        },
+        {
+          "id": "c_intl",
+          "t": "cond",
+          "label": "Поддерживается Intl.Segmenter?",
+          "col": 0,
+          "row": 2,
+          "covers": [
+            [
+              41,
+              41
+            ]
+          ],
+          "bind": [
+            "2d16db99d5#0"
+          ]
+        },
+        {
+          "id": "n_intl",
+          "t": "step",
+          "label": "Сегментация нативным Intl.Segmenter",
+          "col": 0,
+          "row": 3,
+          "covers": [
+            [
+              42,
+              47
+            ]
+          ],
+          "bind": [
+            "b72f6c0078#0",
+            "f1aee9cc89#0",
+            "9eddd89e6f#0"
+          ]
+        },
+        {
+          "id": "n_dict_intl",
+          "t": "step",
+          "label": "Применить словарь произношения и сформировать SentenceItem",
+          "col": 0,
+          "row": 4,
+          "covers": [
+            [
+              48,
+              58
+            ]
+          ],
+          "bind": [
+            "c053c33754#0",
+            "1b8485d50d#0"
+          ]
+        },
+        {
+          "id": "n_regex",
+          "t": "step",
+          "label": "Фолбэк: разбиение регулярными выражениями",
+          "col": 1,
+          "row": 3,
+          "covers": [
+            [
+              60,
+              67
+            ]
+          ],
+          "bind": [
+            "8e8211dd90#0",
+            "ed084c97f8#0",
+            "b62b589fd7#0"
+          ]
+        },
+        {
+          "id": "n_dict_regex",
+          "t": "step",
+          "label": "Обработка совпадений, хвоста и неразбитого текста",
+          "col": 1,
+          "row": 4,
+          "covers": [
+            [
+              68,
+              101
+            ]
+          ],
+          "bind": [
+            "c053c33754#1",
+            "1b8485d50d#1",
+            "eb2360ca80#0",
+            "d5acdd55ae#0",
+            "09893d02dc#0",
+            "84f271fd56#0",
+            "8c264753ef#0"
+          ]
+        },
+        {
+          "id": "e_ok",
+          "t": "end",
+          "label": "Вернуть SentenceItem[]",
+          "col": 0,
+          "row": 5,
+          "covers": [
+            [
+              103,
+              103
+            ]
+          ],
+          "bind": [
+            "2cf87dda5f#0"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "c_empty"
+        },
+        {
+          "from": "c_empty",
+          "to": "e_empty",
+          "label": "Да"
+        },
+        {
+          "from": "c_empty",
+          "to": "c_intl",
+          "label": "Нет"
+        },
+        {
+          "from": "c_intl",
+          "to": "n_intl",
+          "label": "Да"
+        },
+        {
+          "from": "n_intl",
+          "to": "n_dict_intl"
+        },
+        {
+          "from": "n_dict_intl",
+          "to": "e_ok"
+        },
+        {
+          "from": "c_intl",
+          "to": "n_regex",
+          "label": "Нет"
+        },
+        {
+          "from": "n_regex",
+          "to": "n_dict_regex"
+        },
+        {
+          "from": "n_dict_regex",
+          "to": "e_ok"
+        }
+      ]
+    },
+    "f_infra_audioel": {
+      "title": "Настройка воспроизведения HTML Audio",
+      "source": "src/engine/audio/audioManager.ts · AudioManager.setupAudioBuffer",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "Настройка буфера воспроизведения",
+          "col": 0,
+          "row": 0,
+          "covers": [
+            [
+              441,
+              442
+            ]
+          ],
+          "bind": [
+            "bdc62fc61f#0"
+          ]
+        },
+        {
+          "id": "c_el",
+          "t": "cond",
+          "label": "HTML Audio элемент инициализирован?",
+          "col": 0,
+          "row": 1,
+          "covers": [
+            [
+              443,
+              443
+            ]
+          ],
+          "bind": [
+            "772e273af5#0",
+            "042a136cd3#0"
+          ]
+        },
+        {
+          "id": "e_noel",
+          "t": "end",
+          "label": "Пропуск: audio отсутствует",
+          "col": 1,
+          "row": 1,
+          "covers": [
+            [
+              443,
+              443
+            ]
+          ],
+          "bind": [
+            "772e273af5#0",
+            "042a136cd3#0"
+          ]
+        },
+        {
+          "id": "c_old",
+          "t": "cond",
+          "label": "Существует прежний Object URL?",
+          "col": 0,
+          "row": 2,
+          "covers": [
+            [
+              444,
+              444
+            ]
+          ],
+          "bind": [
+            "66014cd2da#0",
+            "7c1dca5e22#0"
+          ]
+        },
+        {
+          "id": "n_revoke",
+          "t": "step",
+          "label": "Освободить прежний URL (URL.revokeObjectURL)",
+          "col": 1,
+          "row": 2,
+          "covers": [
+            [
+              444,
+              444
+            ]
+          ],
+          "bind": [
+            "66014cd2da#0",
+            "7c1dca5e22#0"
+          ]
+        },
+        {
+          "id": "n_blob",
+          "t": "io",
+          "label": "Создать Blob и зарегистрировать новый Object URL",
+          "col": 0,
+          "row": 3,
+          "covers": [
+            [
+              445,
+              445
+            ]
+          ],
+          "bind": [
+            "05f625ef82#0"
+          ]
+        },
+        {
+          "id": "n_apply",
+          "t": "step",
+          "label": "Установить audio.src, скорость и громкость",
+          "col": 0,
+          "row": 4,
+          "covers": [
+            [
+              446,
+              448
+            ]
+          ],
+          "bind": [
+            "05f625ef82#0"
+          ]
+        },
+        {
+          "id": "e_ok",
+          "t": "end",
+          "label": "Аудиоэлемент готов к play()",
+          "col": 0,
+          "row": 5,
+          "covers": [],
+          "bind": []
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "c_el"
+        },
+        {
+          "from": "c_el",
+          "to": "e_noel",
+          "label": "Нет"
+        },
+        {
+          "from": "c_el",
+          "to": "c_old",
+          "label": "Да"
+        },
+        {
+          "from": "c_old",
+          "to": "n_revoke",
+          "label": "Да"
+        },
+        {
+          "from": "c_old",
+          "to": "n_blob",
+          "label": "Нет"
+        },
+        {
+          "from": "n_revoke",
+          "to": "n_blob"
+        },
+        {
+          "from": "n_blob",
+          "to": "n_apply"
+        },
+        {
+          "from": "n_apply",
+          "to": "e_ok"
+        }
+      ]
+    },
+    "f_dom_coord": {
+      "title": "План: Координатор воспроизведения",
+      "source": "src/store/audioStore.ts",
+      "nodes": [
+        {
+          "id": "s",
+          "t": "start",
+          "label": "команда: play / jump / следующая / предыдущая / глава",
+          "col": 1.5,
+          "row": 0,
+          "covers": []
+        },
+        {
+          "id": "n0",
+          "t": "step",
+          "label": "у Поставщика фраз узнать, какая фраза нужна",
+          "col": 1.5,
+          "row": 1,
+          "block": "b_dom_source",
+          "covers": []
+        },
+        {
+          "id": "c1",
+          "t": "cond",
+          "label": "Фраза есть?",
+          "col": 1.5,
+          "row": 2,
+          "covers": []
+        },
+        {
+          "id": "c2",
+          "t": "cond",
+          "label": "Нужно ждать страницу?",
+          "col": 3.2,
+          "row": 3,
+          "covers": []
+        },
+        {
+          "id": "e1",
+          "t": "end",
+          "label": "статус «ждём страницу»",
+          "col": 2.4,
+          "row": 4,
+          "covers": []
+        },
+        {
+          "id": "e2",
+          "t": "end",
+          "label": "конец книги",
+          "col": 4,
+          "row": 4,
+          "covers": []
+        },
+        {
+          "id": "n1",
+          "t": "io",
+          "label": "записать позицию (фраза, глава, страница)",
+          "col": 0.4,
+          "row": 3,
+          "res": "st_position",
+          "rw": "write",
+          "covers": []
+        },
+        {
+          "id": "n3",
+          "t": "step",
+          "label": "у Поставщика озвучки получить аудио фразы",
+          "col": 0.4,
+          "row": 4,
+          "block": "b_dom_fetch",
+          "covers": []
+        },
+        {
+          "id": "n2",
+          "t": "step",
+          "label": "поручить Оркестратору играть это аудио",
+          "col": 0.4,
+          "row": 5,
+          "block": "b_dom_audio",
+          "covers": []
+        },
+        {
+          "id": "e3",
+          "t": "end",
+          "label": "ждать started / ended от Оркестратора",
+          "col": 0.4,
+          "row": 6,
+          "covers": []
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "n0"
+        },
+        {
+          "from": "n0",
+          "to": "c1"
+        },
+        {
+          "from": "c1",
+          "to": "n1",
+          "label": "Да"
+        },
+        {
+          "from": "c1",
+          "to": "c2",
+          "label": "Нет"
+        },
+        {
+          "from": "c2",
+          "to": "e1",
+          "label": "Да"
+        },
+        {
+          "from": "c2",
+          "to": "e2",
+          "label": "Нет"
+        },
+        {
+          "from": "n1",
+          "to": "n3"
+        },
+        {
+          "from": "n3",
+          "to": "n2"
+        },
+        {
+          "from": "n2",
+          "to": "e3"
+        }
+      ]
+    }
+  },
+  "approved": {
+    "b_dom_fetch": {
+      "codeHash": "b4db3b5e2f",
+      "schemaHash": "4bcdda7045",
+      "at": "2026-10-13"
+    },
+    "b_dom_audio": {
+      "codeHash": "48402dbcd6",
+      "schemaHash": "07b1ba119b",
+      "at": "2026-10-13"
+    },
+    "b_dom_tokenize": {
+      "codeHash": "67dea76532",
+      "schemaHash": "a7ff0c316a",
+      "at": "2026-10-13"
+    },
+    "b_dom_source": {
+      "codeHash": "e84dd8f0b2",
+      "schemaHash": "10dd32c52e",
+      "at": "2026-10-13"
+    },
+    "b_dom_pdf": {
+      "codeHash": "ca1c56c39d",
+      "schemaHash": "06a52eea10",
+      "at": "2026-10-13"
+    },
+    "b_infra_router": {
+      "codeHash": "04ea0cb757",
+      "schemaHash": "7ca362a8ea",
+      "at": "2026-10-13"
+    },
+    "b_infra_audioel": {
+      "codeHash": "570636dd33",
+      "schemaHash": "454f1552da",
+      "at": "2026-10-13"
+    }
+  },
+  "approvedBlocks": {
+    "b_state_pos": "dea3244cf7",
+    "b_dom_tokenize": "dd8be3bb00",
+    "b_data_cache": "37ea9194ef",
+    "b_infra_audioel": "2408f73671",
+    "b_infra_router": "a1115c2829",
+    "b_state_player": "4d155e8378",
+    "b_dom_audio": "dee9e677aa",
+    "b_ui_router": "30e17e1a4d",
+    "b_ui_text": "d8f0981e58",
+    "b_ui_pdf": "be046423d8",
+    "b_dom_pdf": "12a237cd68",
+    "b_dom_fetch": "0e298b6f7d",
+    "b_ui_play": "5f5714b379",
+    "b_dom_source": "a7d414a84f",
+    "b_state_settings": "3eab22534f",
+    "b_state_orch": "305e51b3f2",
+    "b_dom_nav": "bed97175b0",
+    "b_state_book": "dea3244cf7",
+    "b_state_paged": "27f3464a37",
+    "b_dom_coord": "c42c2b85ad"
+  },
+  "approvedScenarios": {
+    "sc_tts": "7ec9900605",
+    "sc_read": "b9ff00b6e8"
+  },
+  "riskAcks": {
+    "11b0ba5a0a": {
+      "reason": "сбой озвучки заголовка главы не должен прерывать чтение",
+      "at": "2026-10-12",
+      "where": "src/engine/audio/audioManager.ts:283",
+      "kind": "catch"
+    }
+  },
+  "states": {
+    "st_position": {
+      "title": "Позиция чтения",
+      "store": "useBookStore",
+      "fields": [
+        "currentSentenceId",
+        "currentChapterIndex",
+        "currentPage",
+        "viewPage"
+      ],
+      "owner": "b_dom_coord",
+      "note": null
+    },
+    "st_book": {
+      "title": "Загруженная книга и библиотека",
+      "store": "useBookStore",
+      "fields": [
+        "currentBook",
+        "savedBooks",
+        "isLoading",
+        "error",
+        "qualityNotice",
+        "activeFootnote",
+        "pdfViewMode"
+      ],
+      "owner": null,
+      "note": "кандидат: сценарий «Открыть книгу»"
+    },
+    "st_player": {
+      "title": "Статус плеера",
+      "store": "useAudioStore",
+      "all": true,
+      "owner": "b_dom_audio"
+    },
+    "st_settings": {
+      "title": "Настройки читалки",
+      "store": "useSettingsStore",
+      "all": true,
+      "owner": null,
+      "note": "кандидат: «Настройки»"
+    },
+    "st_paged": {
+      "title": "Прогресс распознавания PDF",
+      "store": "usePagedStore",
+      "all": true,
+      "owner": "b_dom_pdf"
+    },
+    "st_user": {
+      "title": "Пользователь и баланс",
+      "store": "useUserStore",
+      "all": true,
+      "owner": null,
+      "note": null
+    }
+  },
+  "zones": {
+    "z_screen": {
+      "title": "Экран",
+      "head": "b_ui_router",
+      "note": "что и как показываем, команды пользователя"
+    },
+    "z_coord": {
+      "title": "Координация воспроизведения",
+      "head": "b_dom_coord",
+      "note": "что и когда играть, позиция чтения"
+    },
+    "z_player": {
+      "title": "Плеер",
+      "head": "b_dom_audio",
+      "note": "управление плеером и его статус"
+    },
+    "z_audio": {
+      "title": "Поставка озвучки",
+      "head": "b_dom_fetch",
+      "note": "кэш и синтез аудио"
+    },
+    "z_text": {
+      "title": "Поставка фраз",
+      "head": "b_dom_source",
+      "note": "книга: текст и PDF, страницы"
+    },
+    "z_shared": {
+      "title": "Общая",
+      "head": "b_state_settings",
+      "note": "настройки читалки"
+    }
+  },
+  "version": {
+    "current": "0.1.0",
+    "milestone": "Веха 1: читалка (озвучка, навигация, экран)",
+    "changelog": [
+      {
+        "version": "0.1.0",
+        "date": "2026-10-13",
+        "bump": "baseline",
+        "milestone": "Веха 1: читалка (озвучка, навигация, экран)",
+        "note": "базовая схема читалки: зоны ответственности, роли, правила слоёв, владельцы состояний и хранилищ",
+        "changes": [
+          "первая версия схемы"
+        ]
+      }
+    ]
+  }
+}

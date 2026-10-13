@@ -1,0 +1,90 @@
+{
+  "id": "04_chapters_and_toc",
+  "title": "Главы и содержание",
+  "level": 1,
+  "description": "Формирование оглавления, планирование глав для PDF, ручные разделения/склейки и навигация читателя",
+  "rootModule": "src/components/reader/ChapterSidebar.tsx",
+  "nodes": [
+    {
+      "id": "source_type",
+      "label": "Тип книги?",
+      "type": "condition",
+      "file": "src/components/reader/ChapterSidebar.tsx",
+      "line": 40,
+      "symbol": "ChapterSidebar",
+      "summary": "Разделение: структурированная книга (FB2/EPUB) или постраничный PDF",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: адаптация под PagedOutlineItem"
+    },
+    {
+      "id": "pdf_plan_chapters",
+      "label": "planChapters (PDF)",
+      "type": "step",
+      "file": "src/engine/pdf/chapterPlan.ts",
+      "line": 68,
+      "symbol": "planChapters",
+      "summary": "Сопоставление Outline с номерами страниц, детекция заголовков и сокрытие их из текста",
+      "isRisky": true,
+      "riskReason": "Несовпадение номеров страниц в оглавлении PDF и фактических номеров (римские цифры в предисловии)",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: алгоритм связывания заголовков с ближайшими блоками"
+    },
+    {
+      "id": "regex_detect_chapters",
+      "label": "detectChapters (Эвристики)",
+      "type": "step",
+      "file": "src/engine/cleanup/chapters.ts",
+      "line": 45,
+      "symbol": "detectChapters",
+      "summary": "Автопоиск заголовков по регулярным выражениям: 'Глава N', 'Часть IV', римские цифры",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: добавлены паттерны для англоязычных книг (Chapter, Part, Book)"
+    },
+    {
+      "id": "manual_chapters",
+      "label": "Ручные метки (setManualChapters)",
+      "type": "step",
+      "file": "src/engine/pdf/pagedSession.ts",
+      "line": 339,
+      "symbol": "setManualChapters",
+      "summary": "Пользовательские маркеры начала глав, добавленные через интерфейс читалки",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: сохранение в metadata.paged.chapterStarts"
+    },
+    {
+      "id": "editor_chapters_ops",
+      "label": "Правка глав в редакторе",
+      "type": "step",
+      "file": "src/components/editor/ChaptersPanel.tsx",
+      "line": 35,
+      "symbol": "ChaptersPanel",
+      "summary": "Операции: разбить главу по абзацу, объединить две главы, переименовать, удалить",
+      "isRisky": true,
+      "riskReason": "При объединении/разделении глав пересчитываются индексы всех предложений",
+      "recentlyChanged": false
+    },
+    {
+      "id": "toc_sidebar_render",
+      "label": "Боковая панель оглавления",
+      "type": "io",
+      "file": "src/components/reader/ChapterSidebar.tsx",
+      "line": 85,
+      "symbol": "ChapterSidebar.render",
+      "summary": "Интерактивный список глав с индикатором прогресса чтения и мгновенным переходом",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: плавная подсветка текущей активной главы при скролле"
+    }
+  ],
+  "edges": [
+    { "from": "source_type", "to": "pdf_plan_chapters", "label": "PDF с Outline" },
+    { "from": "source_type", "to": "regex_detect_chapters", "label": "TXT / PDF без Outline" },
+    { "from": "pdf_plan_chapters", "to": "manual_chapters", "label": "наложение ручных меток" },
+    { "from": "regex_detect_chapters", "to": "toc_sidebar_render", "label": "готовое оглавление" },
+    { "from": "manual_chapters", "to": "toc_sidebar_render", "label": "готовое оглавление" },
+    { "from": "editor_chapters_ops", "to": "toc_sidebar_render", "label": "применённые правки" }
+  ]
+}

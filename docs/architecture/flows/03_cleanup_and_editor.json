@@ -1,0 +1,163 @@
+{
+  "id": "03_cleanup_and_editor",
+  "title": "Очистка и редактор",
+  "level": 1,
+  "description": "Конвейер очистки текста, интерактивный DiffView, обнаружение колонтитулов, исправление OCR и поблочный редактор PDF",
+  "rootModule": "src/components/editor/BookEditor.tsx",
+  "nodes": [
+    {
+      "id": "open_editor",
+      "label": "Выбор режима редактора",
+      "type": "condition",
+      "file": "src/App.tsx",
+      "line": 45,
+      "symbol": "App.render",
+      "summary": "Разделение: PagedBookEditor (для постраничных PDF) vs BookEditor (для обычных книг)",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: выделен отдельный PagedBookEditor"
+    },
+    {
+      "id": "plan_cleanup",
+      "label": "planCleanup (Предпросмотр)",
+      "type": "step",
+      "file": "src/engine/cleanup/pipeline.ts",
+      "line": 111,
+      "symbol": "planCleanup",
+      "summary": "Формирование списка изменений (edit / delete / merge) без мутации исходных глав",
+      "isRisky": false,
+      "recentlyChanged": false,
+      "hasLevel2": true,
+      "level2Id": "l2_cleanup_pipeline_details"
+    },
+    {
+      "id": "detect_headers",
+      "label": "findRepeatedHeaders",
+      "type": "step",
+      "file": "src/engine/cleanup/textOps.ts",
+      "line": 170,
+      "symbol": "findRepeatedHeaders",
+      "summary": "Поиск повторяющихся колонтитулов и верхних колонтитулов по всей книге",
+      "isRisky": true,
+      "riskReason": "Опасность ложного срабатывания на коротких повторяющихся репликах диалогов",
+      "recentlyChanged": false
+    },
+    {
+      "id": "shifted_repair",
+      "label": "repairShiftedCyrillic",
+      "type": "step",
+      "file": "src/engine/cleanup/shiftedCyrillic.ts",
+      "line": 25,
+      "symbol": "repairShiftedCyrillic",
+      "summary": "Детекция и исправление сдвинутых кодов кириллицы (старый баг OCR со смещением 0x10)",
+      "isRisky": true,
+      "riskReason": "Должно выполняться ДО removeControlChars, иначе буквы 'А'-'П' сотрутся",
+      "recentlyChanged": false
+    },
+    {
+      "id": "diff_view",
+      "label": "Интерактивный DiffView",
+      "type": "step",
+      "file": "src/components/editor/DiffView.tsx",
+      "line": 30,
+      "symbol": "DiffView",
+      "summary": "Пользователь выбирает галочками, какие правки применить, а какие отклонить",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "apply_cleanup",
+      "label": "applyCleanupPlan",
+      "type": "step",
+      "file": "src/engine/cleanup/pipeline.ts",
+      "line": 230,
+      "symbol": "applyCleanupPlan",
+      "summary": "Применение выбранных изменений и сборка обновлённого массива глав TextChapter[]",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "paged_edit_blocks",
+      "label": "Paged: savePageBlocks",
+      "type": "step",
+      "file": "src/engine/pdf/pagedSession.ts",
+      "line": 331,
+      "symbol": "savePageBlocks",
+      "summary": "Прямое редактирование блоков страницы в PDF, удаление мусорных блоков, пометка editedByUser",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: пересборка постраничной книги на лету после правок"
+    },
+    {
+      "id": "save_chapters",
+      "label": "replaceBookChapters",
+      "type": "io",
+      "file": "src/store/bookStore.ts",
+      "line": 365,
+      "symbol": "replaceBookChapters",
+      "summary": "Транзакционное сохранение в Dexie с чисткой осиротевшего аудиокэша в db.audioCache",
+      "isRisky": true,
+      "riskReason": "Опасность рассинхронизации чтения: позиция читателя мапится через mapReadingPosition",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: сохранение прогресса и удаление только устаревших записей audioCache"
+    }
+  ],
+  "edges": [
+    { "from": "open_editor", "to": "plan_cleanup", "label": "Обычная книга" },
+    { "from": "open_editor", "to": "paged_edit_blocks", "label": "Постраничный PDF" },
+    { "from": "plan_cleanup", "to": "detect_headers", "label": "анализ колонтитулов" },
+    { "from": "plan_cleanup", "to": "shifted_repair", "label": "проверка кириллицы" },
+    { "from": "detect_headers", "to": "diff_view", "label": "сформирован план" },
+    { "from": "shifted_repair", "to": "diff_view", "label": "найдены сдвиги" },
+    { "from": "diff_view", "to": "apply_cleanup", "label": "пользователь подтвердил" },
+    { "from": "apply_cleanup", "to": "save_chapters", "label": "новые главы" },
+    { "from": "paged_edit_blocks", "to": "save_chapters", "label": "обновление блоков" }
+  ],
+  "subflows": [
+    {
+      "id": "l2_cleanup_pipeline_details",
+      "parentStepId": "plan_cleanup",
+      "title": "Уровень 2: Конвейер операций очистки (cleanParagraph)",
+      "description": "Строгий порядок применения операций очистки текста в src/engine/cleanup/pipeline.ts:19",
+      "steps": [
+        {
+          "symbol": "1. markdown",
+          "file": "src/engine/cleanup/markdown.ts",
+          "line": 20,
+          "summary": "Удаление разметки жирности, курсива, ссылок [text](url) -> text"
+        },
+        {
+          "symbol": "2. shifted (Критично)",
+          "file": "src/engine/cleanup/shiftedCyrillic.ts",
+          "line": 25,
+          "summary": "Смещение байт 0x10..0x1F в русские заглавные буквы 'А'..'П'",
+          "isRisky": true
+        },
+        {
+          "symbol": "3. mixedScript",
+          "file": "src/engine/cleanup/textOps.ts",
+          "line": 50,
+          "summary": "Замена похожих латинских букв (a, c, e, o, p, x) внутри русских слов"
+        },
+        {
+          "symbol": "4. control",
+          "file": "src/engine/cleanup/textOps.ts",
+          "line": 15,
+          "summary": "Удаление невидимых непечатных управляющих символов"
+        },
+        {
+          "symbol": "5. hyphenation",
+          "file": "src/engine/cleanup/textOps.ts",
+          "line": 80,
+          "summary": "Склейка разорванных переносом слов ('кни-\\nга' -> 'книга')"
+        },
+        {
+          "symbol": "6. whitespace",
+          "file": "src/engine/cleanup/textOps.ts",
+          "line": 25,
+          "summary": "Нормализация пробелов и табуляций в один пробел"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Map — прототип</title>
+<style>
+/*STYLE*/
+</style>
+</head>
+<body>
+<header>
+  <h1>Block Map</h1>
+  <div class="tabs" id="tabs"></div>
+  <div class="crumbs" id="crumbs"></div>
+  <span class="tag click" id="realTog" onclick="state.real=!state.real;redraw()" title="Показать связи, которые есть в коде, но не нарисованы на схеме (розовым пунктиром)">реальные связи из кода: вкл</span>
+  <span class="tag click" onclick="zoomBy(-0.15)" title="Уменьшить (Ctrl + колесо)">−</span><span class="tag" id="zoomLbl" style="min-width:44px;text-align:center">100%</span><span class="tag click" onclick="zoomBy(0.15)" title="Увеличить (Ctrl + колесо)">+</span><span class="tag click" onclick="zoomFit()" title="Вписать по ширине">вписать</span>
+  <span class="tag click" id="lblTog" onclick="state.labels=!state.labels;redraw()" title="Подписи на стрелках. Без них текст виден при наведении на стрелку">подписи: вкл</span>
+  <span class="tag click" onclick="resetPos()" title="Блоки можно двигать мышью. Сброс вернёт раскладку по умолчанию">↺ сбросить раскладку</span>
+  <span class="tag click" id="verTag" onclick="showVersion()" title="Версия схемы. Нажмите, чтобы увидеть историю"></span>
+  <div class="legend" id="legend"></div>
+</header>
+<main>
+  <div id="stage"></div>
+  <aside id="panel"><span class="mute">Нажмите на блок. Блок с ▸ откроется в блок-схему.</span></aside>
+</main>
+<script>
+/*SCRIPT*/
+</script>
+</body>
+</html>

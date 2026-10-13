@@ -1,0 +1,328 @@
+{
+  "id": "06_tts_and_player",
+  "title": "Озвучка (плеер, кэш, провайдеры)",
+  "level": 1,
+  "description": "Машина состояний плеера, многоуровневое кэширование, маршрутизация провайдеров и авто-повтор через альтернативный эндпоинт",
+  "rootModule": "src/engine/audio/audioManager.ts",
+  "nodes": [
+    {
+      "id": "player_state_machine",
+      "label": "Машина состояний плеера",
+      "type": "step",
+      "file": "src/engine/audio/playerState.ts",
+      "line": 40,
+      "symbol": "reducePlayer",
+      "summary": "Состояния: idle -> loading -> playing -> paused -> error с инкрементом token команды",
+      "isRisky": true,
+      "riskReason": "Устаревшие асинхронные события должны игнорироваться через проверку event.token !== state.token",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: строгая токенизация команд и объявление глав shouldAnnounceChapter",
+      "hasLevel2": true,
+      "level2Id": "l2_player_fsm_details"
+    },
+    {
+      "id": "dict_normalizer",
+      "label": "1. Нормализатор словаря (speechText)",
+      "type": "step",
+      "file": "src/engine/tokenizer/dictionaryReplacer.ts",
+      "line": 25,
+      "symbol": "applyPronunciationDictionary",
+      "summary": "Нормализация произношения и ударений ДО формирования ключа кэша",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: вынесено в начало конвейера перед поиском в кэше"
+    },
+    {
+      "id": "mem_cache_check",
+      "label": "Кэш в памяти (RAM LRU)",
+      "type": "condition",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 377,
+      "symbol": "getOrFetchAudio:memory",
+      "summary": "Быстрая проверка Map<string, ArrayBuffer> (до 40 фрагментов, 0 мс задержки)",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "inflight_dedup",
+      "label": "Дедупликация In-flight",
+      "type": "condition",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 381,
+      "symbol": "getOrFetchAudio:inflight",
+      "summary": "Если фоновый prefetch уже качает эту фразу — присоединение к существующему Promise",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "idb_cache_check",
+      "label": "Кэш в IndexedDB (Dexie)",
+      "type": "condition",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 392,
+      "symbol": "getOrFetchAudio:db",
+      "summary": "Чтение db.audioCache по составному ключу (книга + глава + предложение + голос)",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: кэш устойчив к перезагрузкам страницы"
+    },
+    {
+      "id": "provider_router",
+      "label": "Какой провайдер TTS?",
+      "type": "condition",
+      "file": "src/engine/providers/index.ts",
+      "line": 30,
+      "symbol": "getProvider",
+      "summary": "Маршрутизация: Web Speech, Edge-TTS, Gemini, OpenAI, ElevenLabs, OpenRouter / Proxy",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: интеграция OpenRouter TTS с агрегацией моделей"
+    },
+    {
+      "id": "webspeech_engine",
+      "label": "WebSpeech (Offline)",
+      "type": "step",
+      "file": "src/engine/providers/webSpeech.ts",
+      "line": 25,
+      "symbol": "WebSpeechProvider",
+      "summary": "Системный синтез речи через window.speechSynthesis (бесплатно, оффлайн)",
+      "isRisky": true,
+      "riskReason": "Баг Chromium: долгое говорение подвисает через 15 секунд без фиктивного resume()",
+      "recentlyChanged": false
+    },
+    {
+      "id": "cloud_tts_engine",
+      "label": "Direct Cloud (Edge/Gemini/OpenAI/ElevenLabs)",
+      "type": "step",
+      "file": "src/engine/providers/geminiTts.ts",
+      "line": 35,
+      "symbol": "GeminiTTSProvider",
+      "summary": "Прямые запросы к официальным API по ключам пользователя (BYOK)",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: поддержка модели gemini-3.8-flash-tts"
+    },
+    {
+      "id": "openrouter_endpoint_choice",
+      "label": "Какой эндпоинт OpenRouter?",
+      "type": "condition",
+      "file": "src/engine/providers/openRouterTts.ts",
+      "line": 424,
+      "symbol": "resolveAutoMode",
+      "summary": "Auto-определение: /audio/speech (TTS) или /chat/completions (чат с аудио-модальностью)",
+      "isRisky": true,
+      "riskReason": "Сторонние шлюзы часто не имеют /audio/speech или возвращают непредвиденные заголовки",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: классификация каталога и запоминание успешного эндпоинта",
+      "hasLevel2": true,
+      "level2Id": "l2_openrouter_fallback_details"
+    },
+    {
+      "id": "openrouter_speech",
+      "label": "POST /audio/speech",
+      "type": "step",
+      "file": "src/engine/providers/openRouterTts.ts",
+      "line": 605,
+      "symbol": "requestSpeech",
+      "summary": "Стандартный TTS-запрос: payload { model, input, voice, response_format }",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: авто-повтор в PCM, если MP3 не поддерживается моделью"
+    },
+    {
+      "id": "openrouter_chat",
+      "label": "POST /chat/completions",
+      "type": "step",
+      "file": "src/engine/providers/openRouterTts.ts",
+      "line": 656,
+      "symbol": "requestChatAudio",
+      "summary": "Стриминговый чат-запрос с modalities: ['text', 'audio'] и аудио-декодером",
+      "isRisky": true,
+      "riskReason": "Модель может вернуть текст без аудио: обрабатывается через NoAudioError",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: сборка base64 PCM16 чанков и упаковка в WAV"
+    },
+    {
+      "id": "openrouter_switch_retry",
+      "label": "Ошибка: Повтор через другой эндпоинт",
+      "type": "step",
+      "file": "src/engine/providers/openRouterTts.ts",
+      "line": 439,
+      "symbol": "shouldSwitchEndpoint",
+      "summary": "При ошибке 400/404/405/NoAudioError автоматический повтор через альтернативный эндпоинт",
+      "isRisky": true,
+      "riskReason": "Защита от бесконечного цикла: строго один переход и сохранение успешного режима",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: алгоритм обучения rememberMode"
+    },
+    {
+      "id": "save_audio_cache",
+      "label": "Сохранение в db.audioCache & RAM",
+      "type": "io",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 417,
+      "symbol": "getOrFetchAudio:save",
+      "summary": "Фоновая асинхронная запись Blob в IndexedDB и помещение в оперативную память",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "audio_playback",
+      "label": "Воспроизведение и опережающий prefetch",
+      "type": "step",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 441,
+      "symbol": "setupAudioBuffer / prefetch",
+      "summary": "Запуск HTML5 Audio, фоновый prefetch предложения N+1, событие onEnded -> следующее",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: бесшовный переход с задержкой < 100 мс"
+    },
+    {
+      "id": "prefetch_worker",
+      "label": "⚡ Фоновый Prefetch фразы (N+1)",
+      "type": "step",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 347,
+      "symbol": "AudioManager.prefetch",
+      "summary": "ПАРАЛЛЕЛЬНЫЙ ПОТОК: пока фраза N звучит в динамиках, в фоне качается фраза N+1",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: параллельная предзагрузка N+1"
+    },
+    {
+      "id": "engine_ended_coordinator",
+      "label": "Координатор: handleAudioEnded",
+      "type": "step",
+      "file": "src/engine/audio/audioManager.ts",
+      "line": 128,
+      "symbol": "AudioManager.handleAudioEnded",
+      "summary": "КООРДИНАТОР: ловит ended от <audio>, проверяет токен, командует State выполнить переход advance(N+1)",
+      "isRisky": true,
+      "riskReason": "Обязательная проверка mainToken: события с устаревшим токеном отсекаются",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: явный шаг координатора окончания"
+    },
+    {
+      "id": "ui_karaoke_highlight",
+      "label": "UI: Караоке-подсветка (.sentence-active)",
+      "type": "step",
+      "file": "src/components/reader/BookView.tsx",
+      "line": 23,
+      "symbol": "Sentence (.sentence-active) & scrollIntoComfortZone",
+      "summary": "Реактивный рендер активной фразы: currentSentenceId обновляет подсветку, автоскролл держит в поле зрения",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: явный стейт UI караоке-подсветки"
+    },
+    {
+      "id": "state_pdf_wait",
+      "label": "PDF: Ожидание страницы (waitingPage & nextStep)",
+      "type": "step",
+      "file": "src/engine/pdf/composer.ts",
+      "line": 253,
+      "symbol": "nextStep & beginWait",
+      "summary": "В PDF предложений до OCR нет. Если страница P+1 не готова — плеер ждёт и ставит PageScheduler высший приоритет",
+      "isRisky": true,
+      "riskReason": "Нельзя перескакивать через нераспознанную страницу: плеер ждёт OCR и возобновляет чтение",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: детерминированное ожидание страниц"
+    }
+  ],
+  "edges": [
+    { "from": "player_state_machine", "to": "ui_karaoke_highlight", "label": "currentSentenceId -> подсветка" },
+    { "from": "player_state_machine", "to": "state_pdf_wait", "label": "если PDF: проверка nextStep" },
+    { "from": "state_pdf_wait", "to": "ui_karaoke_highlight", "label": "плашка «Распознаём стр. P+1…»" },
+    { "from": "player_state_machine", "to": "dict_normalizer", "label": "команда Play" },
+    { "from": "dict_normalizer", "to": "mem_cache_check", "label": "speechText" },
+    { "from": "mem_cache_check", "to": "audio_playback", "label": "Есть в RAM" },
+    { "from": "mem_cache_check", "to": "inflight_dedup", "label": "Нет в RAM" },
+    { "from": "inflight_dedup", "to": "audio_playback", "label": "Уже скачивается" },
+    { "from": "inflight_dedup", "to": "idb_cache_check", "label": "Не скачивается" },
+    { "from": "idb_cache_check", "to": "audio_playback", "label": "Есть в IndexedDB" },
+    { "from": "idb_cache_check", "to": "provider_router", "label": "Нет в кэше" },
+    { "from": "provider_router", "to": "webspeech_engine", "label": "webspeech" },
+    { "from": "provider_router", "to": "cloud_tts_engine", "label": "edge/gemini/openai" },
+    { "from": "provider_router", "to": "openrouter_endpoint_choice", "label": "openrouter" },
+    { "from": "openrouter_endpoint_choice", "to": "openrouter_speech", "label": "mode === 'speech'" },
+    { "from": "openrouter_endpoint_choice", "to": "openrouter_chat", "label": "mode === 'chat'" },
+    { "from": "openrouter_speech", "to": "openrouter_switch_retry", "label": "404 / 400 not tts" },
+    { "from": "openrouter_chat", "to": "openrouter_switch_retry", "label": "NoAudio / 404" },
+    { "from": "openrouter_switch_retry", "to": "openrouter_chat", "label": "повтор через chat" },
+    { "from": "openrouter_switch_retry", "to": "openrouter_speech", "label": "повтор через speech" },
+    { "from": "openrouter_speech", "to": "save_audio_cache", "label": "ArrayBuffer" },
+    { "from": "openrouter_chat", "to": "save_audio_cache", "label": "ArrayBuffer" },
+    { "from": "cloud_tts_engine", "to": "save_audio_cache", "label": "ArrayBuffer" },
+    { "from": "save_audio_cache", "to": "audio_playback", "label": "готов к игре" },
+    { "from": "audio_playback", "to": "prefetch_worker", "label": "Параллельно в фоне (N+1)" },
+    { "from": "prefetch_worker", "to": "save_audio_cache", "label": "запись в IndexedDB (ждёт)" },
+    { "from": "audio_playback", "to": "engine_ended_coordinator", "label": "событие ended (<audio>)" },
+    { "from": "engine_ended_coordinator", "to": "player_state_machine", "label": "токен валиден -> advance(N+1)" }
+  ],
+  "subflows": [
+    {
+      "id": "l2_player_fsm_details",
+      "parentStepId": "player_state_machine",
+      "title": "Уровень 2: Машина состояний аудиоплеера (FSM)",
+      "description": "Чистые переходы FSM в src/engine/audio/playerState.ts:40",
+      "steps": [
+        {
+          "symbol": "request (любой -> loading)",
+          "file": "src/engine/audio/playerState.ts",
+          "line": 42,
+          "summary": "Новая команда 'играть': статус -> 'loading', token = token + 1, error = null"
+        },
+        {
+          "symbol": "started (loading -> playing)",
+          "file": "src/engine/audio/playerState.ts",
+          "line": 44,
+          "summary": "Звук пошёл в динамики: принимается только если event.token === state.token"
+        },
+        {
+          "symbol": "pause (playing -> paused / loading -> idle)",
+          "file": "src/engine/audio/playerState.ts",
+          "line": 47,
+          "summary": "Пауза во время загрузки отменяет текущую команду (status -> idle, инкремент token)"
+        },
+        {
+          "symbol": "failed (loading|playing -> error)",
+          "file": "src/engine/audio/playerState.ts",
+          "line": 56,
+          "summary": "Ошибка сети/провайдера: сохраняет error message и ждёт вмешательства пользователя"
+        },
+        {
+          "symbol": "acceptEnded (конец фразы)",
+          "file": "src/engine/audio/playerState.ts",
+          "line": 74,
+          "summary": "Истинно только при status === 'playing' и совпадении token: запускает фразу N+1"
+        }
+      ]
+    },
+    {
+      "id": "l2_openrouter_fallback_details",
+      "parentStepId": "openrouter_endpoint_choice",
+      "title": "Уровень 2: Анализ ошибки и переключение эндпоинта OpenRouter",
+      "description": "Эвристики в src/engine/providers/openRouterTts.ts:439",
+      "steps": [
+        {
+          "symbol": "WRONG_FOR_CHAT regex",
+          "file": "src/engine/providers/openRouterTts.ts",
+          "line": 435,
+          "summary": "Детекция ошибок чата: /audio/speech, text-to-speech, not a chat model"
+        },
+        {
+          "symbol": "WRONG_FOR_SPEECH regex",
+          "file": "src/engine/providers/openRouterTts.ts",
+          "line": 436,
+          "summary": "Детекция ошибок speech: not a tts model, unknown endpoint, 404 на кастомном шлюзе"
+        },
+        {
+          "symbol": "rememberMode (localStorage)",
+          "file": "src/engine/providers/openRouterTts.ts",
+          "line": 405,
+          "summary": "Запоминание успешного эндпоинта для пары {baseUrl, modelId}, чтобы следующие фразы шли без повтора"
+        }
+      ]
+    }
+  ]
+}

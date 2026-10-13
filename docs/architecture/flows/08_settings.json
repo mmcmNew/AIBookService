@@ -1,0 +1,75 @@
+{
+  "id": "08_settings",
+  "title": "Настройки",
+  "level": 1,
+  "description": "Централизованное Zustand хранилище с синхронизацией в localStorage, управление темами, BYOK ключами и словарём замен",
+  "rootModule": "src/store/settingsStore.ts",
+  "nodes": [
+    {
+      "id": "open_settings_modal",
+      "label": "Модальное окно настроек",
+      "type": "io",
+      "file": "src/components/settings/SettingsModal.tsx",
+      "line": 50,
+      "symbol": "SettingsModal",
+      "summary": "Интерфейс настроек с вкладками: Внешний вид, Чтение, Голос и TTS, Провайдеры, Словарь",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: добавлены настройки постраничного PDF и OpenRouter"
+    },
+    {
+      "id": "settings_store",
+      "label": "useSettingsStore (Zustand)",
+      "type": "step",
+      "file": "src/store/settingsStore.ts",
+      "line": 40,
+      "symbol": "useSettingsStore",
+      "summary": "Единый стор настроек с автоматической сериализацией в localStorage ('user-settings')",
+      "isRisky": false,
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: валидация голосов при смене модели normalizeAggregatorVoice"
+    },
+    {
+      "id": "theme_manager",
+      "label": "setTheme (CSS Классы)",
+      "type": "step",
+      "file": "src/store/settingsStore.ts",
+      "line": 66,
+      "symbol": "setTheme",
+      "summary": "Динамическое переключение классов dark, sepia, oled на document.documentElement",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "byok_keys",
+      "label": "BYOK: Ключи провайдеров",
+      "type": "io",
+      "file": "src/store/settingsStore.ts",
+      "line": 26,
+      "symbol": "setApiKey",
+      "summary": "Безопасное локальное хранение личных ключей Gemini, OpenAI, ElevenLabs, OpenRouter",
+      "isRisky": true,
+      "riskReason": "Ключи никогда не передаются на сторонний сервер при прямом BYOK-режиме",
+      "recentlyChanged": true,
+      "changeNote": "12.10.2026: поддержка кастомного baseUrl для OpenRouter"
+    },
+    {
+      "id": "dict_rules_crud",
+      "label": "Словарь замен произношения",
+      "type": "step",
+      "file": "src/store/settingsStore.ts",
+      "line": 35,
+      "symbol": "addReplacementRule / toggle",
+      "summary": "Пользовательские правила текстовых замен и ударений (простые строки и regex)",
+      "isRisky": true,
+      "riskReason": "Некорректный regex в словаре пользователя может вызвать аварийный отказ в RegExp",
+      "recentlyChanged": false
+    }
+  ],
+  "edges": [
+    { "from": "open_settings_modal", "to": "settings_store", "label": "изменение опции" },
+    { "from": "settings_store", "to": "theme_manager", "label": "смена темы" },
+    { "from": "settings_store", "to": "byok_keys", "label": "сохранение API-ключа" },
+    { "from": "settings_store", "to": "dict_rules_crud", "label": "добавление правила" }
+  ]
+}

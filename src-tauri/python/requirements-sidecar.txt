@@ -1,0 +1,3 @@
+# Минимальные зависимости sidecar pdf_processor (чистый venv, без torch/pymupdf4llm)
+pymupdf==1.28.2
+pyinstaller==6.22.3

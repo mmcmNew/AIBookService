@@ -1,0 +1,159 @@
+{
+  "id": "07_billing_and_payment",
+  "title": "Баланс и оплата",
+  "level": 1,
+  "description": "Покупка пакетов символов, создание платежа в ЮKassa, вебхук с валидацией через API и начисление баланса",
+  "rootModule": "server/src/routes/payment.ts",
+  "nodes": [
+    {
+      "id": "ui_select_pack",
+      "label": "Выбор пакета символов",
+      "type": "io",
+      "file": "src/components/billing/TopUpModal.tsx",
+      "line": 45,
+      "symbol": "TopUpModal",
+      "summary": "Пользователь выбирает тариф: 200k (149₽), 1M (490₽) или 3M (1190₽) символов",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "post_create_payment",
+      "label": "POST /api/payment/create",
+      "type": "step",
+      "file": "server/src/routes/payment.ts",
+      "line": 17,
+      "symbol": "createPaymentRouter",
+      "summary": "Авторизованный запрос на бэкенд, валидация packId и returnUrl",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "yookassa_create",
+      "label": "yookassa.createPayment",
+      "type": "step",
+      "file": "server/src/services/yookassa.ts",
+      "line": 27,
+      "symbol": "createPayment",
+      "summary": "Создание платежа через API ЮKassa c Idempotence-Key или mock для dev-режима",
+      "isRisky": true,
+      "riskReason": "Опасность дублирования списания без Idempotence-Key при сетевых повторах",
+      "recentlyChanged": false
+    },
+    {
+      "id": "db_save_pending",
+      "label": "db.savePayment (status=pending)",
+      "type": "io",
+      "file": "server/src/db.ts",
+      "line": 140,
+      "symbol": "Database.savePayment",
+      "summary": "Сохранение PaymentRecord в pending перед редиректом пользователя",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "user_redirect",
+      "label": "Редирект на confirmationUrl",
+      "type": "io",
+      "file": "src/store/userStore.ts",
+      "line": 65,
+      "symbol": "userStore.topUp",
+      "summary": "Переход пользователя на защищённую платёжную форму ЮKassa (СБП / карты)",
+      "isRisky": false,
+      "recentlyChanged": false
+    },
+    {
+      "id": "webhook_receive",
+      "label": "Вебхук: POST /api/payment/webhook",
+      "type": "io",
+      "file": "server/src/routes/payment.ts",
+      "line": 50,
+      "symbol": "createPaymentRouter:webhook",
+      "summary": "Получение уведомления от ЮKassa (тело запроса считается недоверенным)",
+      "isRisky": true,
+      "riskReason": "Тело вебхука может быть подделано злоумышленником: статус из тела НЕ используется",
+      "recentlyChanged": false,
+      "hasLevel2": true,
+      "level2Id": "l2_webhook_security_details"
+    },
+    {
+      "id": "yookassa_verify_api",
+      "label": "Проверка через API ЮKassa",
+      "type": "step",
+      "file": "server/src/services/yookassa.ts",
+      "line": 93,
+      "symbol": "fetchRemotePayment",
+      "summary": "Прямой GET /v3/payments/{id} с Basic Auth секретом магазина для получения реального статуса",
+      "isRisky": true,
+      "riskReason": "При недоступности API ЮKassa отдаётся 500, чтобы ЮKassa повторила вебхук позже",
+      "recentlyChanged": false
+    },
+    {
+      "id": "verify_amount_currency",
+      "label": "Сверка суммы и валюты",
+      "type": "condition",
+      "file": "server/src/services/yookassa.ts",
+      "line": 131,
+      "symbol": "handleWebhook:validate",
+      "summary": "Проверка: remote.currency === 'RUB' и remote.amount.value === payment.amountRub",
+      "isRisky": true,
+      "riskReason": "Защита от попыток оплатить 1 рубль вместо стоимости пакета",
+      "recentlyChanged": false
+    },
+    {
+      "id": "settle_balance",
+      "label": "db.settlePayment (Начисление)",
+      "type": "io",
+      "file": "server/src/db.ts",
+      "line": 155,
+      "symbol": "Database.settlePayment",
+      "summary": "Идемпотентное зачисление символов на баланс пользователя и перевод статуса в succeeded",
+      "isRisky": true,
+      "riskReason": "Атомарность: нельзя зачислить баланс дважды при повторных вебхуках",
+      "recentlyChanged": false
+    }
+  ],
+  "edges": [
+    { "from": "ui_select_pack", "to": "post_create_payment", "label": "packId" },
+    { "from": "post_create_payment", "to": "yookassa_create", "label": "amount, userId" },
+    { "from": "yookassa_create", "to": "db_save_pending", "label": "paymentId" },
+    { "from": "db_save_pending", "to": "user_redirect", "label": "confirmationUrl" },
+    { "from": "user_redirect", "to": "webhook_receive", "label": "оплата в банке" },
+    { "from": "webhook_receive", "to": "yookassa_verify_api", "label": "eventBody.object.id" },
+    { "from": "yookassa_verify_api", "to": "verify_amount_currency", "label": "remote payment data" },
+    { "from": "verify_amount_currency", "to": "settle_balance", "label": "succeeded & сумма совпала" }
+  ],
+  "subflows": [
+    {
+      "id": "l2_webhook_security_details",
+      "parentStepId": "webhook_receive",
+      "title": "Уровень 2: Протокол безопасности вебхука ЮKassa",
+      "description": "Детализация защиты в server/src/services/yookassa.ts:110",
+      "steps": [
+        {
+          "symbol": "extract paymentId",
+          "file": "server/src/services/yookassa.ts",
+          "line": 111,
+          "summary": "Берётся только ID платежа. Любые поля суммы и статуса из тела запроса игнорируются"
+        },
+        {
+          "symbol": "check local status",
+          "file": "server/src/services/yookassa.ts",
+          "line": 118,
+          "summary": "Если статус уже не 'pending' — ответ 200 'Already processed' (идемпотентность)"
+        },
+        {
+          "symbol": "fetchRemotePayment",
+          "file": "server/src/services/yookassa.ts",
+          "line": 123,
+          "summary": "Запрос к доверенному эндпоинту api.yookassa.ru по HTTPS с серверным Basic Auth"
+        },
+        {
+          "symbol": "atomic settle",
+          "file": "server/src/db.ts",
+          "line": 155,
+          "summary": "Атомарное обновление баланса в JSON БД с flush на диск через tmp + rename"
+        }
+      ]
+    }
+  ]
+}

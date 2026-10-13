@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Map — авто против ручной</title>
+<style>
+  :root { --bg:#fafaf9; --panel:#fff; --ink:#1c1917; --mute:#78716c; --line:#d6d3d1; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161412; --panel:#201d1a; --ink:#f5f5f4; --mute:#a8a29e; --line:#44403c; --accent:#60a5fa; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,sans-serif; }
+  header { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:17px; margin:0; }
+  .mute { color:var(--mute); }
+  .seg button { padding:5px 12px; border:1px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer; }
+  .seg button:first-child { border-radius:6px 0 0 6px; } .seg button:last-child { border-radius:0 6px 6px 0; border-left:0; }
+  .seg button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  main { padding:16px; display:grid; gap:16px; }
+  .maps { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .maps { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; min-width:0; }
+  .card h2 { font-size:14px; margin:0 0 4px; }
+  svg { width:100%; height:auto; display:block; }
+  svg text { fill:var(--ink); font-size:11px; pointer-events:none; }
+  .node { cursor:pointer; } .node:hover circle.ring { stroke:var(--accent); stroke-width:3; }
+  .node.sel circle.ring { stroke:var(--accent); stroke-width:3; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; font-size:12px; }
+  .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th, td { border:1px solid var(--line); padding:4px 6px; text-align:center; }
+  th.l, td.l { text-align:left; white-space:nowrap; }
+  td.c { cursor:pointer; } td.c:hover { outline:2px solid var(--accent); }
+  .tablewrap { overflow-x:auto; }
+  .chip { display:inline-block; margin:2px; padding:1px 7px; border-radius:10px; font-size:11px; color:#111; border:1px solid rgba(0,0,0,.2); }
+  .detail h3 { font-size:13px; margin:10px 0 2px; }
+  .stats b { font-size:20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Block Map: авто-нарезка против ручной карты</h1>
+  <div class="seg" id="seg"></div>
+  <span class="mute stats" id="stats"></span>
+</header>
+<main>
+  <div class="maps">
+    <div class="card"><h2>Ручная карта</h2><div class="mute">Круг — блок, цвет секторов — в какие авто-блоки попали его файлы. Размер — число размеченных файлов.</div><svg id="svgM" viewBox="0 0 520 460"></svg><div class="legend" id="lgM"></div></div>
+    <div class="card"><h2>Авто-карта</h2><div class="mute">Круг — кандидат, цвет секторов — из каких ручных блоков его файлы. Серый — файл не размечен вручную.</div><svg id="svgA" viewBox="0 0 520 460"></svg><div class="legend" id="lgA"></div></div>
+  </div>
+  <div class="card detail" id="detail"><span class="mute">Нажмите на блок или на ячейку матрицы, чтобы увидеть файлы.</span></div>
+  <div class="card"><h2>Матрица: ручные блоки × авто-блоки (число файлов)</h2><div class="tablewrap" id="matrix"></div></div>
+</main>
+<script>
+const DATA = /*DATA*/null;
+const MCOL = ['#f59e0b','#6366f1','#10b981','#3b82f6','#8b5cf6','#f43f5e','#eab308','#14b8a6','#06b6d4'];
+const ACOL = ['#f97316','#818cf8','#34d399','#60a5fa','#c084fc','#fb7185','#facc15','#2dd4bf','#22d3ee','#a3e635','#f472b6','#94a3b8','#fb923c','#38bdf8','#4ade80'];
+const NONE = '#a8a29e';
+const $ = (id) => document.getElementById(id);
+const mBlocks = DATA.manual.blocks;
+const mColor = Object.fromEntries(mBlocks.map((b, i) => [b.id, MCOL[i % MCOL.length]]));
+let part = 'folder';
+
+const segEl = $('seg');
+[['folder', 'Нарезка по папкам'], ['lpa', 'Нарезка по графу']].forEach(([k, t]) => {
+  const b = document.createElement('button'); b.textContent = t; b.onclick = () => { part = k; render(); }; b.dataset.k = k; segEl.appendChild(b);
+});
+
+function pie(g, cx, cy, r, slices, cls) {
+  const total = slices.reduce((a, s) => a + s.v, 0) || 1;
+  const NS = 'http://www.w3.org/2000/svg';
+  let a0 = -Math.PI / 2;
+  if (slices.length === 1) {
+    const c = document.createElementNS(NS, 'circle'); c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r); c.setAttribute('fill', slices[0].c); g.appendChild(c);
+  } else for (const s of slices) {
+    const a1 = a0 + (s.v / total) * Math.PI * 2, large = a1 - a0 > Math.PI ? 1 : 0;
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', `M${cx},${cy} L${cx + r * Math.cos(a0)},${cy + r * Math.sin(a0)} A${r},${r} 0 ${large} 1 ${cx + r * Math.cos(a1)},${cy + r * Math.sin(a1)} Z`);
+    p.setAttribute('fill', s.c); g.appendChild(p); a0 = a1;
+  }
+  const ring = document.createElementNS(NS, 'circle'); ring.setAttribute('class', 'ring'); ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', r);
+  ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', 'rgba(0,0,0,.35)'); ring.setAttribute('stroke-width', 1); g.appendChild(ring);
+}
+
+function drawGraph(svg, items, edges, onClick, selected) {
+  const NS = 'http://www.w3.org/2000/svg'; svg.innerHTML = '';
+  const W = 520, H = 460, cx = W / 2, cy = H / 2 - 5, R = Math.min(W, H) / 2 - 62;
+  const pos = {};
+  items.forEach((it, i) => { const a = (i / items.length) * Math.PI * 2 - Math.PI / 2; pos[it.id] = [cx + R * Math.cos(a), cy + R * Math.sin(a)]; });
+  const maxE = Math.max(1, ...edges.map((e) => e.n));
+  const defs = document.createElementNS(NS, 'defs');
+  defs.innerHTML = '<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#a8a29e"/></marker>';
+  svg.appendChild(defs);
+  for (const e of edges) {
+    if (!pos[e.from] || !pos[e.to] || e.from === e.to) continue;
+    const [x1, y1] = pos[e.from], [x2, y2] = pos[e.to];
+    const dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy) || 1;
+    const r2 = (items.find((i) => i.id === e.to).r) + 3;
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', x1); l.setAttribute('y1', y1); l.setAttribute('x2', x2 - (dx / d) * r2); l.setAttribute('y2', y2 - (dy / d) * r2);
+    l.setAttribute('stroke', '#a8a29e'); l.setAttribute('stroke-opacity', 0.35 + 0.5 * (e.n / maxE)); l.setAttribute('stroke-width', 0.8 + 3 * (e.n / maxE)); l.setAttribute('marker-end', 'url(#ar)');
+    const t = document.createElementNS(NS, 'title'); t.textContent = `${e.from} → ${e.to}: ${e.n}`; l.appendChild(t);
+    svg.appendChild(l);
+  }
+  for (const it of items) {
+    const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'node' + (selected === it.id ? ' sel' : '')); g.onclick = () => onClick(it.id);
+    pie(g, pos[it.id][0], pos[it.id][1], it.r, it.slices);
+    const tx = document.createElementNS(NS, 'text'); tx.setAttribute('x', pos[it.id][0]); tx.setAttribute('y', pos[it.id][1] + it.r + 12); tx.setAttribute('text-anchor', 'middle'); tx.textContent = it.label; g.appendChild(tx);
+    svg.appendChild(g);
+  }
+}
+
+let selected = null;
+function render() {
+  [...segEl.children].forEach((b) => b.classList.toggle('on', b.dataset.k === part));
+  const P = DATA.partitions[part], T = DATA.truth;
+  const aIds = [...new Set(DATA.files.map((f) => P[f]))];
+  const aSize = {}; DATA.files.forEach((f) => (aSize[P[f]] = (aSize[P[f]] || 0) + 1));
+  aIds.sort((x, y) => aSize[y] - aSize[x]);
+  const aColor = Object.fromEntries(aIds.map((id, i) => [id, ACOL[i % ACOL.length]]));
+  const cell = {}; // cell[m][a] = files
+  DATA.files.forEach((f) => { const m = T[f] || '∅'; ((cell[m] ||= {})[P[f]] ||= []).push(f); });
+
+  // ручной граф
+  const mItems = mBlocks.map((b) => {
+    const row = cell[b.id] || {}, n = Object.values(row).reduce((a, x) => a + x.length, 0);
+    return { id: b.id, label: b.title.length > 24 ? b.title.slice(0, 23) + '…' : b.title, r: 14 + 4 * Math.sqrt(n),
+      slices: Object.entries(row).map(([a, fl]) => ({ v: fl.length, c: aColor[a] })) };
+  });
+  const mEdges = DATA.manual.arrows.map((a) => ({ from: a.from, to: a.to, n: 1 }));
+  // авто-граф
+  const ec = {}; DATA.edges.forEach(([f, t]) => { const a = P[f], b = P[t]; if (a !== b) { const k = a + '\u0000' + b; ec[k] = (ec[k] || 0) + 1; } });
+  const aEdges = Object.entries(ec).map(([k, n]) => { const [from, to] = k.split('\u0000'); return { from, to, n }; }).filter((e) => e.n >= 2);
+  const aItems = aIds.map((a) => {
+    const cnt = {}; DATA.files.filter((f) => P[f] === a).forEach((f) => { const m = T[f] || '∅'; cnt[m] = (cnt[m] || 0) + 1; });
+    return { id: a, label: a.replace(/^src\//, ''), r: 10 + 4 * Math.sqrt(aSize[a]), slices: Object.entries(cnt).map(([m, v]) => ({ v, c: m === '∅' ? NONE : mColor[m] })) };
+  });
+  drawGraph($('svgM'), mItems, mEdges, (id) => show('m', id), selected && selected[0] === 'm' ? selected[1] : null);
+  drawGraph($('svgA'), aItems, aEdges, (id) => show('a', id), selected && selected[0] === 'a' ? selected[1] : null);
+  $('lgM').innerHTML = aIds.map((a) => `<span><i class="sw" style="background:${aColor[a]}"></i>${a.replace(/^src\//, '')}</span>`).join('');
+  $('lgA').innerHTML = mBlocks.map((b) => `<span><i class="sw" style="background:${mColor[b.id]}"></i>${b.title}</span>`).join('') + `<span><i class="sw" style="background:${NONE}"></i>не размечено</span>`;
+
+  // матрица
+  const rows = [...mBlocks.map((b) => b.id), '∅'];
+  let h = '<table><tr><th class="l">ручной \\ авто</th>' + aIds.map((a) => `<th title="${a}">${a.replace(/^src\//, '').replace(/^components\//, 'c/').replace(/^engine\//, 'e/')}</th>`).join('') + '<th>σ</th></tr>';
+  for (const m of rows) {
+    const row = cell[m] || {}, sum = Object.values(row).reduce((a, x) => a + x.length, 0);
+    const title = m === '∅' ? 'не размечено вручную' : mBlocks.find((b) => b.id === m).title;
+    h += `<tr><td class="l"><i class="sw" style="background:${m === '∅' ? NONE : mColor[m]}"></i>${title}</td>`;
+    for (const a of aIds) {
+      const n = (row[a] || []).length, mx = Math.max(...Object.values(row).map((x) => x.length), 1);
+      h += n ? `<td class="c" style="background:rgba(37,99,235,${0.12 + 0.5 * n / mx})" data-m="${m}" data-a="${a}">${n}</td>` : '<td></td>';
+    }
+    h += `<td>${sum}</td></tr>`;
+  }
+  $('matrix').innerHTML = h + '</table>';
+  $('matrix').querySelectorAll('td.c').forEach((td) => (td.onclick = () => showCell(td.dataset.m, td.dataset.a)));
+
+  // сводка
+  const sc = DATA.scores[part];
+  $('stats').innerHTML = `Совпадение с ручной картой, F1: <b>${sc.f1}</b> · точность ${sc.precision} · полнота ${sc.recall} · файлов ${DATA.files.length}, размечено ${Object.keys(T).length}`;
+  window.__ctx = { P, T, aColor, cell };
+}
+
+function chips(files, colorOf) { return files.map((f) => `<span class="chip" style="background:${colorOf(f)}" title="${f}">${f.split('/').slice(-1)[0]}</span>`).join(''); }
+function show(side, id) {
+  selected = [side, id]; render();
+  const { P, T, aColor } = window.__ctx;
+  const own = DATA.files.filter((f) => (side === 'm' ? T[f] === id : P[f] === id));
+  const key = side === 'm' ? (f) => P[f] : (f) => T[f] || '∅';
+  const groups = {}; own.forEach((f) => (groups[key(f)] ||= []).push(f));
+  const title = side === 'm' ? 'Ручной блок: ' + mBlocks.find((b) => b.id === id).title : 'Авто-блок: ' + id;
+  const colorOf = side === 'm' ? (f) => aColor[P[f]] : (f) => (T[f] ? mColor[T[f]] : NONE);
+  $('detail').innerHTML = `<b>${title}</b> <span class="mute">— ${own.length} файлов</span>` + Object.entries(groups).sort((a, b) => b[1].length - a[1].length).map(([g, fl]) =>
+    `<h3>${side === 'm' ? 'лежит в авто-блоке' : 'ручной блок'}: ${g === '∅' ? 'не размечено' : (side === 'a' ? mBlocks.find((b) => b.id === g).title : g)} (${fl.length})</h3>${chips(fl, colorOf)}`).join('');
+}
+function showCell(m, a) {
+  const { cell, aColor } = window.__ctx; const fl = cell[m][a];
+  $('detail').innerHTML = `<b>${m === '∅' ? 'не размечено' : mBlocks.find((b) => b.id === m).title}</b> × <b>${a}</b> <span class="mute">— ${fl.length} файлов</span><div>${chips(fl, () => aColor[a])}</div>`;
+}
+render();
+</script>
+</body>
+</html>

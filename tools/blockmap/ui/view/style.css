@@ -1,0 +1,30 @@
+  :root { --bg:#f7f6f4; --panel:#fff; --ink:#1c1917; --mute:#78716c; --line:#d6d3d1; --accent:#2563eb; --band:rgba(0,0,0,.035);
+    --UI:#0ea5e9; --State:#10b981; --Domain:#8b5cf6; --Data:#f59e0b; --Infra:#f43f5e; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b1220; --panel:#111a2b; --ink:#e5e7eb; --mute:#94a3b8; --line:#243047; --accent:#60a5fa; --band:rgba(255,255,255,.035); --card:#0f1a2e; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,sans-serif; height:100vh; display:flex; flex-direction:column; }
+  header { padding:10px 16px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:center; flex-wrap:wrap; background:var(--panel); }
+  h1 { font-size:16px; margin:0; }
+  .tabs button { padding:5px 12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; margin-right:-1px; }
+  .tabs button:first-child { border-radius:6px 0 0 6px; } .tabs button:last-child { border-radius:0 6px 6px 0; }
+  .tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .crumbs { color:var(--mute); } .crumbs a { color:var(--accent); cursor:pointer; text-decoration:none; }
+  .legend { margin-left:auto; display:flex; gap:10px; font-size:12px; color:var(--mute); flex-wrap:wrap; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+  main { flex:1; display:grid; grid-template-columns:1fr 340px; min-height:0; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; grid-template-rows:60% 40%; } }
+  #stage { overflow:auto; padding:12px; }
+  #panel { border-left:1px solid var(--line); background:var(--panel); overflow:auto; padding:14px; }
+  svg text { fill:var(--ink); font-family:inherit; }
+  #stage svg { user-select:none; -webkit-user-select:none; }
+  .mono { font-family:ui-monospace,Consolas,monospace; }
+  .card { cursor:grab; touch-action:none; } .card:hover rect.body { stroke-width:2.5; }
+  .card.sel rect.body { stroke:var(--accent); stroke-width:3; }
+  .chip { cursor:pointer; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; margin:2px 4px 2px 0; border:1px solid var(--line); cursor:default; }
+  .tag.click { cursor:pointer; color:var(--accent); border-color:var(--accent); }
+  #panel h2 { font-size:16px; margin:0 0 6px; } #panel h3 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:14px 0 4px; }
+  #panel a { color:var(--accent); }
+  #panel button.go { margin-top:8px; padding:6px 12px; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  table { border-collapse:collapse; width:100%; font-size:12px; } td, th { padding:3px 4px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  .warn { color:#d97706; } .mute { color:var(--mute); }

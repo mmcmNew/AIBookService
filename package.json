@@ -1,0 +1,49 @@
+{
+  "name": "ai-book-reader-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "npx tsx --test \"src/engine/cleanup/__tests__/*.test.ts\" \"src/engine/pdf/__tests__/*.test.ts\" \"src/engine/audio/*.test.ts\" \"src/engine/providers/*.test.ts\"",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "arch": "start docs/architecture/index.html",
+    "blockmap": "node tools/blockmap/blockmap.mjs",
+    "blockmap:check": "node tools/blockmap/blockmap.mjs check",
+    "blockmap:map": "node tools/blockmap/blockmap.mjs build",
+    "blockmap:self": "node tools/blockmap/blockmap.mjs check --strict --profile=tool",
+    "blockmap:test": "node --test \"tools/blockmap/test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.3",
+    "@tauri-apps/plugin-dialog": "^2.8.2",
+    "@tauri-apps/plugin-fs": "^2.7.0",
+    "clsx": "^2.1.1",
+    "dexie": "^4.0.10",
+    "foliate-js": "^1.0.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.469.0",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.6.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.2",
+    "@types/jszip": "^3.4.1",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

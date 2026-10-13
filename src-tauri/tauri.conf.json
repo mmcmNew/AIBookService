@@ -1,0 +1,75 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "AIBookReader",
+  "version": "1.0.0",
+  "identifier": "com.aibookreader.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AIBookReader — AI Читалка с живой озвучкой",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: asset: http://asset.localhost; media-src 'self' blob: data:; font-src 'self' data: https://fonts.gstatic.com; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: asset: http://asset.localhost; media-src 'self' blob: data:; font-src 'self' data: https://fonts.gstatic.com; worker-src 'self' blob:; connect-src 'self' ws://localhost:* ws://127.0.0.1:* ipc: http://ipc.localhost https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": [
+      "binaries/pdf_processor"
+    ],
+    "resources": [
+      "tesseract/*",
+      "tesseract/tessdata/*"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["fb2"],
+        "name": "FictionBook 2",
+        "description": "FictionBook eBook format"
+      },
+      {
+        "ext": ["epub"],
+        "name": "Electronic Publication",
+        "description": "EPUB eBook format"
+      },
+      {
+        "ext": ["txt"],
+        "name": "Text Document",
+        "description": "Plain text document"
+      },
+      {
+        "ext": ["pdf"],
+        "name": "Portable Document Format",
+        "description": "PDF Document"
+      },
+      {
+        "ext": ["mobi", "azw", "azw3"],
+        "name": "Kindle eBook",
+        "description": "Mobipocket / Kindle format"
+      }
+    ]
+  }
+}

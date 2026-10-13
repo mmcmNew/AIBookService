@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIBookReaderWeb — Архитектурные потоки и слои v2.1</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --card-border: #1e293b;
+      --accent: #f59e0b;
+    }
+    body {
+      background-color: var(--bg);
+      color: #f3f4f6;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    .canvas-grid {
+      background-image: 
+        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+      background-size: 28px 28px;
+    }
+    /* Стили слоёв */
+    .swimlane {
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+      transition: background-color 0.2s;
+    }
+    .swimlane-header {
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+    }
+    /* Карточки нод */
+    .node-card {
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      cursor: grab;
+      touch-action: none;
+    }
+    .node-card:active {
+      cursor: grabbing;
+    }
+    .node-card:hover {
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(245, 158, 11, 0.25);
+      border-color: #f59e0b;
+    }
+    .node-card.selected {
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.5), 0 12px 30px rgba(0, 0, 0, 0.8);
+    }
+    /* 2.5D изометрия */
+    .viewport-3d {
+      perspective: 1200px;
+    }
+    .canvas-3d {
+      transform: rotateX(32deg) rotateZ(-16deg) scale(0.88) !important;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    /* Бейджи */
+    .badge-risk {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .badge-changed {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+    }
+    .badge-consumer {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #7dd3fc;
+    }
+    .badge-parallel {
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      color: #d8b4fe;
+    }
+    /* Стрелки */
+    .ortho-path {
+      transition: stroke 0.15s, stroke-width 0.15s;
+    }
+    .ortho-path:hover {
+      stroke: #38bdf8 !important;
+      stroke-width: 3.5 !important;
+    }
+    /* Скроллбары */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col antialiased">
+
+  <!-- ======================== ВЕРХНИЙ БАР УПРАВЛЕНИЯ ======================== -->
+  <header class="h-16 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-lg">
+        ⚡
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-sm tracking-wide text-white">AIBookReaderWeb</h1>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Flows &amp; Layers v2.1</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-0.5">Ортогональные стрелки 90°, точки входа и параллельная предзагрузка</p>
+      </div>
+    </div>
+
+    <!-- ВЫБОР СЦЕНАРИЯ -->
+    <div class="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-xs">
+      <span class="text-slate-400 font-medium px-2 flex items-center gap-1">🎯 Сценарий:</span>
+      <div id="scenarioPills" class="flex items-center gap-1">
+        <!-- Кнопки сценариев генерируются скриптом -->
+      </div>
+    </div>
+
+    <!-- УПРАВЛЕНИЕ ХОЛСТОМ -->
+    <div class="flex items-center gap-2">
+      <!-- 2.5D Изометрия -->
+      <button id="toggle3dBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition-all">
+        <span id="icon3d">🧊</span> <span id="text3d">2.5D Слои</span>
+      </button>
+
+      <!-- Авто-раскладка -->
+      <button id="resetLayoutBtn" class="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 transition-all" title="Сбросить позиции блоков по слоям">
+        📐 Выровнять
+      </button>
+
+      <!-- Зум -->
+      <div class="flex items-center bg-slate-800/80 rounded-xl border border-slate-700/60 p-0.5 text-xs text-slate-300">
+        <button id="zoomOut" class="w-7 h-7 flex items-center justify-center hover:bg-slate-700 rounded-lg">-</button>
+        <span id="zoomLevel" class="px-2 font-mono text-[11px] min-w-[42px] text-center">100%</span>
+        <button id="zoomIn" class="w-7 h-7 flex items-center justify-center hover:bg-slate-700 rounded-lg">+</button>
+        <button id="zoomFit" class="px-2 h-7 flex items-center justify-center hover:bg-slate-700 rounded-lg border-l border-slate-700">Fit</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================== РАБОЧАЯ ОБЛАСТЬ ======================== -->
+  <div class="flex-1 relative overflow-hidden bg-slate-950 flex">
+
+    <!-- ХОЛСТ СЛОЁВ -->
+    <div id="viewport" class="flex-1 h-full w-full relative overflow-hidden canvas-grid">
+      <div id="canvas" class="absolute inset-0 origin-top-left transition-transform duration-75">
+
+        <!-- 4 ГОРИЗОНТАЛЬНЫХ СЛОЯ (SWIMLANES) -->
+        <div id="swimlanesContainer" class="absolute inset-0 pointer-events-none flex flex-col justify-between" style="width: 2800px; height: 1200px;">
+          <!-- Слой 1: UI -->
+          <div class="swimlane flex-1 flex relative bg-sky-950/5">
+            <div class="w-12 bg-sky-900/20 border-r border-sky-800/30 flex items-center justify-center text-sky-400 font-bold text-xs uppercase tracking-wider swimlane-header">
+              🖥️ Слой 1: Интерфейс &amp; Точки входа
+            </div>
+            <div class="absolute top-2 left-16 text-[11px] text-sky-400/60 font-mono">Presentation Layer (Кнопки, Дроп-зоны, Модальные окна, Жесты)</div>
+          </div>
+
+          <!-- Слой 2: State -->
+          <div class="swimlane flex-1 flex relative bg-amber-950/5">
+            <div class="w-12 bg-amber-900/20 border-r border-amber-800/30 flex items-center justify-center text-amber-400 font-bold text-xs uppercase tracking-wider swimlane-header">
+              ⚡ Слой 2: Состояние &amp; Реактивность
+            </div>
+            <div class="absolute top-2 left-16 text-[11px] text-amber-400/60 font-mono">State Management Layer (Zustand Stores, Selectors, useEffect, Subscribers)</div>
+          </div>
+
+          <!-- Слой 3: Domain / Engine -->
+          <div class="swimlane flex-1 flex relative bg-emerald-950/5">
+            <div class="w-12 bg-emerald-900/20 border-r border-emerald-800/30 flex items-center justify-center text-emerald-400 font-bold text-xs uppercase tracking-wider swimlane-header">
+              🧠 Слой 3: Домен &amp; Алгоритмы
+            </div>
+            <div class="absolute top-2 left-16 text-[11px] text-emerald-400/60 font-mono">Domain / Engine Layer (Парсеры, Планировщик PDF, Конвейер Очистки, FSM)</div>
+          </div>
+
+          <!-- Слой 4: Storage -->
+          <div class="swimlane flex-1 flex relative bg-indigo-950/5">
+            <div class="w-12 bg-indigo-900/20 border-r border-indigo-800/30 flex items-center justify-center text-indigo-400 font-bold text-xs uppercase tracking-wider swimlane-header">
+              💾 Слой 4: Данные &amp; Инфраструктура
+            </div>
+            <div class="absolute top-2 left-16 text-[11px] text-indigo-400/60 font-mono">Infrastructure Layer (Dexie.js IndexedDB, Tauri IPC Sidecar, ЮKassa API, Cloud TTS)</div>
+          </div>
+        </div>
+
+        <!-- КОНТЕЙНЕР НОД (Z-INDEX 5) -->
+        <div id="nodesContainer" class="absolute inset-0 pointer-events-auto" style="width: 2800px; height: 1200px; z-index: 5;">
+          <!-- Блоки рендерятся здесь -->
+        </div>
+
+        <!-- SVG ОРТОГОНАЛЬНЫЕ СТРЕЛКИ (Z-INDEX 20: СТРЕЛКИ И МЕТКИ ВСЕГДА ПОВЕРХ КАРТОЧЕК) -->
+        <svg id="svgLayer" class="absolute inset-0 pointer-events-none" style="width: 2800px; height: 1200px; overflow: visible; z-index: 20;">
+          <defs>
+            <marker id="arrow-amber" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <polygon points="0 0, 9 3.5, 0 7" fill="#f59e0b" />
+            </marker>
+            <marker id="arrow-start-amber" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto">
+              <polygon points="9 0, 0 3.5, 9 7" fill="#f59e0b" />
+            </marker>
+            <marker id="arrow-purple" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <polygon points="0 0, 9 3.5, 0 7" fill="#c084fc" />
+            </marker>
+            <marker id="arrow-start-purple" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto">
+              <polygon points="9 0, 0 3.5, 9 7" fill="#c084fc" />
+            </marker>
+            <marker id="arrow-blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <polygon points="0 0, 9 3.5, 0 7" fill="#38bdf8" />
+            </marker>
+            <marker id="arrow-start-blue" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto">
+              <polygon points="9 0, 0 3.5, 9 7" fill="#38bdf8" />
+            </marker>
+            <marker id="arrow-emerald" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <polygon points="0 0, 9 3.5, 0 7" fill="#10b981" />
+            </marker>
+            <marker id="arrow-start-emerald" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto">
+              <polygon points="9 0, 0 3.5, 9 7" fill="#10b981" />
+            </marker>
+            <marker id="arrow-pink" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <polygon points="0 0, 9 3.5, 0 7" fill="#ec4899" />
+            </marker>
+            <marker id="arrow-start-pink" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto">
+              <polygon points="9 0, 0 3.5, 9 7" fill="#ec4899" />
+            </marker>
+          </defs>
+          <g id="connectionsGroup"></g>
+        </svg>
+      </div>
+
+      <!-- ЛЕГЕНДА ВНИЗУ -->
+      <div class="absolute bottom-4 left-4 bg-slate-900/90 backdrop-blur border border-slate-800 text-slate-400 text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-5 shadow-xl pointer-events-none">
+        <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-amber-500 inline-block"></span> Основной поток</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 border-t border-purple-400 border-dashed inline-block"></span> Параллельный фон (prefetch N+1)</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-sky-400 inline-block"></span> Петля цикла (onEnded)</span>
+        <span>✋ Тяни блок для перемещения</span>
+      </div>
+    </div>
+
+    <!-- ================= БОКОВОЙ ИНСПЕКТОР ================= -->
+    <aside id="inspectorPanel" class="w-[430px] bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 z-20 shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-lg" id="insIcon">📌</span>
+          <h2 class="font-bold text-sm text-white truncate max-w-[280px]" id="insTitle">Инспектор шага</h2>
+        </div>
+        <button id="closeInspector" class="text-slate-400 hover:text-white text-lg p-1">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs" id="insContent">
+        <div class="text-slate-400 text-center py-16">
+          Кликните по любому блоку в потоке данных для просмотра исходного кода, параметров и потребителей
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ======================== ДАННЫЕ СЦЕНАРИЕВ С ОРТОГОНАЛЬНОЙ МАРШРУТИЗАЦИЕЙ ======================== -->
+  <script>
+    const WORKSPACE_ROOT = 'F:/Projects/AIBookReaderWeb';
+
+    // МАТРИЦА ВЛИЯНИЯ (IMPACT MATRIX)
+    const CONSUMERS_REGISTRY = {
+      "detectShiftedCyrillic": {
+        title: "detectShiftedCyrillic",
+        summary: "Детектор смещения символов старого OCR (байты 0x10..0x1F как 'А'..'П')",
+        file: "src/engine/cleanup/shiftedCyrillic.ts:8",
+        consumers: [
+          { scenario: "Распознавание PDF", file: "src/engine/pdf/pageClean.ts:39", note: "Защита символов от удаления при автоочистке блоков" },
+          { scenario: "Редактор книги", file: "src/engine/cleanup/pipeline.ts:51", note: "Конвейер очистки текста перед предпросмотром" },
+          { scenario: "Сессия PDF", file: "src/engine/pdf/pagedSession.ts:348", note: "Счётчик страниц с повреждённой кириллицей" },
+          { scenario: "Оценка качества", file: "src/engine/cleanup/bookQuality.ts:45", note: "Штраф к оценке качества книги при обнаружении сдвига" }
+        ]
+      },
+      "computeBookQuality": {
+        title: "computeBookQuality",
+        summary: "Метрика качества текста книги (мусор, битые кавычки, разорванные строки)",
+        file: "src/engine/cleanup/bookQuality.ts:32",
+        consumers: [
+          { scenario: "Импорт книги", file: "src/store/bookStore.ts:440", note: "Оценка книги при первоначальной загрузке" },
+          { scenario: "Сохранение правок", file: "src/store/bookStore.ts:386", note: "Пересчёт качества после применения правок в редакторе" },
+          { scenario: "Постраничный PDF", file: "src/engine/pdf/pagedSession.ts:304", note: "Фоновый пересчёт качества при распознавании >= 3 страниц" }
+        ]
+      },
+      "applyPronunciationDictionary": {
+        title: "applyPronunciationDictionary",
+        summary: "Применение пользовательского словаря замен к speechText перед передачей в синтезатор",
+        file: "src/engine/tokenizer/dictionaryReplacer.ts:25",
+        consumers: [
+          { scenario: "Озвучка фразы N", file: "src/engine/audio/audioManager.ts:210", note: "Нормализация текста текущего предложения перед синтезом" },
+          { scenario: "Опережающий prefetch N+1", file: "src/engine/audio/audioManager.ts:359", note: "Фоновая нормализация следующей фразы для опережающего кэша" },
+          { scenario: "Токенизатор читалки", file: "src/engine/tokenizer/sentenceTokenizer.ts:35", note: "Первоначальное разбиение текста на предложения при открытии" }
+        ]
+      },
+      "cleanParagraph": {
+        title: "cleanParagraph",
+        summary: "Базовый конвейер очистки одного абзаца (Markdown, пробелы, типографика)",
+        file: "src/engine/cleanup/pipeline.ts:32",
+        consumers: [
+          { scenario: "Конвейер редактора", file: "src/engine/cleanup/pipeline.ts:123", note: "Построение плана правок planCleanup" },
+          { scenario: "Очистка блоков PDF", file: "src/engine/pdf/pageClean.ts:40", note: "Автоочистка распознанных блоков cleanBlocks" }
+        ]
+      },
+      "db.audioCache": {
+        title: "db.audioCache (IndexedDB)",
+        summary: "Таблица кэшированных Blob аудиофрагментов по составному ключу",
+        file: "src/storage/db.ts:40",
+        consumers: [
+          { scenario: "Плеер AudioManager", file: "src/engine/audio/audioManager.ts:392", note: "Быстрое чтение кэшированного аудио за 0 мс" },
+          { scenario: "Фоновый Prefetch", file: "src/engine/audio/audioManager.ts:420", note: "Фоновая асинхронная запись следующей фразы N+1" },
+          { scenario: "Правка текста", file: "src/store/bookStore.ts:398", note: "Инвалидация записей для удалённых предложений" }
+        ]
+      },
+      "nextStep": {
+        title: "nextStep (Определение следующей фразы в PDF)",
+        summary: "Чистая функция перехода к следующему предложению в ComposedBook с проверкой готовности промежуточных страниц",
+        file: "src/engine/pdf/composer.ts:253",
+        consumers: [
+          { scenario: "Озвучка PDF (advancePaged)", file: "src/store/audioStore.ts:235", note: "Проверка: играть фразу, ждать OCR страницы (wait) или остановить (end)" },
+          { scenario: "Опережающий prefetch N+1", file: "src/store/audioStore.ts:201", note: "Определение наличия следующей фразы для фонового скачивания" },
+          { scenario: "Тест модели страниц PDF", file: "src/engine/pdf/__tests__/pageModel.test.ts:190", note: "Верификация ожидания нераспознанной страницы" }
+        ]
+      },
+      "currentSentenceId": {
+        title: "bookStore.currentSentenceId",
+        summary: "Идентификатор активного предложения в книге (реактивный источник истины)",
+        file: "src/store/bookStore.ts:120",
+        consumers: [
+          { scenario: "Караоке-подсветка (BookView)", file: "src/components/reader/BookView.tsx:45", note: "Paragraph слушает currentSentenceId и включает .sentence-active" },
+          { scenario: "Караоке-подсветка в PDF (PagedTextView)", file: "src/components/reader/PagedTextView.tsx:220", note: "Рендер активной фразы в виртуализированном списке страниц" },
+          { scenario: "Автопрокрутка (readerScroll)", file: "src/components/reader/readerScroll.tsx:110", note: "Скроллит активное предложение в зону комфорта чтения" },
+          { scenario: "Панель плеера (ControlBar)", file: "src/components/player/ControlBar.tsx:180", note: "Отображает номер фразы и прогресс" }
+        ]
+      }
+    };
+
+    // РЕЕСТР ДЕТАЛИЗАЦИИ УРОВНЯ 2 (ВНУТРЕННИЕ ШАГИ)
+    const LEVEL2_REGISTRY = {
+      "l2_coordinator_pipeline": {
+        title: "🎯 Внутренний конвейер Координатора (AudioManager)",
+        summary: "Что происходит внутри AudioManager перед тем, как отдать команду воспроизведения звука в динамики",
+        steps: [
+          { num: 1, title: "1. Нормализация произношения (speechText)", file: "src/engine/tokenizer/dictionaryReplacer.ts:25", symbol: "applyPronunciationDictionary", note: "Замена сложных слов, ударений и аббревиатур по словарям ДО расчёта ключа кэша" },
+          { num: 2, title: "2. Проверка кэша RAM (Memory LRU)", file: "src/engine/audio/audioManager.ts:377", symbol: "getOrFetchAudio:memory", note: "Мгновенная проверка Map<string, ArrayBuffer> (до 40 фрагментов, 0 мс задержки)" },
+          { num: 3, title: "3. Проверка персистентного кэша Dexie", file: "src/engine/audio/audioManager.ts:392", symbol: "db.audioCache.get(cacheKey)", note: "Поиск в IndexedDB. Если есть — декодирование Blob в буфер без сетевых вызовов" },
+          { num: 4, title: "4. Синтез через TTS Провайдер (при промахе кэша)", file: "src/engine/providers/index.ts:30", symbol: "provider.synthesize", note: "Запрос к OpenRouter/Gemini/Edge/ElevenLabs с авто-повторами и сохранением в Dexie" },
+          { num: 5, title: "5. Запуск аудио & Параллельный Prefetch (N+1)", file: "src/engine/audio/audioManager.ts:441", symbol: "audioElement.play & prefetch(next)", note: "Аудио играет в динамиках, параллельно качается следующая фраза, сигнал ended зовёт advance(N+1)" }
+        ]
+      },
+      "l2_pdf_wait_details": {
+        title: "📑 PDF: Определение следующей фразы и ожидание OCR",
+        summary: "В постраничном PDF предложений до OCR нет. Как система понимает переход на следующую страницу",
+        steps: [
+          { num: 1, title: "1. Расчёт позиции nextStep", file: "src/engine/pdf/composer.ts:253", symbol: "nextStep(composed, stateOf, curId)", note: "Поиск в composed.order. Проверка всех страниц между текущей и следующей" },
+          { num: 2, title: "2. Страница P+1 не готова? (pending / running)", file: "src/engine/pdf/composer.ts:270", symbol: "return { kind: 'wait', page: P+1 }", note: "Перепрыгивать через нераспознанную страницу нельзя! Плеер получает указание ждать" },
+          { num: 3, title: "3. Переход плеера в режим ожидания (beginWait)", file: "src/store/audioStore.ts:147", symbol: "beginWait(page, 'next')", note: "audioManager.stop(), статус -> 'loading', waitingPage = P+1, UI показывает плашку распознавания" },
+          { num: 4, title: "4. Приоритетный пуш в PageScheduler", file: "src/store/audioStore.ts:152", symbol: "usePagedStore.setFocusPage(page)", note: "Планировщик распознавания ставит страницу P+1 на первое место в очереди OCR" },
+          { num: 5, title: "5. Автоматическое возобновление (checkWait)", file: "src/store/audioStore.ts:252", symbol: "usePagedStore.subscribe -> checkWait", note: "Как только страница P+1 переходит в 'done', плеер автоматически начинает играть её первую фразу!" }
+        ]
+      }
+    };
+
+    // БАЗА ДАННЫХ СЦЕНАРИЕВ
+    const SCENARIOS = [
+      // ==================== СЦЕНАРИЙ 1: PDF ====================
+      {
+        id: "pdf_pipeline",
+        title: "📑 1. Импорт и распознавание PDF",
+        description: "От брошенного PDF-файла до скользящего окна распознавания и склейки переносов",
+        nodes: [
+          {
+            id: "ui_drop",
+            layer: 0,
+            x: 100, y: 70,
+            w: 320, h: 140,
+            label: "Drop PDF файла",
+            file: "src/components/library/LibraryView.tsx", line: 279,
+            symbol: "handleFileUpload",
+            summary: "Точка входа: пользователь перетаскивает .pdf в зону загрузки",
+            isEntryPoint: true,
+            codeSnippet: `const handleFileUpload = async (file: File, options?: { pdfMode?: PdfRecognitionMode }) => {\n  setStatusText('Открываем PDF: страницы, оглавление, обложка...');\n  const parsedBook = await parseBookFile(file, replacementRules, options);\n  await loadBook(parsedBook);\n};`
+          },
+          {
+            id: "state_load_book",
+            layer: 1,
+            x: 100, y: 370,
+            w: 320, h: 140,
+            label: "loadBook(paged) & activatePaged",
+            file: "src/store/bookStore.ts", line: 415,
+            symbol: "loadBook",
+            summary: "Инициализация сессии: исходный PDF в db.pdfFiles, запуск PagedSession",
+            codeSnippet: `if (metadata.paged) {\n  await db.transaction('rw', db.books, db.pdfFiles, async () => {\n    await db.books.put({ id: meta.id, metadata: meta, chapters: [], notes: {} });\n    await db.pdfFiles.put({ bookId: meta.id, buffer });\n  });\n  await activatePaged(meta, buffer);\n  return;\n}`
+          },
+          {
+            id: "engine_open",
+            layer: 2,
+            x: 100, y: 670,
+            w: 320, h: 140,
+            label: "openAndInspect (Sidecar / pdf.js)",
+            file: "src/engine/pdf/recognizers.ts", line: 161,
+            symbol: "openAndInspect",
+            summary: "Tauri: pdf_open -> handle, pdf_info. Web: getDocument -> outline",
+            isRisky: true, riskReason: "Sidecar handle может потеряться при крахе процесса: прозрачный reopen",
+            recentlyChanged: true,
+            codeSnippet: `export async function openAndInspect(bookId, bytes, fileName, engine) {\n  if (isSidecarEngine(eff)) {\n    const handle = await openPdf(bytes, fileName);\n    const info = await getInfo(handle);\n    registerSidecarHandle(bookId, handle);\n    return { info, engine: eff };\n  }\n}`
+          },
+          {
+            id: "engine_scheduler",
+            layer: 2,
+            x: 500, y: 670,
+            w: 320, h: 140,
+            label: "PageScheduler: Окно страниц",
+            file: "src/engine/pdf/pageScheduler.ts", line: 103,
+            symbol: "PageScheduler.pump",
+            summary: "Приоритеты: центр -> срочные (center+1..3) -> фоновые вперёд -> фоновые назад",
+            isRisky: true, riskReason: "Гонка при быстром скролле: сброс устаревших задач через isStale()",
+            recentlyChanged: true,
+            codeSnippet: `// Пакетирование срочных по 2, фоновых по 3\nconst batchSize = isUrgent ? cfg.urgentBatchSize : cfg.batchSize;\nconst outcomes = await this.deps.run(batchPages, { isStale: (p) => this.isStale(p) });`
+          },
+          {
+            id: "engine_clean",
+            layer: 2,
+            x: 900, y: 670,
+            w: 320, h: 140,
+            label: "cleanBlocks (Защита кириллицы)",
+            file: "src/engine/pdf/pageClean.ts", line: 35,
+            symbol: "cleanBlocks",
+            summary: "Автоочистка Markdown/пробелов. Символы 0x10..0x1F защищены от удаления",
+            isRisky: true, riskReason: "Удаление 0x10..0x1F до починки кириллицы сотрёт русские буквы 'А'..'П'",
+            consumerKey: "detectShiftedCyrillic",
+            codeSnippet: `const useOps = detectShiftedCyrillic(b.text).isShifted ? ops.filter((o) => o !== 'control') : ops;\nconst t = cleanParagraph(b.text, useOps).text;`
+          },
+          {
+            id: "engine_compose",
+            layer: 2,
+            x: 1300, y: 670,
+            w: 320, h: 140,
+            label: "canJoin & composePages",
+            file: "src/engine/pdf/pageCompose.ts", line: 80,
+            symbol: "canJoin",
+            summary: "Склейка дефисных переносов без пробела и продолжения абзаца на стыке страниц",
+            recentlyChanged: true,
+            codeSnippet: `if (tail.hyphen) return { join: true, sep: '' };\nconst open = tail.open || !TERMINAL.test(tail.text);\nif (open && (first.b.continuesParagraph || startsLower(first.text))) return { join: true, sep: ' ' };`
+          },
+          {
+            id: "storage_pdf_pages",
+            layer: 3,
+            x: 900, y: 970,
+            w: 320, h: 140,
+            label: "db.pdfPages.bulkPut (Dexie)",
+            file: "src/storage/db.ts", line: 47,
+            symbol: "db.pdfPages",
+            summary: "Асинхронная запись страниц [bookId+page] в базу данных без задержки UI",
+            codeSnippet: `await db.pdfPages.bulkPut(toStore);`
+          }
+        ],
+        edges: [
+          { from: "ui_drop", to: "state_load_book", fromPort: "bottom", toPort: "top", label: "File" },
+          { from: "state_load_book", to: "engine_open", fromPort: "bottom", toPort: "top", label: "ArrayBuffer" },
+          { from: "engine_open", to: "engine_scheduler", fromPort: "right", toPort: "left", label: "pageCount, outline" },
+          { from: "engine_scheduler", to: "engine_clean", fromPort: "right", toPort: "left", label: "PdfBlock[]" },
+          { from: "engine_clean", to: "engine_compose", fromPort: "right", toPort: "left", label: "очищенные блоки" },
+          { from: "engine_clean", to: "storage_pdf_pages", fromPort: "bottom", toPort: "top", label: "сохранить в Dexie" }
+        ]
+      },
+
+      // ==================== СЦЕНАРИЙ 2: ОЗВУЧКА И КООРДИНАТОР ОЧЕРЕДИ ====================
+      {
+        id: "tts_pipeline",
+        title: "🔊 2. Озвучка предложения (TTS Pipeline)",
+        description: "Clean Architecture: UI (Команда) -> Координатор -> Обновление State -> Реактивное отображение UI + Инфраструктура",
+        nodes: [
+          // ЦЕНТРАЛЬНАЯ КОЛОННА: СЛОЙ 1 (UI) — ПРЯМАЯ КОМАНДА
+          {
+            id: "ui_command",
+            layer: 0,
+            x: 610, y: 70,
+            w: 360, h: 140,
+            label: "Кнопка Play / Клик (UI Команда)",
+            file: "src/components/reader/BookView.tsx", line: 22,
+            symbol: "Sentence.onClick / onPlay",
+            summary: "Точка входа: пользователь отдаёт прямую команду play(sentenceId) Координатору. UI НЕ меняет бизнес-состояние в обход оркестратора!",
+            isEntryPoint: true,
+            codeSnippet: `// Клик по тексту или кнопка Play отправляет ПРЯМУЮ команду Координатору:\nconst handleSentenceClick = (sentenceId: number) => {\n  // UI НЕ мутирует стейт напрямую — только команда:\n  audioManager.play(sentenceId);\n};`
+          },
+          // ЛЕВОЕ КРЫЛО: СЛОЙ 1 (UI) — КАРАОКЕ-ПОДСВЕТКА И АВТОСКРОЛЛ
+          {
+            id: "ui_karaoke_highlight",
+            layer: 0,
+            x: 100, y: 70,
+            w: 360, h: 140,
+            label: "UI: Караоке-подсветка (.sentence-active)",
+            file: "src/components/reader/BookView.tsx", line: 23,
+            symbol: "Sentence (.sentence-active) & scrollIntoComfortZone",
+            summary: "Реактивный рендер. Подписывается на currentSentenceId из стейта и подсвечивает фразу с автоскроллом",
+            consumerKey: "currentSentenceId",
+            codeSnippet: `// Реактивная подсветка активного предложения (караоке):\n<span\n  data-sentence-id={sentence.id}\n  className={clsx('sentence-interactive', isActive && 'sentence-active')}\n>\n  {sentence.rawText}\n</span>\n// Автоскролл в зону комфорта чтения:\nif (reading && activeEl) scrollIntoComfortZone(container, activeEl);`
+          },
+          // ПРАВОЕ КРЫЛО: СЛОЙ 1 (UI) — БАННЕР ОЖИДАНИЯ PDF
+          {
+            id: "ui_pdf_banner",
+            layer: 0,
+            x: 1140, y: 70,
+            w: 380, h: 140,
+            label: "UI: Баннер ожидания страницы PDF",
+            file: "src/components/reader/PagedTextView.tsx", line: 55,
+            symbol: "PdfWaitBanner",
+            summary: "Реактивная плашка: «Распознаём страницу P+1…». Отображается, когда стейт переходит в режим ожидания OCR",
+            codeSnippet: `// Реактивное уведомление пользователя при паузе на границе страниц:\n{waitingPage && (\n  <div className="pdf-wait-banner">\n    Распознаём страницу {waitingPage}... Воспроизведение продолжится автоматически\n  </div>\n)}`
+          },
+          // ЛЕВОЕ КРЫЛО: СЛОЙ 2 (STATE) — ПОЗИЦИЯ ЧТЕНИЯ
+          {
+            id: "state_reading_pos",
+            layer: 1,
+            x: 100, y: 370,
+            w: 360, h: 140,
+            label: "Стейт позиции (bookStore.currentSentenceId)",
+            file: "src/store/bookStore.ts", line: 120,
+            symbol: "bookStore.setSentenceId & audioStore",
+            summary: "Хранит ID текущей фразы. Обновляется ТОЛЬКО Координатором! Реактивно оповещает UI караоке",
+            consumerKey: "currentSentenceId",
+            codeSnippet: `// Реактивное состояние для подсветки текста в читалке:\nconst currentSentenceId = useBookStore((s) => s.currentSentenceId);\nconst isPlaying = useAudioStore((s) => s.isPlaying);`
+          },
+          // ПРАВОЕ КРЫЛО: СЛОЙ 2 (STATE) — PDF ОЖИДАНИЕ СТРАНИЦЫ
+          {
+            id: "state_pdf_wait",
+            layer: 1,
+            x: 1140, y: 370,
+            w: 380, h: 140,
+            label: "PDF: Ожидание страницы (waitingPage & nextStep)",
+            file: "src/engine/pdf/composer.ts", line: 253,
+            symbol: "nextStep & beginWait",
+            summary: "В PDF предложений до OCR нет! Если страница P+1 не готова — Координатор активирует режим ожидания и повышает приоритет OCR",
+            isRisky: true,
+            riskReason: "Нельзя перескакивать через нераспознанную страницу: плеер ждёт OCR и возобновляет чтение",
+            consumerKey: "nextStep",
+            hasLevel2: true,
+            level2Id: "l2_pdf_wait_details",
+            codeSnippet: `const step = nextStep(composed, (p) => paged.stateOf(p), cur);\nif (step.kind === 'sentence') {\n  book.setSentenceId(step.sentence.id);\n  startPlayback('navigate');\n} else if (step.kind === 'wait') {\n  beginWait(step.page, 'next'); // статус 'loading', приоритет PageScheduler\n}`
+          },
+          // ЦЕНТРАЛЬНАЯ КОЛОННА: СЛОЙ 3 (DOMAIN / ENGINE) — ЕДИНЫЙ КООРДИНАТОР
+          {
+            id: "domain_coordinator",
+            layer: 2,
+            x: 530, y: 640,
+            w: 520, h: 180,
+            label: "🎯 Единый Координатор озвучки (AudioManager)",
+            file: "src/engine/audio/audioManager.ts", line: 93,
+            symbol: "AudioManager (Coordinator)",
+            summary: "ЦЕНТРАЛЬНЫЙ ОРКЕСТРАТОР: принимает команду UI, проверяет кэш Dexie, запускает плеер, обновляет стейт и управляет очередью TTS",
+            isRisky: true,
+            riskReason: "Управление жизненным циклом и токенизация команд (token) для защиты от гонок",
+            recentlyChanged: true,
+            codeSnippet: `// ВНУТРЕННИЙ КОНВЕЙЕР (раскрывается кнопкой 'Уровень 2: Внутри'):\n// 1. Нормализация текста словарями: applyPronunciationDictionary(sentence.rawText)\n// 2. Быстрая проверка RAM-кэша (0 мс)\n// 3. Проверка Dexie db.audioCache (0 мс)\n// 4. Опережающий расчет очереди prefetch(N+1)\n// 5. Передача в плеер и обработка событий ended -> advance(N+1)`,
+            hasLevel2: true,
+            level2Id: "l2_coordinator_pipeline"
+          },
+          // ЛЕВОЕ КРЫЛО: СЛОЙ 4 (INFRASTRUCTURE) — БЛОК УПРАВЛЕНИЯ AUDIO
+          {
+            id: "infra_audio_player",
+            layer: 3,
+            x: 100, y: 970,
+            w: 360, h: 140,
+            label: "Блок управления Audio (<audio> / WebAudio)",
+            file: "src/engine/audio/audioManager.ts", line: 441,
+            symbol: "HTMLAudioElement & AudioBuffer",
+            summary: "Низкоуровневый исполнитель звука. Играет аудио по приказу Координатора, рапортует started / ended назад Координатору",
+            codeSnippet: `// Плеер никогда сам не командует State:\naudio.src = URL.createObjectURL(blob);\naudio.play();\naudio.addEventListener('ended', () => coordinator.handleEnded(token));`
+          },
+          // ЦЕНТРАЛЬНАЯ КОЛОННА: СЛОЙ 4 (INFRASTRUCTURE) — ХРАНИЛИЩЕ DEXIE
+          {
+            id: "infra_audio_cache_db",
+            layer: 3,
+            x: 610, y: 970,
+            w: 360, h: 140,
+            label: "Хранилище озвучек (Dexie db.audioCache)",
+            file: "src/storage/db.ts", line: 40,
+            symbol: "db.audioCache",
+            summary: "Таблица IndexedDB. Координатор проверяет кэш за 0 мс. Генератор автономно сохраняет готовые Blob",
+            consumerKey: "db.audioCache",
+            codeSnippet: `// Координатор напрямую проверяет готовность:\nconst cached = await db.audioCache.get(cacheKey);\nif (cached) return cached.audioBlob.arrayBuffer();\n// Генератор и Координатор сохраняют готовые фрагменты:\nawait db.audioCache.put({ cacheKey, bookId, chapterId, sentenceId, audioBlob, createdAt: Date.now() });`
+          },
+          // ПРАВОЕ КРЫЛО: СЛОЙ 4 (INFRASTRUCTURE) — ГЕНЕРАТОР ОЗВУЧЕК
+          {
+            id: "infra_tts_generator",
+            layer: 3,
+            x: 1140, y: 970,
+            w: 380, h: 140,
+            label: "Генератор озвучек (TTS Providers)",
+            file: "src/engine/providers/index.ts", line: 30,
+            symbol: "TTSProvider.synthesize",
+            summary: "Синтез аудио (OpenRouter / Gemini / Edge / ElevenLabs). Автономно сохраняет результат в хранилище Dexie",
+            isRisky: true,
+            riskReason: "Внешние сетевые вызовы, авто-повторы через альтернативные эндпоинты",
+            codeSnippet: `const buffer = await provider.synthesize(text, options);\n// Автономная запись в хранилище:\nawait db.audioCache.put({ cacheKey, audioBlob, createdAt: Date.now() });`
+          }
+        ],
+        edges: [
+          // 1. ЦЕНТРАЛЬНАЯ ВЕРТИКАЛЬ: UI Команда -> Координатор (прямая команда CQRS)
+          { from: "ui_command", to: "domain_coordinator", fromPort: "bottom", toPort: "top", color: "#38bdf8", label: "1. Прямая команда: play(sentenceId)" },
+
+          // 2. ЛЕВОЕ КРЫЛО: Координатор -> Стейт позиции (обновление состояния)
+          { from: "domain_coordinator", to: "state_reading_pos", fromPort: "left-top", toPort: "bottom", color: "#38bdf8", label: "2. Обновление стейта (setSentenceId)" },
+
+          // 3. ЛЕВОЕ КРЫЛО: Стейт позиции -> UI Караоке (реактивная подсветка)
+          { from: "state_reading_pos", to: "ui_karaoke_highlight", fromPort: "top", toPort: "bottom", color: "#10b981", label: "3. Реактивная подсветка .sentence-active" },
+
+          // 4. ЛЕВОЕ КРЫЛО: Координатор <-> Блок Audio (низкоуровневое управление звуком)
+          { from: "domain_coordinator", to: "infra_audio_player", fromPort: "left-bottom", toPort: "top", isBidirectional: true, color: "#38bdf8", label: "команда play <-> сигнал ended" },
+
+          // 5. ЦЕНТРАЛЬНАЯ ВЕРТИКАЛЬ: Координатор <-> База данных Dexie (чтение кэша)
+          { from: "domain_coordinator", to: "infra_audio_cache_db", fromPort: "bottom", toPort: "top", isBidirectional: true, color: "#f59e0b", label: "проверка готовности & чтение (db.get)" },
+
+          // 6. ПРАВОЕ КРЫЛО: Координатор -> Стейт PDF Ожидание (при неготовности P+1)
+          { from: "domain_coordinator", to: "state_pdf_wait", fromPort: "right-top", toPort: "bottom", color: "#ec4899", label: "PDF: wait(P+1) при неготовности" },
+
+          // 7. ПРАВОЕ КРЫЛО: Стейт PDF Ожидание -> UI Баннер (реактивная плашка)
+          { from: "state_pdf_wait", to: "ui_pdf_banner", fromPort: "top", toPort: "bottom", color: "#f59e0b", label: "плашка: «Распознаём стр. P+1…»" },
+
+          // 8. ПРАВОЕ КРЫЛО: Координатор <-> Генератор TTS (запрос синтеза)
+          { from: "domain_coordinator", to: "infra_tts_generator", fromPort: "right-bottom", toPort: "top", isBidirectional: true, color: "#c084fc", label: "запрос синтеза <-> готовый буфер" },
+
+          // 9. НИЖНИЙ ГОРИЗОНТАЛЬНЫЙ КОРИДОР: Генератор TTS -> База данных Dexie (сохранение Blob)
+          { from: "infra_tts_generator", to: "infra_audio_cache_db", fromPort: "left", toPort: "right", color: "#f59e0b", label: "сохранение Blob" }
+        ]
+      },
+
+      // ==================== СЦЕНАРИЙ 3: ОЧИСТКА КНИГИ ====================
+      {
+        id: "cleanup_pipeline",
+        title: "🧹 3. Очистка и правка книги",
+        description: "Чистый нисходящий поток: Настройка в UI -> Расчёт плана правок -> Применение в State -> Запись в Dexie",
+        nodes: [
+          // СЛОЙ 1: UI (ОБЪЕДИНЁННЫЙ ШАГ ИНТЕРФЕЙСА БЕЗ ПРЫЖКОВ)
+          {
+            id: "ui_cleanup_panel",
+            layer: 0,
+            x: 100, y: 70,
+            w: 340, h: 140,
+            label: "CleanupPanel & DiffView",
+            file: "src/components/editor/CleanupPanel.tsx", line: 47,
+            symbol: "CleanupPanel",
+            summary: "Точка входа: выбор операций (колонтитулы, сдвиг кириллицы) и предпросмотр Diff",
+            isEntryPoint: true,
+            codeSnippet: `const makePlan = () => {\n  const p = planCleanup(textChapters, Array.from(ops), { chapterIndexes });\n  setPlan({ plan: p, source: draft });\n};\n// Пользователь отмечает галочки в DiffView и жмёт 'Применить':\nonApply(appliedChapters, 'Очистка текста');`
+          },
+          // СЛОЙ 2: STATE
+          {
+            id: "state_replace_chapters",
+            layer: 1,
+            x: 100, y: 370,
+            w: 340, h: 140,
+            label: "bookStore.replaceBookChapters",
+            file: "src/store/bookStore.ts", line: 365,
+            symbol: "replaceBookChapters",
+            summary: "Маппинг позиции чтения (mapReadingPosition) и подготовка транзакции",
+            isRisky: true, riskReason: "Опасность рассинхронизации чтения: позиция мапится по id предложений",
+            recentlyChanged: true,
+            codeSnippet: `const pos = mapReadingPosition(book.chapters, chapters, oldChapter?.id, state.currentSentenceId);\nnext.metadata.quality = computeBookQuality(next);\nawait db.transaction('rw', db.books, db.audioCache, async () => { ... });`
+          },
+          // СЛОЙ 3: DOMAIN / ENGINE
+          {
+            id: "engine_plan_pipeline",
+            layer: 2,
+            x: 100, y: 670,
+            w: 340, h: 140,
+            label: "Конвейер planCleanup & cleanParagraph",
+            file: "src/engine/cleanup/pipeline.ts", line: 111,
+            symbol: "planCleanup",
+            summary: "Чистая функция: markdown -> shifted -> control -> hyphenation -> whitespace",
+            consumerKey: "cleanParagraph",
+            codeSnippet: `export function planCleanup(chapters, ops) {\n  // Расчёт списка правок (edit / delete / merge) без изменения оригинала\n}`
+          },
+          {
+            id: "engine_quality_recalc",
+            layer: 2,
+            x: 520, y: 670,
+            w: 340, h: 140,
+            label: "computeBookQuality (Пересчёт)",
+            file: "src/engine/cleanup/bookQuality.ts", line: 32,
+            symbol: "computeBookQuality",
+            summary: "Пересчёт индекса качества текста книги после применения изменений",
+            consumerKey: "computeBookQuality",
+            codeSnippet: `next.metadata.quality = computeBookQuality(next);`
+          },
+          // СЛОЙ 4: STORAGE
+          {
+            id: "storage_cleanup_transact",
+            layer: 3,
+            x: 100, y: 970,
+            w: 340, h: 140,
+            label: "Dexie: db.books & db.audioCache",
+            file: "src/store/bookStore.ts", line: 392,
+            symbol: "db.transaction",
+            summary: "Атомарное сохранение глав и чистка осиротевших записей аудиокэша",
+            codeSnippet: `await db.transaction('rw', db.books, db.audioCache, async () => {\n  await db.books.update(book.metadata.id, { chapters, metadata });\n  await db.audioCache.where('bookId').equals(id).filter(...).delete();\n});`
+          }
+        ],
+        edges: [
+          // Чистый нисходящий поток без прыжков назад в UI
+          { from: "ui_cleanup_panel", to: "state_replace_chapters", fromPort: "bottom", toPort: "top", label: "применить выбранный diff" },
+          { from: "state_replace_chapters", to: "engine_plan_pipeline", fromPort: "bottom", toPort: "top", label: "TextChapter[]" },
+          { from: "state_replace_chapters", to: "engine_quality_recalc", fromPort: "right", toPort: "top", label: "пересчёт качества" },
+          { from: "engine_plan_pipeline", to: "storage_cleanup_transact", fromPort: "bottom", toPort: "top", label: "сохранить в Dexie" }
+        ]
+      },
+
+      // ==================== СЦЕНАРИЙ 4: БИЛЛИНГ И ЮKASSA ====================
+      {
+        id: "billing_pipeline",
+        title: "💳 4. Оплата и баланс (ЮKassa)",
+        description: "Создание платежа, редирект, безопасная перепроверка вебхука через API и начисление баланса",
+        nodes: [
+          {
+            id: "ui_pack_select",
+            layer: 0,
+            x: 100, y: 70,
+            w: 320, h: 140,
+            label: "TopUpModal: Выбор тарифа",
+            file: "src/components/billing/TopUpModal.tsx", line: 45,
+            symbol: "TopUpModal",
+            summary: "Точка входа: выбор пакета (200k, 1M, 3M символов)",
+            isEntryPoint: true,
+            codeSnippet: `<button onClick={() => handleBuy('reader')}>Купить 1 000 000 символов</button>`
+          },
+          {
+            id: "state_user_topup",
+            layer: 1,
+            x: 100, y: 370,
+            w: 320, h: 140,
+            label: "userStore.topUp",
+            file: "src/store/userStore.ts", line: 50,
+            symbol: "userStore.topUp",
+            summary: "Запрос POST /api/payment/create и редирект на платёжную форму",
+            codeSnippet: `const res = await fetch('/api/payment/create', { method: 'POST', body: JSON.stringify({ packId }) });\nwindow.location.href = res.confirmationUrl;`
+          },
+          {
+            id: "engine_yookassa_create",
+            layer: 2,
+            x: 100, y: 670,
+            w: 320, h: 140,
+            label: "YooKassaService.createPayment",
+            file: "server/src/services/yookassa.ts", line: 27,
+            symbol: "createPayment",
+            summary: "Запрос к api.yookassa.ru с Idempotence-Key или mock для dev-режима",
+            isRisky: true, riskReason: "Опасность дублирования списания без Idempotence-Key при сбоях сети",
+            codeSnippet: `const response = await fetch('https://api.yookassa.ru/v3/payments', {\n  headers: { 'Idempotence-Key': crypto.randomUUID(), Authorization: this.authHeader() },\n  body: JSON.stringify(body)\n});`
+          },
+          {
+            id: "engine_webhook_verify",
+            layer: 2,
+            x: 500, y: 670,
+            w: 320, h: 140,
+            label: "Webhook: Перепроверка через API",
+            file: "server/src/services/yookassa.ts", line: 110,
+            symbol: "handleWebhook",
+            summary: "Тело запроса не доверенное! Прямой GET /v3/payments/{id} для проверки статуса и суммы",
+            isRisky: true, riskReason: "Защита от подделки вебхука злоумышленником",
+            codeSnippet: `const remote = await this.fetchRemotePayment(paymentId);\nif (remote.status === 'succeeded' && Number(remote.amount.value) === payment.amountRub) {\n  this.db.settlePayment(paymentId);\n}`
+          },
+          {
+            id: "storage_db_settle",
+            layer: 3,
+            x: 500, y: 970,
+            w: 320, h: 140,
+            label: "server.db.settlePayment",
+            file: "server/src/db.ts", line: 155,
+            symbol: "Database.settlePayment",
+            summary: "Идемпотентное начисление символов и атомарный flush в users.json",
+            isRisky: true, riskReason: "Атомарность: нельзя зачислить баланс дважды при повторных вебхуках",
+            codeSnippet: `payment.status = 'succeeded';\nuser.balance += payment.characters;\nthis.usersFile.markDirty();`
+          }
+        ],
+        edges: [
+          { from: "ui_pack_select", to: "state_user_topup", fromPort: "bottom", toPort: "top", label: "packId" },
+          { from: "state_user_topup", to: "engine_yookassa_create", fromPort: "bottom", toPort: "top", label: "POST /create" },
+          { from: "engine_yookassa_create", to: "engine_webhook_verify", fromPort: "right", toPort: "left", label: "успешная оплата" },
+          { from: "engine_webhook_verify", to: "storage_db_settle", fromPort: "bottom", toPort: "top", label: "валидация пройдена" }
+        ]
+      }
+    ];
+
+    // ======================== СОСТОЯНИЕ ========================
+    let currentScenarioIndex = 1; // По умолчанию открываем TTS сценарий
+    let selectedNode = null;
+    let is3DMode = false;
+    let zoom = 1;
+    let panX = 40;
+    let panY = 20;
+
+    const LAYER_Y_COORDS = [70, 370, 670, 970];
+
+    function renderScenarioPills() {
+      const container = document.getElementById('scenarioPills');
+      container.innerHTML = SCENARIOS.map((sc, idx) => `
+        <button onclick="switchScenario(${idx})" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${idx === currentScenarioIndex ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-300 hover:bg-slate-700/60'}">
+          ${sc.title.split(' ')[0]} ${sc.title.split(' ')[1]}
+        </button>
+      `).join('');
+    }
+
+    window.switchScenario = (idx) => {
+      currentScenarioIndex = idx;
+      selectedNode = null;
+      renderScenarioPills();
+      renderScenario();
+      applyTransform();
+    };
+
+    // ======================== ОРТОГОНАЛЬНЫЕ ПОРТЫ И РАСЧЁТ КООРДИНАТ ========================
+    function getPortCoordinates(node, portName) {
+      const w = node.w || 320;
+      const h = node.h || 140;
+      switch (portName) {
+        case 'top': return { x: node.x + w / 2, y: node.y };
+        case 'bottom': return { x: node.x + w / 2, y: node.y + h };
+        case 'left': return { x: node.x, y: node.y + h / 2 };
+        case 'right': return { x: node.x + w, y: node.y + h / 2 };
+        case 'left-top': return { x: node.x, y: node.y + h * 0.28 };
+        case 'left-bottom': return { x: node.x, y: node.y + h * 0.78 };
+        case 'right-top': return { x: node.x + w, y: node.y + h * 0.28 };
+        case 'right-bottom': return { x: node.x + w, y: node.y + h * 0.78 };
+        case 'bottom-left': return { x: node.x + w * 0.25, y: node.y + h };
+        case 'bottom-right': return { x: node.x + w * 0.75, y: node.y + h };
+        default: return { x: node.x + w / 2, y: node.y + h / 2 };
+      }
+    }
+
+    // ======================== ГЕНЕРАТОР ОРТОГОНАЛЬНОГО SVG ПУТИ (90 ГРАДУСОВ) ========================
+    function generateOrthogonalPath(p1, p2, fromPort, toPort, isLoop = false) {
+      const r = 8; // радиус скругления угла 90 градусов
+      const baseFrom = (fromPort || 'bottom').split('-')[0];
+      const baseTo = (toPort || 'top').split('-')[0];
+
+      // 1. ПЕТЛЯ ЦИКЛА (Loopback): обход слева
+      if (isLoop) {
+        const loopMargin = 120;
+        const leftX = Math.min(p1.x, p2.x) - loopMargin;
+        return `M ${p1.x} ${p1.y} 
+                H ${leftX + r} 
+                Q ${leftX} ${p1.y} ${leftX} ${p1.y - r} 
+                V ${p2.y + r} 
+                Q ${leftX} ${p2.y} ${leftX + r} ${p2.y} 
+                H ${p2.x}`;
+      }
+
+      // 2. СВЕРХУ ВВЕРХ (top -> top): дуга сверху над блоками
+      if (baseFrom === 'top' && baseTo === 'top') {
+        const topY = Math.min(p1.y, p2.y) - 55;
+        const dx = p2.x - p1.x;
+        const signX = dx > 0 ? 1 : -1;
+        return `M ${p1.x} ${p1.y} 
+                V ${topY + r} 
+                Q ${p1.x} ${topY} ${p1.x + signX * r} ${topY} 
+                H ${p2.x - signX * r} 
+                Q ${p2.x} ${topY} ${p2.x} ${topY + r} 
+                V ${p2.y}`;
+      }
+
+      // 3. СВЕРХУ ВНИЗ (Vertical step: bottom -> top)
+      if (baseFrom === 'bottom' && baseTo === 'top') {
+        const midY = (p1.y + p2.y) / 2;
+        const dx = p2.x - p1.x;
+
+        if (Math.abs(dx) < 6) {
+          // Прямая вертикальная линия
+          return `M ${p1.x} ${p1.y} V ${p2.y}`;
+        }
+
+        const signX = dx > 0 ? 1 : -1;
+        return `M ${p1.x} ${p1.y} 
+                V ${midY - r} 
+                Q ${p1.x} ${midY} ${p1.x + signX * r} ${midY} 
+                H ${p2.x - signX * r} 
+                Q ${p2.x} ${midY} ${p2.x} ${midY + r} 
+                V ${p2.y}`;
+      }
+
+      // 4. СНИЗУ ВВЕРХ (top -> bottom: вертикальный подъем снизу вверх)
+      if (baseFrom === 'top' && baseTo === 'bottom') {
+        const dx = p2.x - p1.x;
+        if (Math.abs(dx) < 6) return `M ${p1.x} ${p1.y} V ${p2.y}`;
+        const midY = (p1.y + p2.y) / 2;
+        const signX = dx > 0 ? 1 : -1;
+        return `M ${p1.x} ${p1.y} 
+                V ${midY + r} 
+                Q ${p1.x} ${midY} ${p1.x + signX * r} ${midY} 
+                H ${p2.x - signX * r} 
+                Q ${p2.x} ${midY} ${p2.x} ${midY - r} 
+                V ${p2.y}`;
+      }
+
+      // 5. СЛЕВА НАПРАВО (Horizontal step: right -> left)
+      if (baseFrom === 'right' && baseTo === 'left') {
+        const midX = (p1.x + p2.x) / 2;
+        const dy = p2.y - p1.y;
+
+        if (Math.abs(dy) < 6) {
+          return `M ${p1.x} ${p1.y} H ${p2.x}`;
+        }
+
+        const signY = dy > 0 ? 1 : -1;
+        return `M ${p1.x} ${p1.y} 
+                H ${midX - r} 
+                Q ${midX} ${p1.y} ${midX} ${p1.y + signY * r} 
+                V ${p2.y - signY * r} 
+                Q ${midX} ${p2.y} ${midX + r} ${p2.y} 
+                H ${p2.x}`;
+      }
+
+      // 6. СПРАВА НАЛЕВО ВСПЯТЬ (left -> right)
+      if (baseFrom === 'left' && baseTo === 'right') {
+        const midX = (p1.x + p2.x) / 2;
+        const dy = p2.y - p1.y;
+
+        if (Math.abs(dy) < 6) {
+          return `M ${p1.x} ${p1.y} H ${p2.x}`;
+        }
+
+        const signY = dy > 0 ? 1 : -1;
+        return `M ${p1.x} ${p1.y} 
+                H ${midX + r} 
+                Q ${midX} ${p1.y} ${midX} ${p1.y + signY * r} 
+                V ${p2.y - signY * r} 
+                Q ${midX} ${p2.y} ${midX - r} ${p2.y} 
+                H ${p2.x}`;
+      }
+
+      // 7. СЛЕВА В НИЖНИЙ ПОРТ (left -> bottom: выход влево и поворот вверх)
+      if (baseFrom === 'left' && baseTo === 'bottom') {
+        const signY = p2.y < p1.y ? -1 : 1;
+        return `M ${p1.x} ${p1.y} 
+                H ${p2.x + r} 
+                Q ${p2.x} ${p1.y} ${p2.x} ${p1.y + signY * r} 
+                V ${p2.y}`;
+      }
+
+      // 8. СЛЕВА В ВЕРХНИЙ ПОРТ (left -> top: выход влево и поворот вниз)
+      if (baseFrom === 'left' && baseTo === 'top') {
+        const signY = p2.y > p1.y ? 1 : -1;
+        return `M ${p1.x} ${p1.y} 
+                H ${p2.x + r} 
+                Q ${p2.x} ${p1.y} ${p2.x} ${p1.y + signY * r} 
+                V ${p2.y}`;
+      }
+
+      // 9. СПРАВА В НИЖНИЙ ПОРТ (right -> bottom: выход вправо и поворот вверх)
+      if (baseFrom === 'right' && baseTo === 'bottom') {
+        const signY = p2.y < p1.y ? -1 : 1;
+        return `M ${p1.x} ${p1.y} 
+                H ${p2.x - r} 
+                Q ${p2.x} ${p1.y} ${p2.x} ${p1.y + signY * r} 
+                V ${p2.y}`;
+      }
+
+      // 10. СПРАВА В ВЕРХНИЙ ПОРТ (right -> top: выход вправо и поворот вниз)
+      if (baseFrom === 'right' && baseTo === 'top') {
+        const signY = p2.y > p1.y ? 1 : -1;
+        return `M ${p1.x} ${p1.y} 
+                H ${p2.x - r} 
+                Q ${p2.x} ${p1.y} ${p2.x} ${p1.y + signY * r} 
+                V ${p2.y}`;
+      }
+
+      // 11. СВЕРХУ В ЛЕВЫЙ ПОРТ (top -> left)
+      if (baseFrom === 'top' && baseTo === 'left') {
+        return `M ${p1.x} ${p1.y} 
+                V ${p2.y + r} 
+                Q ${p1.x} ${p2.y} ${p1.x + r} ${p2.y} 
+                H ${p2.x}`;
+      }
+
+      // 12. СВЕРХУ В ПРАВЫЙ ПОРТ (top -> right)
+      if (baseFrom === 'top' && baseTo === 'right') {
+        return `M ${p1.x} ${p1.y} 
+                V ${p2.y + r} 
+                Q ${p1.x} ${p2.y} ${p1.x - r} ${p2.y} 
+                H ${p2.x}`;
+      }
+
+      // 13. ДЕФОЛТНЫЙ ПЕРЕГИБ НА 90°
+      const midY = (p1.y + p2.y) / 2;
+      return `M ${p1.x} ${p1.y} V ${midY} H ${p2.x} V ${p2.y}`;
+    }
+
+    // ======================== ОТРИСОВКА СТРЕЛОК ========================
+    function updateConnections() {
+      const connGroup = document.getElementById('connectionsGroup');
+      connGroup.innerHTML = '';
+
+      const scenario = SCENARIOS[currentScenarioIndex];
+      const nodeMap = new Map();
+      scenario.nodes.forEach(n => nodeMap.set(n.id, n));
+
+      scenario.edges.forEach(edge => {
+        const from = nodeMap.get(edge.from);
+        const to = nodeMap.get(edge.to);
+        if (!from || !to) return;
+
+        const fromPort = edge.fromPort || 'bottom';
+        const toPort = edge.toPort || 'top';
+
+        const p1 = getPortCoordinates(from, fromPort);
+        const p2 = getPortCoordinates(to, toPort);
+
+        const pathData = generateOrthogonalPath(p1, p2, fromPort, toPort, edge.isLoop);
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', 'none');
+
+        const color = edge.color || '#f59e0b';
+        path.setAttribute('stroke', color);
+        path.setAttribute('stroke-width', edge.isDashed ? '2.5' : '2.2');
+
+        if (edge.isDashed) {
+          path.setAttribute('stroke-dasharray', '6,4');
+        }
+
+        const endMarkerId = edge.color === '#c084fc' ? 'arrow-purple' : edge.color === '#38bdf8' ? 'arrow-blue' : edge.color === '#10b981' ? 'arrow-emerald' : edge.color === '#ec4899' ? 'arrow-pink' : 'arrow-amber';
+        path.setAttribute('marker-end', `url(#${endMarkerId})`);
+
+        if (edge.isBidirectional) {
+          const startMarkerId = edge.color === '#c084fc' ? 'arrow-start-purple' : edge.color === '#38bdf8' ? 'arrow-start-blue' : edge.color === '#10b981' ? 'arrow-start-emerald' : edge.color === '#ec4899' ? 'arrow-start-pink' : 'arrow-start-amber';
+          path.setAttribute('marker-start', `url(#${startMarkerId})`);
+        }
+
+        path.setAttribute('class', 'ortho-path');
+        connGroup.appendChild(path);
+
+        // Метка стрелки с непрозрачной плашкой
+        if (edge.label) {
+          let labelX = (p1.x + p2.x) / 2;
+          let labelY = (p1.y + p2.y) / 2;
+
+          const baseFrom = fromPort.split('-')[0];
+          const baseTo = toPort.split('-')[0];
+
+          if (edge.isLoop) {
+            const loopMargin = 120;
+            const leftX = Math.min(p1.x, p2.x) - loopMargin;
+            labelX = leftX;
+            labelY = (p1.y + p2.y) / 2;
+          } else if (baseFrom === 'top' && baseTo === 'top') {
+            labelX = (p1.x + p2.x) / 2;
+            labelY = Math.min(p1.y, p2.y) - 55;
+          } else if (baseFrom === 'left' && (baseTo === 'bottom' || baseTo === 'top')) {
+            labelX = (p1.x + p2.x) / 2;
+            labelY = p1.y;
+          } else if (baseFrom === 'right' && (baseTo === 'bottom' || baseTo === 'top')) {
+            labelX = (p1.x + p2.x) / 2;
+            labelY = p1.y;
+          } else if (baseFrom === 'top' && (baseTo === 'left' || baseTo === 'right')) {
+            labelX = (p1.x + p2.x) / 2;
+            labelY = p2.y;
+          } else if (Math.abs(p1.x - p2.x) < 6) {
+            labelX = p1.x;
+            labelY = (p1.y + p2.y) / 2;
+          } else if (Math.abs(p1.y - p2.y) < 6) {
+            labelX = (p1.x + p2.x) / 2;
+            labelY = p1.y;
+          }
+
+          const labelG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          labelG.setAttribute('class', 'pointer-events-none');
+
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', labelX);
+          text.setAttribute('y', labelY + 3.5);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('fill', edge.color || '#cbd5e1');
+          text.setAttribute('font-size', '10.5');
+          text.setAttribute('font-weight', '600');
+          text.textContent = edge.label;
+
+          const approxCharWidth = 6.2;
+          const rectW = edge.label.length * approxCharWidth + 16;
+          const rectH = 19;
+          const rectX = labelX - rectW / 2;
+          const rectY = labelY - rectH / 2;
+
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', rectX);
+          rect.setAttribute('y', rectY);
+          rect.setAttribute('width', rectW);
+          rect.setAttribute('height', rectH);
+          rect.setAttribute('rx', '4');
+          rect.setAttribute('fill', '#090d16');
+          rect.setAttribute('stroke', edge.color ? edge.color + '55' : '#334155');
+          rect.setAttribute('stroke-width', '1');
+
+          labelG.appendChild(rect);
+          labelG.appendChild(text);
+          connGroup.appendChild(labelG);
+        }
+      });
+    }
+
+    // ======================== ОТРИСОВКА СЦЕНАРИЯ ========================
+    function renderScenario() {
+      const scenario = SCENARIOS[currentScenarioIndex];
+      const nodesContainer = document.getElementById('nodesContainer');
+
+      nodesContainer.innerHTML = '';
+
+      scenario.nodes.forEach(node => {
+        const w = node.w || 320;
+        const h = node.h || 140;
+
+        const card = document.createElement('div');
+        card.id = `node_${node.id}`;
+        card.style.width = `${w}px`;
+        card.style.minHeight = `${h}px`;
+        card.style.left = `${node.x}px`;
+        card.style.top = `${node.y}px`;
+
+        let borderClass = 'border-slate-800';
+        if (node.isEntryPoint) borderClass = 'border-sky-500/80 shadow-sky-950/50 ring-1 ring-sky-500/30';
+        if (node.isParallelWorker) borderClass = 'border-purple-500/60 bg-purple-950/20';
+
+        card.className = `node-card absolute bg-slate-900/95 border ${borderClass} rounded-2xl p-4 shadow-xl flex flex-col justify-between gap-2 ${selectedNode?.id === node.id ? 'selected' : ''}`;
+
+        let entryBadge = node.isEntryPoint 
+          ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500 text-slate-950">🚀 ТОЧКА ВХОДА</span>' 
+          : '';
+
+        let parallelBadge = node.isParallelWorker 
+          ? '<span class="badge-parallel px-2 py-0.5 rounded text-[10px] font-bold">⚡ ПАРАЛЛЕЛЬНЫЙ ФОН</span>' 
+          : '';
+
+        let riskBadge = node.isRisky 
+          ? `<span class="badge-risk px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1" title="${node.riskReason || 'Рискованное место'}">⚠️ Риск</span>` 
+          : '';
+
+        let changedBadge = node.recentlyChanged 
+          ? '<span class="badge-changed px-1.5 py-0.5 rounded text-[10px] font-semibold">🔄 Свежее</span>' 
+          : '';
+
+        let consumerBadge = '';
+        if (node.consumerKey && CONSUMERS_REGISTRY[node.consumerKey]) {
+          const reg = CONSUMERS_REGISTRY[node.consumerKey];
+          consumerBadge = `
+            <button onclick="event.stopPropagation(); showConsumersModal('${node.consumerKey}')" class="badge-consumer px-2 py-0.5 rounded text-[10px] font-semibold hover:bg-sky-500/20 transition-all flex items-center gap-1" title="Кто ещё использует эту функцию">
+              <span>🔗</span> <span>${reg.consumers.length} потребителя</span>
+            </button>
+          `;
+        }
+
+        let level2Badge = node.hasLevel2 && node.level2Id && LEVEL2_REGISTRY[node.level2Id]
+          ? `
+            <button onclick="event.stopPropagation(); showLevel2Modal('${node.level2Id}')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all flex items-center gap-1" title="Раскрыть внутренний конвейер">
+              <span>🔍</span> <span>Уровень 2: Внутри</span>
+            </button>
+          `
+          : '';
+
+        const vsLink = `vscode://file/${WORKSPACE_ROOT}/${node.file}:${node.line}`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-1 flex-wrap">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${entryBadge}
+              ${parallelBadge}
+              ${riskBadge}
+              ${changedBadge}
+              ${level2Badge}
+            </div>
+            ${consumerBadge}
+          </div>
+
+          <div>
+            <h4 class="font-bold text-xs text-white leading-snug">${node.label}</h4>
+            <div class="text-[11px] font-mono text-amber-400 truncate mt-0.5">${node.symbol || ''}</div>
+          </div>
+
+          <p class="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">${node.summary}</p>
+
+          <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+            <a href="${vsLink}" class="text-sky-400 hover:underline font-mono truncate max-w-[200px]" onclick="event.stopPropagation()">
+              📄 ${node.file.split('/').pop()}:${node.line}
+            </a>
+            <button class="text-amber-400 font-bold hover:underline" onclick="event.stopPropagation(); openNodeDetails('${node.id}')">
+              Код &rarr;
+            </button>
+          </div>
+        `;
+
+        setupNodeDragging(card, node);
+        card.onclick = () => openNodeDetails(node.id);
+        nodesContainer.appendChild(card);
+      });
+
+      updateConnections();
+    }
+
+    // ======================== DRAG & DROP БЛОКОВ ========================
+    function setupNodeDragging(element, node) {
+      let isDragging = false;
+      let startMouseX = 0, startMouseY = 0;
+      let initialNodeX = 0, initialNodeY = 0;
+
+      element.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('a') || e.target.closest('button')) return;
+        isDragging = true;
+        element.setPointerCapture(e.pointerId);
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        initialNodeX = node.x;
+        initialNodeY = node.y;
+        e.stopPropagation();
+      });
+
+      element.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const dx = (e.clientX - startMouseX) / zoom;
+        const dy = (e.clientY - startMouseY) / zoom;
+
+        node.x = initialNodeX + dx;
+        node.y = initialNodeY + dy;
+
+        element.style.left = `${node.x}px`;
+        element.style.top = `${node.y}px`;
+
+        updateConnections();
+      });
+
+      element.addEventListener('pointerup', (e) => {
+        if (isDragging) {
+          isDragging = false;
+          element.releasePointerCapture(e.pointerId);
+        }
+      });
+    }
+
+    // ======================== БОКОВОЙ ИНСПЕКТОР ========================
+    window.openNodeDetails = (nodeId) => {
+      const scenario = SCENARIOS[currentScenarioIndex];
+      const node = scenario.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      selectedNode = node;
+      document.querySelectorAll('.node-card').forEach(c => c.classList.remove('selected'));
+      const card = document.getElementById(`node_${node.id}`);
+      if (card) card.classList.add('selected');
+
+      const insTitle = document.getElementById('insTitle');
+      const insIcon = document.getElementById('insIcon');
+      const insContent = document.getElementById('insContent');
+
+      insIcon.textContent = node.isEntryPoint ? '🚀' : node.isParallelWorker ? '⚡' : '⚙️';
+      insTitle.textContent = node.label;
+
+      const vsLink = `vscode://file/${WORKSPACE_ROOT}/${node.file}:${node.line}`;
+
+      let consumersBlock = '';
+      if (node.consumerKey && CONSUMERS_REGISTRY[node.consumerKey]) {
+        const reg = CONSUMERS_REGISTRY[node.consumerKey];
+        consumersBlock = `
+          <div class="bg-sky-950/30 border border-sky-500/40 rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sky-300 font-bold text-xs flex items-center gap-1.5">
+                <span>🔗</span> Матрица влияния (Impact Analysis):
+              </span>
+              <span class="text-[10px] text-sky-400 font-mono font-bold">${reg.consumers.length} потребителя</span>
+            </div>
+            <p class="text-slate-300 text-[11px]">Если вы вносите правки в эту функцию, они также затронут:</p>
+            <ul class="space-y-1.5 pt-1">
+              ${reg.consumers.map(c => `
+                <li class="bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-[11px] flex flex-col gap-0.5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-white">${c.scenario}</span>
+                    <span class="font-mono text-slate-400 text-[10px]">${c.file}</span>
+                  </div>
+                  <span class="text-slate-400 text-[10px]">${c.note}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      let riskBlock = node.isRisky ? `
+        <div class="bg-rose-950/30 border border-rose-500/40 rounded-xl p-3 space-y-1">
+          <div class="flex items-center gap-1.5 text-rose-300 font-bold">
+            <span>⚠️</span> <span>Рискованное место (Bug prone):</span>
+          </div>
+          <p class="text-rose-200/90 text-xs leading-relaxed">${node.riskReason || 'Высокая чувствительность к входным данным'}</p>
+        </div>
+      ` : '';
+
+      insContent.innerHTML = `
+        <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400 font-semibold">Исходный код:</span>
+            <span class="text-[11px] text-slate-500 font-mono">VS Code Link</span>
+          </div>
+          <a href="${vsLink}" class="inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300 font-mono text-xs break-all bg-sky-950/40 p-2 rounded-lg border border-sky-800/50 w-full hover:underline">
+            <span>↗</span> <span>${node.file}:${node.line}</span>
+          </a>
+          <button onclick="navigator.clipboard.writeText('${WORKSPACE_ROOT}/${node.file}:${node.line}')" class="w-full py-1 text-center bg-slate-700/50 hover:bg-slate-700 rounded text-slate-300 text-[11px]">
+            Скопировать полный путь
+          </button>
+        </div>
+
+        <div>
+          <span class="text-slate-400 font-semibold block mb-1">Символ:</span>
+          <div class="font-mono text-xs text-amber-400 bg-slate-800/60 p-2 rounded-lg border border-slate-700/60">${node.symbol}</div>
+        </div>
+
+        <div>
+          <span class="text-slate-400 font-semibold block mb-1">Назначение:</span>
+          <p class="text-slate-200 leading-relaxed bg-slate-800/30 p-2.5 rounded-lg border border-slate-800">${node.summary}</p>
+        </div>
+
+        ${riskBlock}
+        ${consumersBlock}
+
+        <div>
+          <span class="text-slate-400 font-semibold block mb-1">Фрагмент реального кода:</span>
+          <pre class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-emerald-300 overflow-x-auto leading-relaxed"><code>${escapeHtml(node.codeSnippet || '// Код доступен по ссылке выше')}</code></pre>
+        </div>
+      `;
+    };
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    window.showConsumersModal = (key) => {
+      const reg = CONSUMERS_REGISTRY[key];
+      if (!reg) return;
+
+      const insContent = document.getElementById('insContent');
+      document.getElementById('insTitle').textContent = `Потребители: ${reg.title}`;
+      document.getElementById('insIcon').textContent = '🔗';
+
+      insContent.innerHTML = `
+        <div class="space-y-3">
+          <div class="bg-sky-950/40 border border-sky-500/40 rounded-xl p-3">
+            <h4 class="font-bold text-white font-mono text-xs">${reg.title}</h4>
+            <p class="text-xs text-slate-300 mt-1">${reg.summary}</p>
+            <div class="text-[11px] text-sky-400 font-mono mt-1">Определено в: ${reg.file}</div>
+          </div>
+
+          <h5 class="font-bold text-xs text-amber-400">Кто ещё в проекте зависит от этой функции:</h5>
+          <div class="space-y-2">
+            ${reg.consumers.map(c => `
+              <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-xs text-white">${c.scenario}</span>
+                  <span class="font-mono text-slate-400 text-[10px]">${c.file}</span>
+                </div>
+                <a href="vscode://file/${WORKSPACE_ROOT}/${c.file}" class="text-[11px] font-mono text-sky-400 hover:underline">
+                  📄 ${c.file}
+                </a>
+                <p class="text-[11px] text-slate-300 mt-1 leading-relaxed">${c.note}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    };
+
+    window.showLevel2Modal = (key) => {
+      const reg = LEVEL2_REGISTRY[key];
+      if (!reg) return;
+
+      const insContent = document.getElementById('insContent');
+      document.getElementById('insTitle').textContent = reg.title;
+      document.getElementById('insIcon').textContent = '🔍';
+
+      insContent.innerHTML = `
+        <div class="space-y-3">
+          <div class="bg-amber-950/40 border border-amber-500/40 rounded-xl p-3">
+            <h4 class="font-bold text-amber-300 font-mono text-xs">${reg.title}</h4>
+            <p class="text-xs text-slate-300 mt-1">${reg.summary}</p>
+          </div>
+
+          <h5 class="font-bold text-xs text-amber-400">Пошаговый внутренний конвейер:</h5>
+          <div class="space-y-2">
+            ${reg.steps.map(s => `
+              <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-xs text-white">${s.title}</span>
+                  <span class="font-mono text-amber-400 text-[10px]">Шаг ${s.num}</span>
+                </div>
+                <a href="vscode://file/${WORKSPACE_ROOT}/${s.file}" class="text-[11px] font-mono text-sky-400 hover:underline">
+                  📄 ${s.file}
+                </a>
+                <div class="font-mono text-[11px] text-emerald-400 bg-slate-900/60 p-1.5 rounded border border-slate-800 mt-0.5">
+                  ${escapeHtml(s.symbol)}
+                </div>
+                <p class="text-[11px] text-slate-300 mt-1 leading-relaxed">${s.note}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    };
+
+    // ======================== 2.5D ИЗОМЕТРИЯ ========================
+    const toggle3dBtn = document.getElementById('toggle3dBtn');
+    const viewport = document.getElementById('viewport');
+    const canvas = document.getElementById('canvas');
+
+    toggle3dBtn.onclick = () => {
+      is3DMode = !is3DMode;
+      if (is3DMode) {
+        viewport.classList.add('viewport-3d');
+        canvas.classList.add('canvas-3d');
+        document.getElementById('text3d').textContent = '2D Поток';
+        toggle3dBtn.classList.add('bg-indigo-500', 'text-slate-950');
+      } else {
+        viewport.classList.remove('viewport-3d');
+        canvas.classList.remove('canvas-3d');
+        document.getElementById('text3d').textContent = '2.5D Слои';
+        toggle3dBtn.classList.remove('bg-indigo-500', 'text-slate-950');
+      }
+    };
+
+    // ======================== ВЫРАВНИВАНИЕ ========================
+    document.getElementById('resetLayoutBtn').onclick = () => {
+      const scenario = SCENARIOS[currentScenarioIndex];
+      const layers = [0, 1, 2, 3];
+      layers.forEach(layerIdx => {
+        const inLayer = scenario.nodes.filter(n => n.layer === layerIdx);
+        inLayer.forEach((n, i) => {
+          n.x = 100 + i * 400;
+          n.y = LAYER_Y_COORDS[layerIdx];
+          const el = document.getElementById(`node_${n.id}`);
+          if (el) {
+            el.style.left = `${n.x}px`;
+            el.style.top = `${n.y}px`;
+          }
+        });
+      });
+      updateConnections();
+    };
+
+    // ======================== PAN & ZOOM ========================
+    let isPanning = false;
+    let startX = 0, startY = 0;
+
+    function applyTransform() {
+      canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+      document.getElementById('zoomLevel').textContent = `${Math.round(zoom * 100)}%`;
+    }
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.node-card') || e.target.closest('button') || e.target.closest('a')) return;
+      isPanning = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => { isPanning = false; });
+
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.08 : 0.92;
+      const newZoom = Math.max(0.3, Math.min(2.2, zoom * factor));
+
+      const rect = viewport.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      panX = mouseX - (mouseX - panX) * (newZoom / zoom);
+      panY = mouseY - (mouseY - panY) * (newZoom / zoom);
+      zoom = newZoom;
+
+      applyTransform();
+    }, { passive: false });
+
+    document.getElementById('zoomIn').onclick = () => { zoom = Math.min(2.2, zoom * 1.2); applyTransform(); };
+    document.getElementById('zoomOut').onclick = () => { zoom = Math.max(0.3, zoom / 1.2); applyTransform(); };
+    document.getElementById('zoomFit').onclick = () => { zoom = 1; panX = 40; panY = 20; applyTransform(); };
+
+    document.getElementById('closeInspector').onclick = () => {
+      document.getElementById('insContent').innerHTML = '<div class="text-slate-400 text-center py-16">Кликните по любому блоку для анализа</div>';
+      document.getElementById('insTitle').textContent = 'Инспектор шага';
+    };
+
+    // СТАРТ
+    renderScenarioPills();
+    renderScenario();
+    applyTransform();
+  </script>
+</body>
+</html>
