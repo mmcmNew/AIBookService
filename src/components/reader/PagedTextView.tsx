@@ -3,7 +3,7 @@ import { Loader2, AlertCircle, RefreshCw, SkipForward, Hourglass } from 'lucide-
 import { clsx } from 'clsx';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { useAudioStore } from '../../store/audioStore';
+import { coordinator } from '../../engine/audio/coordinator';
 import { usePagedStore } from '../../store/pagedStore';
 import type { SentenceItem } from '../../types/book';
 import type { ChapterSpec } from '../../engine/pdf/chapterPlan';
@@ -217,7 +217,7 @@ export const PagedTextView: React.FC = () => {
   const currentPage = useBookStore((s) => s.currentPage);
   const currentSentenceId = useBookStore((s) => s.currentSentenceId);
   const setViewPage = useBookStore((s) => s.setViewPage);
-  const jumpToSentence = useAudioStore((s) => s.jumpToSentence);
+  const jumpToSentence = coordinator.jumpToSentence;
   const composed = usePagedStore((s) => s.composed);
   const states = usePagedStore((s) => s.states);
   const errors = usePagedStore((s) => s.errors);

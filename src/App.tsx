@@ -16,6 +16,7 @@ import { BookEditor } from './components/editor/BookEditor';
 import { QualityWatcher } from './components/editor/QualityWatcher';
 import { useBookStore } from './store/bookStore';
 import { useAudioStore } from './store/audioStore';
+import { coordinator } from './engine/audio/coordinator';
 import { useSettingsStore } from './store/settingsStore';
 import { useUserStore } from './store/userStore';
 
@@ -117,15 +118,15 @@ const AppShell: React.FC = () => {
       if (e.code === 'Space') {
         e.preventDefault();
         if (e.repeat) return;
-        if (audio.isPlaying && !audio.isPaused) audio.pause();
-        else if (audio.isPlaying && audio.isPaused) audio.resume();
-        else audio.play();
+        if (audio.isPlaying && !audio.isPaused) coordinator.pause();
+        else if (audio.isPlaying && audio.isPaused) coordinator.resume();
+        else void coordinator.play();
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
-        audio.playNextSentence();
+        void coordinator.playNextSentence();
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
-        audio.playPrevSentence();
+        void coordinator.playPrevSentence();
       }
     };
 
@@ -134,7 +135,7 @@ const AppShell: React.FC = () => {
   }, [setActiveFootnote]);
 
   const handleBackToLibrary = useCallback(() => {
-    useAudioStore.getState().stop();
+    coordinator.stop();
     void closeBook();
   }, [closeBook]);
 

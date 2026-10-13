@@ -5,6 +5,7 @@ import { getProvider } from '../providers';
 import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
 import { useSettingsStore } from '../../store/settingsStore';
 import { playChime } from './chime';
+import { htmlAudioPlayer, sniffAudioMime } from '../../infra/audio/htmlAudioPlayer';
 
 /**
  * AudioManager — «исполнитель»: проигрывает одну фразу (при необходимости с объявлением главы)
@@ -47,16 +48,6 @@ function sanitizeVolume(v: number | undefined): number {
   return Number.isFinite(v) ? Math.max(0, Math.min(1, v as number)) : 1;
 }
 
-/** Определяет MIME по сигнатуре, чтобы WAV/OGG не подавались как audio/mpeg */
-function sniffAudioMime(buf: ArrayBuffer): string {
-  const b = new Uint8Array(buf, 0, Math.min(12, buf.byteLength));
-  const ascii = (o: number, n: number) => String.fromCharCode(...Array.from(b.subarray(o, o + n)));
-  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WAVE') return 'audio/wav';
-  if (ascii(0, 4) === 'OggS') return 'audio/ogg';
-  if (ascii(0, 4) === 'fLaC') return 'audio/flac';
-  return 'audio/mpeg';
-}
-
 /** Ключ кэша учитывает провайдера, модель, голос, шлюз и режим API — кэши разных источников не смешиваются */
 export function buildCacheKey(
   bookId: string,
@@ -91,8 +82,6 @@ export function buildChapterCacheKey(
 }
 
 export class AudioManager {
-  private audioElement: HTMLAudioElement | null = null;
-  private currentObjectUrl: string | null = null;
   private handlers: AudioEngineHandlers = { onStarted: () => {}, onEnded: () => {}, onFailed: () => {} };
 
   /** Токен актуальной команды; -1 — ничего не играет (всё, что с другим токеном, устарело) */
@@ -110,11 +99,10 @@ export class AudioManager {
   private inflight = new Map<string, Promise<ArrayBuffer>>();
 
   constructor() {
-    if (typeof window !== 'undefined') {
-      this.audioElement = new Audio();
-      this.audioElement.addEventListener('ended', this.handleAudioEnded);
-      this.audioElement.addEventListener('error', this.handleAudioError);
-    }
+    htmlAudioPlayer.setCallbacks({
+      onEnded: this.handleAudioEnded,
+      onError: this.handleAudioError,
+    });
   }
 
   public setHandlers(handlers: AudioEngineHandlers) {
@@ -150,10 +138,7 @@ export class AudioManager {
     this.prefetchAbort = null;
     for (const hook of Array.from(this.cancelHooks)) hook();
     this.cancelHooks.clear();
-    if (this.audioElement) {
-      this.audioElement.pause();
-      this.audioElement.currentTime = 0;
-    }
+    htmlAudioPlayer.stop();
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       window.speechSynthesis.resume(); // cancel() на паузе в некоторых браузерах оставляет движок «на паузе»
@@ -224,9 +209,9 @@ export class AudioManager {
       const buffer = await this.getOrFetchAudio(key, job.bookId, job.chapterId, job.sentence.id, text, providerType, options, signal);
       if (!this.isCurrent(token)) return;
 
-      this.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
+      htmlAudioPlayer.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
       this.mainToken = token;
-      await this.audioElement?.play();
+      await htmlAudioPlayer.play();
       if (!this.isCurrent(token)) return;
       this.handlers.onStarted(token);
 
@@ -262,22 +247,15 @@ export class AudioManager {
           const timer = setTimeout(() => resolve(), SPEECH_INTRO_TIMEOUT_MS);
           return () => clearTimeout(timer);
         }, undefined);
-      } else if (this.audioElement) {
+      } else {
         const key = buildChapterCacheKey(job.bookId, job.chapterId, providerType, options, title);
         const buffer = await this.getOrFetchAudio(key, job.bookId, job.chapterId, -1, title, providerType, options, signal);
         if (!this.isCurrent(token)) return;
-        this.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
-        const audio = this.audioElement;
+        htmlAudioPlayer.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
         const finished = this.wait<void>((resolve) => {
-          const done = () => resolve();
-          audio.addEventListener('ended', done, { once: true });
-          audio.addEventListener('error', done, { once: true });
-          return () => {
-            audio.removeEventListener('ended', done);
-            audio.removeEventListener('error', done);
-          };
+          void htmlAudioPlayer.waitForEnd().then(resolve);
         }, undefined);
-        await audio.play();
+        await htmlAudioPlayer.play();
         await finished;
       }
     } catch {
@@ -438,22 +416,12 @@ export class AudioManager {
     }
   }
 
-  private setupAudioBuffer(buffer: ArrayBuffer, speed: number, volume: number): void {
-    const audio = this.audioElement;
-    if (!audio) return;
-    if (this.currentObjectUrl) URL.revokeObjectURL(this.currentObjectUrl);
-    this.currentObjectUrl = URL.createObjectURL(new Blob([buffer], { type: sniffAudioMime(buffer) }));
-    audio.src = this.currentObjectUrl;
-    audio.playbackRate = sanitizeSpeed(speed);
-    audio.volume = sanitizeVolume(volume);
-  }
-
   /** Пауза текущей фразы (вызывается хранилищем только из статуса playing) */
   public pause() {
     if (this.mode === 'speech') {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.pause();
     } else {
-      this.audioElement?.pause();
+      htmlAudioPlayer.pause();
     }
   }
 
@@ -464,7 +432,7 @@ export class AudioManager {
       return;
     }
     const token = this.mainToken;
-    this.audioElement?.play().catch((e) => {
+    htmlAudioPlayer.play().catch((e) => {
       console.error('Audio resume error:', e);
       if (token !== null && token === this.mainToken) {
         this.mainToken = null;
@@ -478,11 +446,11 @@ export class AudioManager {
   }
 
   public setSpeed(speed: number) {
-    if (this.audioElement) this.audioElement.playbackRate = sanitizeSpeed(speed);
+    htmlAudioPlayer.setSpeed(speed);
   }
 
   public setVolume(volume: number) {
-    if (this.audioElement) this.audioElement.volume = sanitizeVolume(volume);
+    htmlAudioPlayer.setVolume(volume);
   }
 }
 

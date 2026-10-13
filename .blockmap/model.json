@@ -268,7 +268,7 @@
       "title": "Оркестратор аудио",
       "layer": "Domain",
       "file": "src/engine/audio/audioManager.ts",
-      "line": 93,
+      "line": 84,
       "symbol": "AudioManager",
       "summary": "Берёт готовое аудио и фразу, управляет Плеером, ведёт статус плеера (владелец). С поставщиками не общается: аудио ему приносит Координатор.",
       "risk": "Обязательная проверка токена: события с устаревшим токеном отсекаются.",
@@ -312,8 +312,8 @@
     "b_infra_audioel": {
       "title": "Плеер (HTML Audio)",
       "layer": "Infra",
-      "file": "src/engine/audio/audioManager.ts",
-      "line": 441,
+      "file": "src/infra/audio/htmlAudioPlayer.ts",
+      "line": 41,
       "symbol": "setupAudioBuffer",
       "summary": "Низкоуровневый плеер: играет звук, сообщает координатору started / ended.",
       "flow": "f_infra_audioel",
@@ -338,7 +338,7 @@
       "title": "Статус плеера",
       "layer": "State",
       "file": "src/store/audioStore.ts",
-      "line": 109,
+      "line": 43,
       "symbol": "useAudioStore",
       "summary": "idle / loading / playing / error / waiting. Статус меняется через dispatch (reducePlayer). По замыслу пишет только Домен по подтверждённым событиям.",
       "risk": "Если UI выставит «играет» заранее, при падении домена статус будет врать.",
@@ -419,7 +419,7 @@
       "title": "Поставщик озвучки (кэш + синтез)",
       "layer": "Domain",
       "file": "src/engine/audio/audioManager.ts",
-      "line": 367,
+      "line": 345,
       "symbol": "getOrFetchAudio",
       "summary": "Поставляет аудио для фразы: ищет в кэше, иначе просит синтез у провайдера и сохраняет в кэш. Работает по запросу Координатора.",
       "fresh": true,
@@ -499,8 +499,8 @@
     "b_dom_coord": {
       "title": "Координатор воспроизведения",
       "layer": "Domain",
-      "file": "src/store/audioStore.ts",
-      "line": 329,
+      "file": "src/engine/audio/coordinator.ts",
+      "line": 260,
       "symbol": "advance",
       "members": [
         "setChapterInternally",
@@ -524,7 +524,6 @@
         "clearError"
       ],
       "summary": "Управляет поставками и ходом воспроизведения: берёт команду UI (play / jump / следующая / предыдущая / глава), у Поставщика фраз получает фразу, у Поставщика озвучки аудио, фиксирует позицию (владелец «Позиции чтения»), отдаёт Оркестратору «играй это».",
-      "risk": "Код координатора лежит в сторе audioStore (слой State): его нужно перенести в src/engine.",
       "flow": "f_dom_coord",
       "res": [
         "res_bookStore"
@@ -618,8 +617,12 @@
       "fn": "OpenRouterTTSProvider.synthesize"
     },
     "b_infra_audioel": {
-      "file": "src/engine/audio/audioManager.ts",
-      "fn": "AudioManager.setupAudioBuffer"
+      "file": "src/infra/audio/htmlAudioPlayer.ts",
+      "fn": "HtmlAudioPlayer.setupAudioBuffer"
+    },
+    "b_dom_coord": {
+      "file": "src/engine/audio/coordinator.ts",
+      "fn": "advance"
     }
   },
   "flows": {
@@ -1997,7 +2000,7 @@
     },
     "f_infra_audioel": {
       "title": "Настройка воспроизведения HTML Audio",
-      "source": "src/engine/audio/audioManager.ts · AudioManager.setupAudioBuffer",
+      "source": "src/infra/audio/htmlAudioPlayer.ts · HtmlAudioPlayer.setupAudioBuffer",
       "nodes": [
         {
           "id": "s",
@@ -2166,7 +2169,7 @@
     },
     "f_dom_coord": {
       "title": "План: Координатор воспроизведения",
-      "source": "src/store/audioStore.ts",
+      "source": "src/engine/audio/coordinator.ts",
       "nodes": [
         {
           "id": "s",

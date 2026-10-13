@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PDFDocumentProxy, PageViewport, RenderTask } from 'pdfjs-dist';
 import { useBookStore } from '../../store/bookStore';
-import { useAudioStore } from '../../store/audioStore';
+import { coordinator } from '../../engine/audio/coordinator';
 import { useSettingsStore } from '../../store/settingsStore';
 import { usePagedStore } from '../../store/pagedStore';
 import { loadPdfjsDocument, getPdfBuffer } from '../../engine/pdf/pdfjsDoc';
@@ -281,7 +281,7 @@ export const PdfBookView: React.FC = () => {
   const currentBook = useBookStore((state) => state.currentBook);
   const currentSentenceId = useBookStore((state) => state.currentSentenceId);
   const setPdfViewMode = useBookStore((state) => state.setPdfViewMode);
-  const jumpToSentence = useAudioStore((state) => state.jumpToSentence);
+  const jumpToSentence = coordinator.jumpToSentence;
   const autoscroll = useSettingsStore((state) => state.autoscroll);
 
   const bookId = currentBook?.metadata.id;

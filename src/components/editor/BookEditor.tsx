@@ -19,6 +19,7 @@ import { useToast } from '../ui/Toast';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAudioStore } from '../../store/audioStore';
+import { coordinator } from '../../engine/audio/coordinator';
 import {
   applyCleanupToDraft,
   addParagraph,
@@ -219,7 +220,7 @@ const EditorInner: React.FC<{ onClose: () => void; initialTab?: Tab }> = ({ onCl
         return false;
       }
       const audio = useAudioStore.getState();
-      if (audio.isPlaying) audio.stop();
+      if (audio.isPlaying) coordinator.stop();
       await replaceBookChapters(result.chapters);
       const saved = useBookStore.getState().currentBook;
       setHist({ past: [], present: chaptersToDraft(saved?.chapters ?? result.chapters), future: [] });

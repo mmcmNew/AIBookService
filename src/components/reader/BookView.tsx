@@ -2,7 +2,7 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef }
 import { ChevronLeft, ChevronRight, Bookmark, FileWarning } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { useAudioStore } from '../../store/audioStore';
+import { coordinator } from '../../engine/audio/coordinator';
 import { SentenceItem } from '../../types/book';
 import { clsx } from 'clsx';
 import { ResumeAutoscrollButton, ensureVisible, scrollIntoComfortZone, useAutoscrollPause, useIsReading } from './readerScroll';
@@ -88,7 +88,7 @@ export const BookView: React.FC = () => {
   const currentChapterIndex = useBookStore((state) => state.currentChapterIndex);
   const setChapterIndex = useBookStore((state) => state.setChapterIndex);
   const currentSentenceId = useBookStore((state) => state.currentSentenceId);
-  const jumpToSentence = useAudioStore((state) => state.jumpToSentence);
+  const jumpToSentence = coordinator.jumpToSentence;
 
   const fontFamily = useSettingsStore((state) => state.fontFamily);
   const fontSize = useSettingsStore((state) => state.fontSize);

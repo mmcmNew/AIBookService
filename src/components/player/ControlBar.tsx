@@ -19,6 +19,7 @@ import {
   Square,
 } from 'lucide-react';
 import { useAudioStore } from '../../store/audioStore';
+import { coordinator } from '../../engine/audio/coordinator';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
 
@@ -69,12 +70,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   const status = useAudioStore((s) => s.status);
   const error = useAudioStore((s) => s.error);
   const notice = useAudioStore((s) => s.notice);
-  const clearError = useAudioStore((s) => s.clearError);
-  const play = useAudioStore((s) => s.play);
-  const pause = useAudioStore((s) => s.pause);
-  const stop = useAudioStore((s) => s.stop);
-  const playNextSentence = useAudioStore((s) => s.playNextSentence);
-  const playPrevSentence = useAudioStore((s) => s.playPrevSentence);
+  const { clearError, play, pause, stop, playNextSentence, playPrevSentence } = coordinator;
 
   const currentBook = useBookStore((state) => state.currentBook);
   const currentChapter = useBookStore((state) => state.getCurrentChapter());

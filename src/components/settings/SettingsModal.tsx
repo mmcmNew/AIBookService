@@ -21,7 +21,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
 import { AggregatorApiMode, TTSProviderType, VoiceOption } from '../../types/tts';
 import { getAllVoices, getProvider, PROVIDERS_MAP } from '../../engine/providers';
-import { buildSynthesisOptions } from '../../store/audioStore';
+import { buildSynthesisOptions } from '../../engine/audio/coordinator';
 import { 
   openRouterTTSProvider, 
   AggregatorModelInfo,
