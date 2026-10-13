@@ -1,0 +1,14 @@
+{
+  "roots": ["src", "server/src"],
+  "ext": "\\.(ts|tsx)$",
+  "skipDirs": ["node_modules", "dist", "__tests__", "test"],
+  "paths": { "@/*": ["src/*"] },
+  "allowJs": false,
+  "layers": [
+    { "match": "^server/|^src/engine/(providers|proxy)", "layer": "Infra" },
+    { "match": "^src/(components|App|main)", "layer": "UI" },
+    { "match": "^src/store", "layer": "State" },
+    { "match": "^src/storage", "layer": "Data" },
+    { "match": "^src/engine", "layer": "Domain" }
+  ]
+}

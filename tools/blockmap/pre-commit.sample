@@ -1,7 +1,0 @@
-#!/bin/sh
-# Пример хука: скопировать в .git/hooks/pre-commit (проект пока не в git — положите после git init).
-# Блокирует коммит, если утверждённый блок/сценарий изменился, а карта не обновлена.
-node tools/blockmap/blockmap.mjs check --fast || {
-  echo "Block Map: карта не актуальна. Проверьте блоки (blockmap block <id>), обновите схему и утвердите: blockmap bind <id>"
-  exit 1
-}

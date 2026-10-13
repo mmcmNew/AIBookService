@@ -16,3 +16,6 @@
   1. *Оффлайн*: Web Speech API
   2. *Бесплатно*: Edge-TTS
   3. *AI Premium*: Google Gemini Audio, ElevenLabs, OpenAI TTS
+
+## Карта блоков
+Инструмент вынесен в отдельный репозиторий: https://github.com/mmcmNew/code-flow (зависимость `code-flow`). Карта этого проекта — `.blockmap/` (профиль, модель, версии схемы). Команды: `npx blockmap check`, `npx blockmap build` (страница `.blockmap/out/map.html`). Промпты агентов: `docs/block_map_agent_prompt.md`, `docs/block_map_executor_prompt.md`; правила схем, решения и питч — в репозитории code-flow (`docs/`).

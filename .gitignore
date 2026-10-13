@@ -6,5 +6,5 @@ server/temp
 src-tauri/target
 *.log
 
-tools/blockmap/out/
+.blockmap/out/
 .claude/

@@ -12,11 +12,9 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "arch": "start docs/architecture/index.html",
-    "blockmap": "node tools/blockmap/blockmap.mjs",
-    "blockmap:check": "node tools/blockmap/blockmap.mjs check",
-    "blockmap:map": "node tools/blockmap/blockmap.mjs build",
-    "blockmap:self": "node tools/blockmap/blockmap.mjs check --strict --profile=tool",
-    "blockmap:test": "node --test \"tools/blockmap/test/*.test.mjs\""
+    "blockmap": "blockmap",
+    "blockmap:check": "blockmap check",
+    "blockmap:map": "blockmap build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.3",
@@ -41,6 +39,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "code-flow": "github:mmcmNew/code-flow",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
