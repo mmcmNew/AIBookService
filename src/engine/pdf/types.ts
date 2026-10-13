@@ -28,7 +28,3 @@ export interface PdfPageRecord {
   attempts?: number;
   updatedAt: number;
 }
-
-export function emptyRecord(bookId: string, page: number): PdfPageRecord {
-  return { bookId, page, status: 'pending', blocks: [], warnings: [], editedByUser: false, updatedAt: Date.now() };
-}

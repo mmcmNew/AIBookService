@@ -119,21 +119,6 @@ export function applyCleanupToDraft(draft: DraftChapter[], applied: AppliedChapt
   });
 }
 
-/** Заменить тексты отдельных абзацев (например, результат ИИ-очистки). Ключ: `${ci}:${pi}`. */
-export function applyParagraphReplacements(draft: DraftChapter[], replacements: Map<string, string>): DraftChapter[] {
-  if (replacements.size === 0) return draft;
-  return draft.map((chapter, ci) => {
-    let touched = false;
-    const paragraphs = chapter.paragraphs.map((p, pi) => {
-      const t = replacements.get(`${ci}:${pi}`);
-      if (t === undefined || t === p.text) return p;
-      touched = true;
-      return { ...p, text: t, pool: poolOf(p) };
-    });
-    return touched ? { ...chapter, paragraphs } : chapter;
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Поиск и замена
 // ---------------------------------------------------------------------------

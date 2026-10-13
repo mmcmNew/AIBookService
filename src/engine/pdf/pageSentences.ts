@@ -19,14 +19,8 @@ export function sentenceIdFor(page: number, block: number, k: number): number {
 export function pageOfSentenceId(id: number): number {
   return Math.floor(id / PAGE_ID_STRIDE);
 }
-export function blockOfSentenceId(id: number): number {
-  return Math.floor((id % PAGE_ID_STRIDE) / BLOCK_ID_STRIDE);
-}
 export function paragraphIndexFor(page: number, block: number): number {
   return page * PARAGRAPH_PAGE_STRIDE + Math.min(block, 999);
-}
-export function pageOfParagraphIndex(pi: number): number {
-  return Math.floor(pi / PARAGRAPH_PAGE_STRIDE);
 }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;

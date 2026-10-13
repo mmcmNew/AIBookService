@@ -527,7 +527,3 @@ export async function closePagedSession(): Promise<void> {
     usePagedStore.getState().reset();
   }
 }
-
-export function activePagedBookId(): string | null {
-  return active?.bookId ?? null;
-}

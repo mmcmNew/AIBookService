@@ -8,7 +8,6 @@ import {
   acceptEnded,
   isPausedStatus,
   isPlayingStatus,
-  nextPosition,
   reducePlayer,
   shouldAnnounceChapter,
 } from './playerState';
@@ -124,29 +123,4 @@ test('не объявляем: выключено, нет названия, се
 
 test('«Глава N» тоже объявляется', () => {
   assert.equal(shouldAnnounceChapter({ ...base, title: 'Глава 7', trigger: 'chapter' }), true);
-});
-
-/* ------------------------ Переход между главами ------------------------ */
-
-test('nextPosition: следующее предложение в главе', () => {
-  assert.deepEqual(nextPosition([3, 2], 0, 0, true), { kind: 'sentence', sentenceIndex: 1 });
-});
-
-test('nextPosition: конец главы -> следующая глава (авто-переход вкл)', () => {
-  assert.deepEqual(nextPosition([3, 2], 0, 2, true), { kind: 'chapter', chapterIndex: 1 });
-});
-
-test('nextPosition: пустые главы пропускаются', () => {
-  assert.deepEqual(nextPosition([3, 0, 0, 4], 0, 2, true), { kind: 'chapter', chapterIndex: 3 });
-});
-
-test('nextPosition: конец книги', () => {
-  assert.deepEqual(nextPosition([3, 2], 1, 1, true), { kind: 'end-of-book' });
-  assert.deepEqual(nextPosition([3, 0], 0, 2, true), { kind: 'end-of-book' });
-});
-
-test('nextPosition: авто-переход выкл — остановка в конце главы, но в конце книги — «конец книги»', () => {
-  assert.deepEqual(nextPosition([3, 2], 0, 2, false), { kind: 'end-of-chapter' });
-  assert.deepEqual(nextPosition([3, 2], 1, 1, false), { kind: 'end-of-book' });
-  assert.deepEqual(nextPosition([3, 2], 0, 0, false), { kind: 'sentence', sentenceIndex: 1 });
 });

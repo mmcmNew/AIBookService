@@ -100,33 +100,3 @@ export function shouldAnnounceChapter({ enabled, title, sentenceIndex, trigger }
   if (sentenceIndex !== 0) return false;
   return trigger === 'start' || trigger === 'chapter';
 }
-
-export type AdvanceResult =
-  | { kind: 'sentence'; sentenceIndex: number }
-  | { kind: 'chapter'; chapterIndex: number }
-  | { kind: 'end-of-chapter' } // конец главы, авто-переход выключен
-  | { kind: 'end-of-book' };
-
-/**
- * Куда перейти после текущего предложения.
- * sentenceCounts[i] — число предложений в главе i; пустые главы пропускаются.
- */
-export function nextPosition(
-  sentenceCounts: number[],
-  chapterIndex: number,
-  sentenceIndex: number,
-  autoAdvance: boolean
-): AdvanceResult {
-  if (sentenceIndex + 1 < (sentenceCounts[chapterIndex] ?? 0)) {
-    return { kind: 'sentence', sentenceIndex: sentenceIndex + 1 };
-  }
-  if (!autoAdvance) {
-    // «Конец книги» важнее: если глав больше нет — это конец книги
-    const hasMore = sentenceCounts.some((n, i) => i > chapterIndex && n > 0);
-    return hasMore ? { kind: 'end-of-chapter' } : { kind: 'end-of-book' };
-  }
-  for (let i = chapterIndex + 1; i < sentenceCounts.length; i++) {
-    if (sentenceCounts[i] > 0) return { kind: 'chapter', chapterIndex: i };
-  }
-  return { kind: 'end-of-book' };
-}

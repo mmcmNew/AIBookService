@@ -44,10 +44,6 @@ export function releasePdfjsDocument(bookId?: string): void {
   void old.then((d) => d.destroy()).catch(() => undefined);
 }
 
-export function peekPdfjsDocument(bookId: string): Promise<PDFDocumentProxy> | null {
-  return cached && cached.bookId === bookId ? cached.promise : null;
-}
-
 export async function getPdfBuffer(bookId: string): Promise<ArrayBuffer | undefined> {
   return loadPdfBuffer(bookId);
 }

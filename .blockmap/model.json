@@ -2367,6 +2367,18 @@
       "at": "2026-10-12",
       "where": "src/engine/audio/audioManager.ts:283",
       "kind": "catch"
+    },
+    "aa900b44ab": {
+      "reason": "сбой чтения кэша не должен прерывать озвучку (фоллбэк на синтез)",
+      "at": "2026-10-13",
+      "where": "src/engine/audio/audioManager.ts:398",
+      "kind": "catch"
+    },
+    "95f8e903bd": {
+      "reason": "фоновая запись в кэш не должна прерывать воспроизведение при сбое хранилища",
+      "at": "2026-10-13",
+      "where": "src/engine/audio/audioManager.ts:417",
+      "kind": "promise.catch"
     }
   },
   "states": {
