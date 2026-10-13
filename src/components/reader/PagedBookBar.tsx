@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, AlertCircle, Loader2, RefreshCw, SkipForward, Settings2, Pause, Play, Wand2 } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
+import { goToPage } from '../../engine/navigation';
 import { usePagedStore } from '../../store/pagedStore';
 import { useAudioStore } from '../../store/audioStore';
 import { RerecognizeDialog } from './RerecognizeDialog';
@@ -35,7 +36,6 @@ const STATE_STYLE: Record<PageState, string> = {
  */
 export const PagedBookBar: React.FC = () => {
   const currentPage = useBookStore((s) => s.currentPage);
-  const goToPage = useBookStore((s) => s.goToPage);
   const pageCount = usePagedStore((s) => s.pageCount);
   const states = usePagedStore((s) => s.states);
   const errors = usePagedStore((s) => s.errors);

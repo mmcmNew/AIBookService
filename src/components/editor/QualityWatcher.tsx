@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useBookStore } from '../../store/bookStore';
+import { clearQualityNotice } from '../../engine/library';
 import { useToast } from '../ui/Toast';
 
 /**
@@ -8,7 +9,6 @@ import { useToast } from '../ui/Toast';
  */
 export function QualityWatcher({ onOpenEditor }: { onOpenEditor: (tab?: 'quality' | 'chapters') => void }): null {
   const notice = useBookStore((s) => s.qualityNotice);
-  const clear = useBookStore((s) => s.clearQualityNotice);
   const toast = useToast();
 
   useEffect(() => {
@@ -19,8 +19,8 @@ export function QualityWatcher({ onOpenEditor }: { onOpenEditor: (tab?: 'quality
       `«${notice.title}»: ${quality.summary.toLowerCase()}. ` +
       (quality.recommendation ?? (single ? 'Главы не определились — откройте редактор.' : 'Откройте редактор, чтобы исправить текст.'));
     toast.info(message, { duration: 15000, actionLabel: 'Исправить', onAction: () => onOpenEditor(single && quality.issueCodes.length === 1 ? 'chapters' : 'quality') });
-    clear();
-  }, [notice, clear, toast, onOpenEditor]);
+    clearQualityNotice();
+  }, [notice, toast, onOpenEditor]);
 
   return null;
 }

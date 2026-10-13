@@ -17,6 +17,7 @@ import { QualityWatcher } from './components/editor/QualityWatcher';
 import { useBookStore } from './store/bookStore';
 import { useAudioStore } from './store/audioStore';
 import { coordinator } from './engine/audio/coordinator';
+import { closeBook, loadSavedBooksList, setActiveFootnote } from './engine/library';
 import { useSettingsStore } from './store/settingsStore';
 import { useUserStore } from './store/userStore';
 
@@ -53,9 +54,6 @@ const AppShell: React.FC = () => {
 
   const currentBook = useBookStore((state) => state.currentBook);
   const activeFootnote = useBookStore((state) => state.activeFootnote);
-  const setActiveFootnote = useBookStore((state) => state.setActiveFootnote);
-  const loadSavedBooksList = useBookStore((state) => state.loadSavedBooksList);
-  const closeBook = useBookStore((state) => state.closeBook);
   const pdfViewMode = useBookStore((state) => state.pdfViewMode);
   const theme = useSettingsStore((state) => state.theme);
   const fetchBalance = useUserStore((state) => state.fetchBalance);

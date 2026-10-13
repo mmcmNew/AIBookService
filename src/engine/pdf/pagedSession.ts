@@ -527,3 +527,13 @@ export async function closePagedSession(): Promise<void> {
     usePagedStore.getState().reset();
   }
 }
+
+/** Выставляет страницу фокуса распознавания (владелец st_paged: b_dom_pdf) */
+export function setFocusPage(page: number): void {
+  usePagedStore.getState().setFocusPage(page);
+}
+
+/** Увеличивает navNonce при явной навигации для обновления видов (владелец st_paged: b_dom_pdf) */
+export function bumpNavNonce(): void {
+  usePagedStore.setState((s) => ({ navNonce: s.navNonce + 1 }));
+}

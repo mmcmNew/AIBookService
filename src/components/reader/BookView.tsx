@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Bookmark, FileWarning } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { coordinator } from '../../engine/audio/coordinator';
+import { setChapterIndex } from '../../engine/navigation';
 import { SentenceItem } from '../../types/book';
 import { clsx } from 'clsx';
 import { ResumeAutoscrollButton, ensureVisible, scrollIntoComfortZone, useAutoscrollPause, useIsReading } from './readerScroll';
@@ -86,7 +87,6 @@ ChapterText.displayName = 'ChapterText';
 export const BookView: React.FC = () => {
   const currentBook = useBookStore((state) => state.currentBook);
   const currentChapterIndex = useBookStore((state) => state.currentChapterIndex);
-  const setChapterIndex = useBookStore((state) => state.setChapterIndex);
   const currentSentenceId = useBookStore((state) => state.currentSentenceId);
   const jumpToSentence = coordinator.jumpToSentence;
 

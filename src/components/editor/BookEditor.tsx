@@ -17,6 +17,7 @@ import {
 import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
 import { useBookStore } from '../../store/bookStore';
+import { replaceBookChapters } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAudioStore } from '../../store/audioStore';
 import { coordinator } from '../../engine/audio/coordinator';
@@ -89,7 +90,6 @@ export const BookEditor: React.FC<BookEditorProps> = ({ isOpen, onClose, initial
 const EditorInner: React.FC<{ onClose: () => void; initialTab?: Tab }> = ({ onClose, initialTab }) => {
   const book = useBookStore((s) => s.currentBook)!;
   const startChapter = useBookStore((s) => s.currentChapterIndex);
-  const replaceBookChapters = useBookStore((s) => s.replaceBookChapters);
   const toast = useToast();
   const titleId = useId();
 

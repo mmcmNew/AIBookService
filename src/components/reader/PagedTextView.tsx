@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { coordinator } from '../../engine/audio/coordinator';
+import { setFocusPage, setViewPage } from '../../engine/navigation';
 import { usePagedStore } from '../../store/pagedStore';
 import type { SentenceItem } from '../../types/book';
 import type { ChapterSpec } from '../../engine/pdf/chapterPlan';
@@ -41,7 +42,6 @@ const aroundPage = (page: number, pageCount: number): Win => ({
 
 const PagePlaceholder: React.FC<{ page: number; state: PageState; error?: string }> = ({ page, state, error }) => {
   const controller = usePagedStore((s) => s.controller);
-  const setFocusPage = usePagedStore((s) => s.setFocusPage);
   return (
     <div
       className="min-h-[45vh] flex flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-zinc-400 font-sans border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl px-4 py-8"
@@ -216,7 +216,6 @@ export const PagedTextView: React.FC = () => {
   const currentBook = useBookStore((s) => s.currentBook);
   const currentPage = useBookStore((s) => s.currentPage);
   const currentSentenceId = useBookStore((s) => s.currentSentenceId);
-  const setViewPage = useBookStore((s) => s.setViewPage);
   const jumpToSentence = coordinator.jumpToSentence;
   const composed = usePagedStore((s) => s.composed);
   const states = usePagedStore((s) => s.states);

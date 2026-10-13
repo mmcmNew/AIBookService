@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { parseBookFile } from '../../engine/parsers';
 import { SavedBook, useBookStore } from '../../store/bookStore';
+import { clearBookError as clearError, deleteBook, loadBook, selectSavedBook } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
 import { PdfRecognitionMode } from '../../types/settings';
@@ -229,10 +230,6 @@ export const LibraryView: React.FC = () => {
   const sortId = useId();
 
   const savedBooks = useBookStore((state) => state.savedBooks);
-  const loadBook = useBookStore((state) => state.loadBook);
-  const selectSavedBook = useBookStore((state) => state.selectSavedBook);
-  const deleteBook = useBookStore((state) => state.deleteBook);
-  const clearError = useBookStore((state) => state.clearError);
   const bookStoreError = useBookStore((state) => state.error);
   const isStoreLoading = useBookStore((state) => state.isLoading);
 

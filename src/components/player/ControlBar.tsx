@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAudioStore } from '../../store/audioStore';
 import { coordinator } from '../../engine/audio/coordinator';
+import { setChapterIndex } from '../../engine/navigation';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
 
@@ -75,7 +76,6 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   const currentBook = useBookStore((state) => state.currentBook);
   const currentChapter = useBookStore((state) => state.getCurrentChapter());
   const currentChapterIndex = useBookStore((state) => state.currentChapterIndex);
-  const setChapterIndex = useBookStore((state) => state.setChapterIndex);
   const currentSentenceIndex = useBookStore((state) => state.getCurrentSentenceIndex());
 
   const {

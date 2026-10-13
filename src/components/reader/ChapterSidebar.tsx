@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { X, BookOpen, Check, Search } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
+import { setChapterIndex } from '../../engine/navigation';
 import { Modal } from '../ui/Modal';
 import { useMediaQuery } from '../ui/useMediaQuery';
 import { clsx } from 'clsx';
@@ -20,7 +21,6 @@ interface PanelProps {
 const ChapterPanel: React.FC<PanelProps> = ({ titleId, onClose, closeOnSelect }) => {
   const currentBook = useBookStore((state) => state.currentBook);
   const currentChapterIndex = useBookStore((state) => state.currentChapterIndex);
-  const setChapterIndex = useBookStore((state) => state.setChapterIndex);
   const [search, setSearch] = useState('');
   const activeRef = useRef<HTMLButtonElement | null>(null);
 

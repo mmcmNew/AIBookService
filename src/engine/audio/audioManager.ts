@@ -455,3 +455,20 @@ export class AudioManager {
 }
 
 export const audioManager = new AudioManager();
+
+/** Удаляет записи кэша для предложений, которых больше нет в книге (владелец res_audioCache: b_dom_fetch) */
+export async function purgeOrphanAudioCache(
+  bookId: string,
+  validSentencesByChapter: Map<string, Set<number>>,
+): Promise<void> {
+  await db.audioCache
+    .where('bookId')
+    .equals(bookId)
+    .filter((a) => !validSentencesByChapter.get(a.chapterId)?.has(a.sentenceId))
+    .delete();
+}
+
+/** Удаляет весь аудиокэш книги */
+export async function deleteAudioCacheForBook(bookId: string): Promise<void> {
+  await db.audioCache.where('bookId').equals(bookId).delete();
+}

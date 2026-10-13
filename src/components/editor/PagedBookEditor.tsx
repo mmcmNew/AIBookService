@@ -4,6 +4,7 @@ import { Modal } from '../ui/Modal';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/Toast';
 import { useBookStore } from '../../store/bookStore';
+import { goToPage } from '../../engine/navigation';
 import { usePagedStore } from '../../store/pagedStore';
 import { assessBook } from '../../engine/cleanup/bookQuality';
 import { planFromHeadings, planFromOutline, type ChapterSpec } from '../../engine/pdf/chapterPlan';
@@ -80,7 +81,6 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
   const toast = useToast();
   const book = useBookStore((s) => s.currentBook)!;
   const currentPage = useBookStore((s) => s.currentPage);
-  const goToPage = useBookStore((s) => s.goToPage);
   const controller = usePagedStore((s) => s.controller);
   const composed = usePagedStore((s) => s.composed);
   const states = usePagedStore((s) => s.states);

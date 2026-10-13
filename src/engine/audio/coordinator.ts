@@ -10,8 +10,10 @@ import { usePagedStore } from '../../store/pagedStore';
 import { useAudioStore } from '../../store/audioStore';
 import {
   firstSentenceAtOrAfterPage,
+  firstSentenceOnPage,
   nextStep,
   prevSentenceOf,
+  sentencePage,
   type ComposedBook,
 } from '../pdf/composer';
 import { pageOfSentenceId } from '../pdf/pageSentences';
@@ -19,6 +21,8 @@ import type { SentenceItem } from '../../types/book';
 import { useSettingsStore } from '../../store/settingsStore';
 import { SynthesisOptions } from '../../types/tts';
 import { getCatalogModelInfo, getKnownModelVoices, normalizeAggregatorVoice } from '../providers/openRouterTts';
+import { setFocusPage } from '../pdf/pagedSession';
+import { flushProgress, navigatePaged, pagedBookOpen, queueProgress } from '../library';
 
 /**
  * Собирает параметры синтеза из текущих настроек (общая точка для плеера и кнопки «Тест озвучки»).
@@ -70,7 +74,7 @@ let internalChapterChange = false;
 export function setChapterInternally(index: number): void {
   internalChapterChange = true;
   try {
-    useBookStore.getState().setChapterIndex(index);
+    setChapterIndex(index);
   } finally {
     internalChapterChange = false;
   }
@@ -94,7 +98,7 @@ export function beginWait(page: number, mode: 'jump' | 'next'): void {
   useAudioStore.getState().dispatch({ type: 'request' });
   waitMode = mode;
   useAudioStore.setState({ notice: null, waitingPage: page });
-  usePagedStore.getState().setFocusPage(page);
+  setFocusPage(page);
 }
 
 const readyPageState = (composed: ComposedBook, page: number) => {
@@ -133,7 +137,7 @@ export function startPagedPlayback(trigger: PlayTrigger): void {
       return;
     }
     sentenceId = first.id;
-    useBookStore.getState().setSentenceId(sentenceId);
+    setSentenceId(sentenceId);
   }
   const sentence = composed.order[composed.indexById.get(sentenceId) as number];
   const chapterIndex = composed.chapterOfSentence.get(sentenceId) ?? 0;
@@ -184,7 +188,7 @@ export function advancePaged(auto: boolean): void {
       stopAll('Конец главы');
       return;
     }
-    book.setSentenceId(step.sentence.id);
+    setSentenceId(step.sentence.id);
     startPlayback(sameChapter ? 'navigate' : 'chapter');
   } else if (step.kind === 'wait') {
     beginWait(step.page, 'next');
@@ -274,7 +278,7 @@ export function advance(auto: boolean): void {
   });
 
   if (result.kind === 'sentence') {
-    book.setSentenceId(result.sentence.id);
+    setSentenceId(result.sentence.id);
     startPlayback('navigate');
   } else if (result.kind === 'chapter') {
     setChapterInternally(result.chapterIndex);
@@ -337,7 +341,7 @@ export async function playPrevSentence(): Promise<void> {
     const cur = book.currentSentenceId;
     const prev = composed && cur != null ? prevSentenceOf(composed, cur) : null;
     if (prev) {
-      book.setSentenceId(prev.sentence.id);
+      setSentenceId(prev.sentence.id);
       startPlayback('navigate');
     }
     return;
@@ -345,18 +349,119 @@ export async function playPrevSentence(): Promise<void> {
   const chapter = book.getCurrentChapter();
   if (!chapter || chapter.sentences.length === 0) return;
   const prevIndex = Math.max(0, book.getCurrentSentenceIndex() - 1);
-  book.setSentenceId(chapter.sentences[prevIndex].id);
+  setSentenceId(chapter.sentences[prevIndex].id);
   startPlayback('navigate');
 }
 
 export async function jumpToSentence(sentenceId: number): Promise<void> {
-  useBookStore.getState().setSentenceId(sentenceId);
+  setSentenceId(sentenceId);
   const status = useAudioStore.getState().status;
   if (status === 'loading' || status === 'playing' || status === 'paused') startPlayback('navigate');
 }
 
 export function clearError(): void {
   useAudioStore.getState().clearError();
+}
+
+// ---------------------------------------------------------------------------
+// Управление позицией чтения (b_dom_coord — владелец st_position)
+// ---------------------------------------------------------------------------
+
+export function setReadingPosition(pos: { chapterIndex?: number; sentenceId?: number | null; page?: number }): void {
+  useBookStore.getState().setPosition(pos);
+}
+
+export function resetReadingPosition(): void {
+  useBookStore.getState().resetPosition();
+}
+
+export function goToPage(page: number): void {
+  const book = pagedBookOpen();
+  if (!book) return;
+  const composed = usePagedStore.getState().composed;
+  const p = Math.min(Math.max(1, Math.round(page) || 1), book.metadata.paged!.pageCount);
+  const ready = composed?.pages[p - 1]?.state === 'done';
+  const target = ready && composed ? firstSentenceOnPage(composed, p) ?? firstSentenceAtOrAfterPage(composed, p) : null;
+  navigatePaged(p, target?.id ?? null, !ready);
+}
+
+export function setViewPage(page: number): void {
+  const book = pagedBookOpen();
+  if (!book) return;
+  const p = Math.min(Math.max(1, Math.round(page) || 1), book.metadata.paged!.pageCount);
+  if (p === useBookStore.getState().currentPage) return;
+  useBookStore.getState().setViewPage(p);
+  setFocusPage(p);
+  queueProgress(book.metadata.id, { 'metadata.lastPage': p, 'metadata.lastReadAt': Date.now() });
+}
+
+export function setChapterIndex(index: number): void {
+  const book = useBookStore.getState().currentBook;
+  if (!book || index < 0 || index >= book.chapters.length) return;
+  if (book.metadata.paged) {
+    const ch = book.chapters[index];
+    const composed = usePagedStore.getState().composed;
+    const startPage = ch.startPage ?? 1;
+    const first = ch.sentences[0];
+    if (composed && first && composed.pages[startPage - 1]?.state === 'done' && sentencePage(first) === startPage) {
+      navigatePaged(startPage, first.id, false);
+    } else {
+      goToPage(startPage);
+    }
+    return;
+  }
+
+  const firstSentenceId = book.chapters[index]?.sentences[0]?.id ?? null;
+  useBookStore.getState().setPosition({
+    chapterIndex: index,
+    sentenceId: firstSentenceId,
+  });
+
+  queueProgress(book.metadata.id, {
+    'metadata.lastReadAt': Date.now(),
+    'metadata.lastChapterId': book.chapters[index].id,
+    'metadata.lastSentenceId': firstSentenceId ?? undefined,
+  });
+  void flushProgress();
+}
+
+export function setSentenceId(id: number | null): void {
+  if (id !== null && useBookStore.getState().currentSentenceId === id) return;
+  if (id === null) {
+    useBookStore.getState().setSentenceId(null);
+    return;
+  }
+  const pagedBook = pagedBookOpen();
+  if (pagedBook) {
+    const composed = usePagedStore.getState().composed;
+    const idx = composed?.indexById.get(id);
+    if (composed && idx !== undefined) {
+      const page = sentencePage(composed.order[idx]);
+      const chapterIndex = composed.chapterOfSentence.get(id) ?? useBookStore.getState().currentChapterIndex;
+      useBookStore.getState().setPosition({
+        sentenceId: id,
+        page,
+        chapterIndex,
+      });
+      if (usePagedStore.getState().focusPage !== page) setFocusPage(page);
+      queueProgress(pagedBook.metadata.id, {
+        'metadata.lastReadAt': Date.now(),
+        'metadata.lastPage': page,
+        'metadata.lastChapterId': pagedBook.chapters[chapterIndex]?.id,
+        'metadata.lastSentenceId': id,
+      });
+      return;
+    }
+  }
+  useBookStore.getState().setSentenceId(id);
+  const { currentBook: book, currentChapterIndex } = useBookStore.getState();
+  if (book) {
+    queueProgress(book.metadata.id, {
+      'metadata.lastReadAt': Date.now(),
+      'metadata.lastChapterId': book.chapters[currentChapterIndex]?.id,
+      'metadata.lastSentenceId': id,
+    });
+  }
 }
 
 // Связываем AudioManager с координатором
@@ -423,4 +528,10 @@ export const coordinator = {
   checkWait,
   setChapterInternally,
   buildSynthesisOptions,
+  setChapterIndex,
+  setViewPage,
+  goToPage,
+  setSentenceId,
+  setReadingPosition,
+  resetReadingPosition,
 };

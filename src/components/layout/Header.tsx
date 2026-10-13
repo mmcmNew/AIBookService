@@ -15,6 +15,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
+import { loadBook, setPdfViewMode } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
@@ -123,8 +124,6 @@ export const Header: React.FC<HeaderProps> = ({
   const currentBook = useBookStore((state) => state.currentBook);
   const currentChapterIndex = useBookStore((state) => state.currentChapterIndex);
   const pdfViewMode = useBookStore((state) => state.pdfViewMode);
-  const setPdfViewMode = useBookStore((state) => state.setPdfViewMode);
-  const loadBook = useBookStore((state) => state.loadBook);
 
   const {
     theme,
