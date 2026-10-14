@@ -16,7 +16,6 @@
       "cols": {
         "b_ui_play": 0,
         "b_dom_coord": 0,
-        "b_state_pos": 0,
         "b_dom_audio": 0,
         "b_state_player": 0,
         "b_infra_audioel": 0,
@@ -31,18 +30,6 @@
       },
       "edges": [
         {
-          "from": "b_ui_play",
-          "to": "b_dom_coord",
-          "label": "play / pause / предыдущая / следующая / глава",
-          "kind": "call"
-        },
-        {
-          "from": "b_dom_coord",
-          "to": "b_state_pos",
-          "label": "записать позицию",
-          "kind": "write"
-        },
-        {
           "from": "b_dom_coord",
           "to": "b_dom_audio",
           "label": "играй это",
@@ -51,7 +38,7 @@
         {
           "from": "b_dom_audio",
           "to": "b_dom_coord",
-          "label": "закончил / не получилось",
+          "label": "закончил / не получилось / остановлен / хочу играть",
           "kind": "event"
         },
         {
@@ -115,19 +102,13 @@
         {
           "from": "b_dom_coord",
           "to": "b_dom_library",
-          "label": "какая следующая фраза?",
+          "label": "какая фраза сейчас / следующая? (позиция сдвигается)",
           "kind": "call"
         },
         {
-          "from": "b_ui_book",
-          "to": "b_dom_coord",
-          "label": "клик по предложению: перейти к нему",
-          "kind": "call"
-        },
-        {
-          "from": "b_state_pos",
+          "from": "b_state_book",
           "to": "b_ui_play",
-          "label": "позиция (глава, фраза)",
+          "label": "позиция (глава, фраза), книга, главы",
           "kind": "data"
         },
         {
@@ -137,27 +118,15 @@
           "kind": "data"
         },
         {
-          "from": "b_state_book",
-          "to": "b_ui_play",
-          "label": "книга, главы",
-          "kind": "data"
-        },
-        {
           "from": "b_dom_library",
           "to": "b_dom_coord",
           "label": "фраза | ждём страницу | конец",
           "kind": "return"
         },
         {
-          "from": "b_dom_coord",
-          "to": "b_dom_library",
-          "label": "накопить и сбросить прогресс чтения (queueProgress / flushProgress)",
-          "kind": "call"
-        },
-        {
           "from": "b_state_book",
           "to": "b_dom_library",
-          "label": "текст книги и страницы",
+          "label": "текст книги и страницы, позиция чтения",
           "kind": "data"
         },
         {
@@ -167,15 +136,9 @@
           "kind": "call"
         },
         {
-          "from": "b_state_pos",
-          "to": "b_ui_book",
-          "label": "что подсветить",
-          "kind": "data"
-        },
-        {
           "from": "b_state_book",
           "to": "b_ui_book",
-          "label": "книга, главы",
+          "label": "что подсветить, книга, главы",
           "kind": "data"
         },
         {
@@ -215,23 +178,59 @@
           "kind": "call"
         },
         {
-          "from": "b_state_pos",
-          "to": "b_dom_library",
-          "label": "позиция чтения",
-          "kind": "data"
-        },
-        {
           "from": "b_state_player",
           "to": "b_dom_coord",
           "label": "статус плеера (на паузе? идёт?)",
           "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_dom_coord",
+          "label": "есть ли позиция (после ожидания страницы)",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "записать позицию",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_coord",
+          "label": "мы теперь на этой фразе (переход не от Координатора)",
+          "kind": "event"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "сохранить прогресс (при остановке)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_book",
+          "to": "b_dom_library",
+          "label": "перейти к предложению, главе, странице",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_library",
+          "label": "предыдущая / следующая фраза, глава",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_audio",
+          "label": "play / pause / стоп",
+          "kind": "call"
         }
       ],
       "zoneOrder": [
         "z_library",
         "z_coord",
-        "z_player",
         "z_settings",
+        "z_player",
         "z_audio"
       ]
     },
@@ -241,7 +240,6 @@
       "desc": "Выбор экрана по типу файла; экран получает предложения или страницы, позицию и режим автоскролла. Команды на озвучку уходят через «Кнопку Play» (сценарий «Озвучка»).",
       "cols": {
         "b_ui_router": 0,
-        "b_state_pos": 0,
         "b_state_book": 1,
         "b_state_paged": 0,
         "b_state_settings": 0,
@@ -260,9 +258,9 @@
           "label": "PDF"
         },
         {
-          "from": "b_state_pos",
+          "from": "b_state_book",
           "to": "b_ui_book",
-          "label": "что подсветить",
+          "label": "что подсветить, книга, главы",
           "kind": "data"
         },
         {
@@ -272,29 +270,16 @@
           "kind": "data"
         },
         {
-          "from": "b_state_book",
-          "to": "b_ui_book",
-          "label": "книга, главы",
-          "kind": "data"
-        },
-        {
           "from": "b_state_paged",
           "to": "b_ui_book",
           "label": "готовность страниц (PDF)",
           "kind": "data"
-        },
-        {
-          "from": "b_state_book",
-          "to": "b_ui_book",
-          "label": "книга",
-          "kind": "data"
         }
       ],
       "zoneOrder": [
-        "z_coord",
+        "z_settings",
         "z_library",
-        "z_shell",
-        "z_settings"
+        "z_shell"
       ]
     },
     {
@@ -312,7 +297,6 @@
         "b_state_book": 0,
         "b_ui_router": 1,
         "b_ui_header": 0,
-        "b_state_pos": 0,
         "b_ui_book": 0,
         "b_ui_play": 0,
         "b_state_settings": 0
@@ -391,15 +375,9 @@
           "kind": "call"
         },
         {
-          "from": "b_state_pos",
-          "to": "b_ui_header",
-          "label": "текущая глава",
-          "kind": "data"
-        },
-        {
           "from": "b_state_book",
           "to": "b_ui_header",
-          "label": "книга, режим PDF",
+          "label": "текущая глава, книга, режим PDF",
           "kind": "data"
         },
         {
@@ -446,7 +424,6 @@
         }
       ],
       "zoneOrder": [
-        "z_coord",
         "z_player",
         "z_shell",
         "z_library",
@@ -551,8 +528,7 @@
         "b_dom_library": 0,
         "b_dom_source": 0,
         "b_state_book": 0,
-        "b_state_paged": 1,
-        "b_state_pos": 0
+        "b_state_paged": 1
       },
       "edges": [
         {
@@ -570,19 +546,13 @@
         {
           "from": "b_state_book",
           "to": "b_dom_source",
-          "label": "текст книги",
+          "label": "текст книги, позиция чтения (фраза, глава, страница)",
           "kind": "data"
         },
         {
           "from": "b_state_paged",
           "to": "b_dom_source",
           "label": "готовность страниц",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_pos",
-          "to": "b_dom_source",
-          "label": "позиция чтения (фраза, глава, страница)",
           "kind": "data"
         },
         {
@@ -593,7 +563,6 @@
         }
       ],
       "zoneOrder": [
-        "z_coord",
         "z_library"
       ]
     }
@@ -617,7 +586,7 @@
       "title": "Менеджер библиотеки и открытия книг",
       "layer": "Domain",
       "file": "src/engine/library.ts",
-      "line": 322,
+      "line": 313,
       "symbol": "loadBook",
       "members": [
         "loadBook",
@@ -630,31 +599,31 @@
         "replaceBookChapters",
         "applyComposed",
         "onPagedStoreChange",
-        "queueProgress",
         "flushProgress",
         "setActiveFootnote",
         "clearQualityNotice",
         "setPdfViewMode",
         "clearBookError",
-        "navigatePaged",
-        "phraseToPlay",
-        "phraseAfterCurrent",
-        "phraseBeforeCurrent",
+        "currentPhrase",
+        "nextPhrase",
         "pageReady",
-        "goToPagedPage",
-        "pagedPageRef",
-        "sentenceLocation",
-        "progressRef",
-        "chapterTarget",
         "focusPage",
-        "observeBook"
+        "observeBook",
+        "jumpToSentence",
+        "selectChapter",
+        "goToPage",
+        "setViewPage",
+        "stepPhrase"
       ],
-      "summary": "Управляет книгами: открытие, сохранение, удаление, сохранение прогресса. Владелец состояния st_book и таблицы db.books. Единственный вход зоны: открывает и сохраняет книги; Координатору отвечает «какая фраза / следующая фраза / предыдущая», где предложение и куда перейти, сообщает о событиях книги (внутри — поставщик фраз, парсер, PDF-сессия).",
+      "summary": "Управляет книгами: открытие, сохранение, удаление, сохранение прогресса. Владелец состояния st_book и таблицы db.books. Единственный вход зоны и владелец состояния «книга и позиция»: открывает и сохраняет книги, принимает навигацию (предложение, глава, страница, шаг), сам двигает позицию и сохраняет прогресс. Отдаёт фразу или «ждём страницу / конец» и сообщает Координатору о внешних переходах.",
       "res": [
         "res_booksDb",
         "res_bookStore"
       ],
-      "zone": "z_library"
+      "zone": "z_library",
+      "files": [
+        "src/engine/bookPosition.ts"
+      ]
     },
     "b_dom_parser": {
       "title": "Хаб парсеров книг",
@@ -685,26 +654,13 @@
       ],
       "zone": "z_library"
     },
-    "b_state_pos": {
-      "title": "Позиция чтения",
-      "layer": "State",
-      "file": "src/store/bookStore.ts",
-      "line": 81,
-      "symbol": "setSentenceId",
-      "summary": "Позиция чтения: фраза, глава, страница. Владелец: Координатор воспроизведения.",
-      "res": [
-        "res_bookStore"
-      ],
-      "slice": "st_position",
-      "zone": "z_coord"
-    },
     "b_dom_audio": {
       "title": "Оркестратор аудио",
       "layer": "Domain",
       "file": "src/engine/audio/audioManager.ts",
-      "line": 62,
+      "line": 65,
       "symbol": "AudioManager",
-      "summary": "Играет одну фразу: сам берёт готовое аудио у Поставщика озвучки запросом, который ждёт внутри Поставщика, отдаёт его Плееру, ведёт статус плеера (владелец). Сообщает Координатору «закончил» или «не получилось»; отмену Координатора отличает от ошибки и молча выходит. Предзагрузку не запускает.",
+      "summary": "Играет одну фразу: сам берёт готовое аудио у Поставщика озвучки запросом, который ждёт внутри Поставщика, отдаёт его Плееру, ведёт статус плеера (владелец). Сообщает Координатору «закончил» или «не получилось»; отмену Координатора отличает от ошибки и молча выходит. Предзагрузку не запускает. Принимает play / pause / стоп прямо от панели: играет — просто ставит паузу; на паузе — продолжает; стоит — сообщает Координатору «хочу играть».",
       "risk": "Обязательная проверка токена: события с устаревшим токеном отсекаются.",
       "fresh": true,
       "fns": [
@@ -845,7 +801,7 @@
       "file": "src/components/player/PlayerHotkeys.tsx",
       "line": 18,
       "symbol": "PlayerHotkeys",
-      "summary": "Панель плеера (ControlBar с горячими клавишами PlayerHotkeys): play, pause, стоп, предыдущая и следующая фраза, глава, скорость, громкость, переключатели; пробел и стрелки. Читает статус плеера, позицию и настройки; команды отдаёт Координатору и командам настроек. Клик по фразе в тексте сюда не относится.",
+      "summary": "Кнопки и клавиши. Транспорт (play, pause, стоп) идёт Оркестратору, навигация (предыдущая и следующая фраза, глава) — Менеджеру книги, скорость и громкость — командам настроек. Читает статус плеера, позицию и настройки.",
       "res": [
         "res_bookStore"
       ],
@@ -889,13 +845,13 @@
       "zone": "z_settings"
     },
     "b_state_book": {
-      "title": "Текст книги (загруженная)",
+      "title": "Книга и позиция чтения",
       "layer": "State",
       "file": "src/store/bookStore.ts",
       "line": 51,
       "symbol": "useBookStore",
       "slice": "st_book",
-      "summary": "Загруженная книга: главы и предложения. Пишет сценарий «Открыть книгу», читают Домен и UI.",
+      "summary": "Загруженная книга и где мы в ней: глава, фраза, страница. Хранит и не решает. Владелец — Менеджер книги: позицию меняет только он, остальные просят его.",
       "res": [
         "res_bookStore"
       ],
@@ -915,10 +871,9 @@
       "title": "Координатор воспроизведения",
       "layer": "Domain",
       "file": "src/engine/audio/coordinator.ts",
-      "line": 90,
+      "line": 71,
       "symbol": "startPlayback",
       "members": [
-        "setChapterInternally",
         "stopAll",
         "beginWait",
         "checkWait",
@@ -927,16 +882,11 @@
         "onStarted",
         "onEnded",
         "onFailed",
-        "play",
-        "pause",
-        "resume",
-        "stop",
-        "playNextSentence",
-        "playPrevSentence",
-        "jumpToSentence",
-        "clearError"
+        "onWantPlay",
+        "onStopped",
+        "onExternalMove"
       ],
-      "summary": "Управляет ходом воспроизведения: берёт команду UI (play / jump / следующая / предыдущая / глава), у Менеджера книги спрашивает фразу («фраза | ждём страницу | конец»), собирает параметры синтеза из настроек один раз на задание, Поставщику озвучки говорит «приготовь» (и «отмени» при прыжке или стопе), Оркестратору — «играй это»; фиксирует позицию (владелец «Позиции чтения»); ошибку «не получилось» решает сам.",
+      "summary": "Приводит плеер в соответствие с тем, где мы читаем. Узнаёт у Менеджера книги фразу, собирает задание (параметры у Настроек), даёт Поставщику «приготовь/отмени», Оркестратору «играй это». Позицию не хранит и не меняет. Реагирует на события: Оркестратор (закончил, не получилось, остановлен, хочу играть) и Менеджер (переход, страница готова).",
       "flow": "f_dom_coord",
       "res": [
         "res_bookStore",
@@ -1021,7 +971,7 @@
         "src/components/reader/ChapterSidebar.tsx",
         "src/components/reader/PagedBookBar.tsx"
       ],
-      "summary": "Показывает книгу (текст или PDF, ему всё равно) и главы. Получает из состояния, какое предложение подсветить, и сам решает, как показать и прокрутить. Свои события (клик по предложению) сам отдаёт Координатору. Состояние не меняет.",
+      "summary": "Показывает книгу (текст или PDF, ему всё равно) и главы. Из состояния берёт, какое предложение подсветить. Свои события (клик по предложению, выбор главы или страницы) отдаёт Менеджеру книги. Состояние не меняет.",
       "res": [
         "res_bookStore",
         "res_settingsStore"
@@ -1732,8 +1682,8 @@
           "row": 0,
           "covers": [
             [
-              155,
-              163
+              158,
+              165
             ]
           ],
           "bind": [
@@ -1748,8 +1698,8 @@
           "row": 1,
           "covers": [
             [
-              165,
-              165
+              168,
+              168
             ]
           ],
           "bind": [
@@ -1765,8 +1715,8 @@
           "via": "input",
           "covers": [
             [
-              166,
-              168
+              169,
+              170
             ]
           ],
           "bind": [
@@ -1785,8 +1735,8 @@
           "rw": "read",
           "covers": [
             [
-              170,
-              171
+              173,
+              174
             ]
           ],
           "bind": [
@@ -1801,8 +1751,8 @@
           "row": 3,
           "covers": [
             [
-              173,
-              173
+              176,
+              176
             ]
           ],
           "bind": [
@@ -1818,8 +1768,8 @@
           "via": "external",
           "covers": [
             [
-              174,
-              178
+              177,
+              181
             ]
           ],
           "bind": [
@@ -1836,8 +1786,8 @@
           "block": "b_dom_fetch",
           "covers": [
             [
-              180,
-              182
+              183,
+              185
             ]
           ],
           "bind": [
@@ -1855,8 +1805,8 @@
           "block": "b_infra_audioel",
           "covers": [
             [
-              184,
-              187
+              187,
+              190
             ]
           ],
           "bind": [
@@ -1874,8 +1824,8 @@
           "via": "input",
           "covers": [
             [
-              188,
-              188
+              191,
+              191
             ]
           ],
           "bind": [
@@ -1891,8 +1841,8 @@
           "via": "input",
           "covers": [
             [
-              189,
-              194
+              192,
+              197
             ]
           ],
           "bind": [
@@ -1912,8 +1862,8 @@
           "row": 0.5,
           "covers": [
             [
-              164,
-              164
+              167,
+              167
             ]
           ],
           "bind": [
@@ -2904,34 +2854,34 @@
         {
           "id": "s",
           "t": "start",
-          "label": "команда: play / jump / следующая / предыдущая / глава",
+          "label": "событие: хочу играть / внешний переход / страница готова / закончил",
           "col": 1.5,
           "row": 0,
           "covers": [
             [
-              134,
-              135
+              71,
+              72
             ]
           ],
           "bind": [
-            "a0dcb71879#0"
+            "26a276f9ad#0"
           ]
         },
         {
           "id": "n0",
           "t": "step",
-          "label": "у Менеджера книги узнать, какая фраза нужна",
+          "label": "у Менеджера книги узнать, какая фраза сейчас",
           "col": 1.5,
           "row": 1,
           "block": "b_dom_library",
           "covers": [
             [
-              136,
-              136
+              73,
+              73
             ]
           ],
           "bind": [
-            "a0dcb71879#0"
+            "26a276f9ad#0"
           ]
         },
         {
@@ -2942,8 +2892,8 @@
           "row": 2,
           "covers": [
             [
-              137,
-              137
+              74,
+              74
             ]
           ],
           "bind": [
@@ -2958,8 +2908,8 @@
           "row": 3,
           "covers": [
             [
-              141,
-              141
+              78,
+              78
             ]
           ],
           "bind": [
@@ -2974,8 +2924,8 @@
           "row": 4,
           "covers": [
             [
-              141,
-              144
+              78,
+              81
             ]
           ],
           "bind": [
@@ -2992,12 +2942,12 @@
           "row": 4,
           "covers": [
             [
-              137,
-              140
+              74,
+              77
             ],
             [
-              145,
-              148
+              82,
+              85
             ]
           ],
           "bind": [
@@ -3010,35 +2960,16 @@
           ]
         },
         {
-          "id": "n1",
-          "t": "io",
-          "label": "записать позицию (фраза, глава, страница)",
-          "col": 0.4,
-          "row": 3,
-          "res": "st_position",
-          "rw": "write",
-          "covers": [
-            [
-              149,
-              149
-            ]
-          ],
-          "bind": [
-            "6d8cca6d27#0",
-            "3af8e5da65#0"
-          ]
-        },
-        {
           "id": "n_req",
           "t": "step",
           "label": "запросить у Оркестратора новое воспроизведение (токен)",
           "col": 0.4,
-          "row": 4,
+          "row": 3,
           "block": "b_dom_audio",
           "covers": [
             [
-              151,
-              151
+              87,
+              87
             ]
           ],
           "bind": [
@@ -3050,11 +2981,11 @@
           "t": "step",
           "label": "решить, объявлять ли название главы",
           "col": 0.4,
-          "row": 5,
+          "row": 4,
           "covers": [
             [
-              153,
-              159
+              89,
+              95
             ]
           ],
           "bind": [
@@ -3066,13 +2997,13 @@
           "t": "step",
           "label": "собрать параметры синтеза из настроек (один раз на задание)",
           "col": 0.4,
-          "row": 6,
+          "row": 5,
           "res": "st_settings",
           "rw": "read",
           "covers": [
             [
-              161,
-              161
+              97,
+              97
             ]
           ],
           "bind": [
@@ -3085,12 +3016,12 @@
           "t": "step",
           "label": "отменить прежнюю подготовку и приготовить озвучку следующей фразы",
           "col": 2.2,
-          "row": 6,
+          "row": 5,
           "block": "b_dom_fetch",
           "covers": [
             [
-              162,
-              172
+              98,
+              108
             ]
           ],
           "bind": [
@@ -3102,12 +3033,12 @@
           "t": "step",
           "label": "поручить Оркестратору играть это",
           "col": 0.4,
-          "row": 7,
+          "row": 6,
           "block": "b_dom_audio",
           "covers": [
             [
-              173,
-              181
+              109,
+              117
             ]
           ],
           "bind": [
@@ -3138,15 +3069,6 @@
           "from": "c2",
           "to": "e3",
           "label": "Нет"
-        },
-        {
-          "from": "c1",
-          "to": "n1",
-          "label": "Да"
-        },
-        {
-          "from": "n1",
-          "to": "n_req"
         },
         {
           "from": "n_req",
@@ -3205,8 +3127,8 @@
       "at": "2026-10-14"
     },
     "b_dom_coord": {
-      "codeHash": "64f8665fc8",
-      "schemaHash": "7300e9b9d5",
+      "codeHash": "05b7c00f5b",
+      "schemaHash": "89423df3cb",
       "at": "2026-10-14"
     }
   },
@@ -3223,29 +3145,29 @@
     "b_ui_pdf": "5fad08fae8",
     "b_dom_pdf": "bd5fbc9055",
     "b_dom_fetch": "01c0566d00",
-    "b_ui_play": "8e4c822eb0",
+    "b_ui_play": "738a0c76f5",
     "b_dom_source": "2da0fa62d1",
     "b_state_settings": "d8a99631a8",
     "b_state_orch": "305e51b3f2",
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
     "b_state_paged": "27f3464a37",
-    "b_dom_coord": "2e372bdf7f",
+    "b_dom_coord": "cbe35a2613",
     "b_ui_library": "f9cb1077c0",
-    "b_dom_library": "a481497dc8",
+    "b_dom_library": "493ff80697",
     "b_dom_parser": "6fabb3a9ca",
     "b_data_db": "37ea9194ef",
     "b_ui_header": "06df40c6db",
     "b_dom_settings": "3ab399afb8",
     "b_ui_settings": "d85ade3a69",
-    "b_ui_book": "f804fb7069"
+    "b_ui_book": "b83e02bc99"
   },
   "approvedScenarios": {
-    "sc_tts": "b786fc3035",
-    "sc_read": "4913df8787",
-    "sc_open": "8afeb9f021",
-    "sc_settings": "3a1c692207",
-    "sc_phrases": "8628de708c"
+    "sc_tts": "807d85ff91",
+    "sc_read": "e0f132e88f",
+    "sc_open": "965800cbf2",
+    "sc_settings": "43e6917adf",
+    "sc_phrases": "9d3621051a"
   },
   "riskAcks": {
     "11b0ba5a0a": {
@@ -3280,20 +3202,8 @@
     }
   },
   "states": {
-    "st_position": {
-      "title": "Позиция чтения",
-      "store": "useBookStore",
-      "fields": [
-        "currentSentenceId",
-        "currentChapterIndex",
-        "currentPage",
-        "viewPage"
-      ],
-      "owner": "b_dom_coord",
-      "note": null
-    },
     "st_book": {
-      "title": "Загруженная книга и библиотека",
+      "title": "Книга и позиция чтения",
       "store": "useBookStore",
       "fields": [
         "currentBook",
@@ -3302,7 +3212,11 @@
         "error",
         "qualityNotice",
         "activeFootnote",
-        "pdfViewMode"
+        "pdfViewMode",
+        "currentSentenceId",
+        "currentChapterIndex",
+        "currentPage",
+        "viewPage"
       ],
       "owner": "b_dom_library",
       "note": null
@@ -3337,7 +3251,7 @@
     "z_coord": {
       "title": "Координация воспроизведения",
       "head": "b_dom_coord",
-      "note": "что и когда играть, позиция чтения"
+      "note": "приводит плеер в соответствие с позицией: задания Поставщику и Оркестратору"
     },
     "z_player": {
       "title": "Плеер",
