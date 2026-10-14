@@ -1,0 +1,271 @@
+{
+  "version": "1.0.0",
+  "date": "2026-10-14",
+  "milestone": "Читалка: чистая карта",
+  "structure": {
+    "blocks": {
+      "b_ui_library": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Экран библиотеки",
+        "zone": "z_screen"
+      },
+      "b_dom_library": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Менеджер библиотеки и открытия книг",
+        "zone": "z_library"
+      },
+      "b_dom_parser": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Хаб парсеров книг",
+        "zone": "z_library"
+      },
+      "b_data_db": {
+        "layer": "Data",
+        "planned": false,
+        "title": "База данных книг (Dexie)",
+        "zone": "z_library"
+      },
+      "b_state_pos": {
+        "layer": "State",
+        "planned": false,
+        "title": "Позиция чтения",
+        "zone": "z_coord"
+      },
+      "b_dom_audio": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Оркестратор аудио",
+        "zone": "z_player"
+      },
+      "b_dom_tokenize": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Токенизатор предложений",
+        "zone": "z_library"
+      },
+      "b_data_cache": {
+        "layer": "Data",
+        "planned": false,
+        "title": "Аудиокэш (RAM + IndexedDB)",
+        "zone": "z_audio"
+      },
+      "b_infra_audioel": {
+        "layer": "Infra",
+        "planned": false,
+        "title": "Плеер (HTML Audio)",
+        "zone": "z_player"
+      },
+      "b_infra_router": {
+        "layer": "Infra",
+        "planned": false,
+        "title": "TTS-провайдеры (адаптеры)",
+        "zone": "z_audio"
+      },
+      "b_state_player": {
+        "layer": "State",
+        "planned": false,
+        "title": "Статус плеера",
+        "zone": "z_player"
+      },
+      "b_ui_router": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Выбор экрана по типу файла",
+        "zone": "z_screen"
+      },
+      "b_ui_text": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Читалка текста",
+        "zone": "z_screen"
+      },
+      "b_ui_pdf": {
+        "layer": "UI",
+        "planned": false,
+        "title": "PDF-экран (оригинал + распознанное)",
+        "zone": "z_screen"
+      },
+      "b_dom_pdf": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "PDF-координатор",
+        "zone": "z_library"
+      },
+      "b_dom_fetch": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Поставщик озвучки (кэш + синтез)",
+        "zone": "z_audio"
+      },
+      "b_ui_play": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Кнопка Play / клик по фразе",
+        "zone": "z_screen"
+      },
+      "b_dom_source": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Поставщик фраз (книга: текст и PDF)",
+        "zone": "z_text"
+      },
+      "b_state_settings": {
+        "layer": "State",
+        "planned": false,
+        "title": "Настройки читалки",
+        "zone": "z_shared"
+      },
+      "b_state_book": {
+        "layer": "State",
+        "planned": false,
+        "title": "Текст книги (загруженная)",
+        "zone": "z_library"
+      },
+      "b_state_paged": {
+        "layer": "State",
+        "planned": false,
+        "title": "Страницы PDF (готовность)",
+        "zone": "z_library"
+      },
+      "b_dom_coord": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Координатор воспроизведения",
+        "zone": "z_coord"
+      }
+    },
+    "states": {
+      "st_position": {
+        "owner": "b_dom_coord"
+      },
+      "st_book": {
+        "owner": "b_dom_library"
+      },
+      "st_player": {
+        "owner": "b_dom_audio"
+      },
+      "st_settings": {
+        "owner": null
+      },
+      "st_paged": {
+        "owner": "b_dom_pdf"
+      },
+      "st_user": {
+        "owner": null
+      }
+    },
+    "resources": {
+      "res_booksDb": {
+        "owner": "b_dom_library"
+      },
+      "res_audioCache": {
+        "owner": "b_dom_fetch"
+      },
+      "res_bookStore": {
+        "owner": null
+      },
+      "res_settingsStore": {
+        "owner": null
+      }
+    },
+    "scenarios": {
+      "sc_tts": {
+        "blocks": [
+          "b_data_cache",
+          "b_dom_audio",
+          "b_dom_coord",
+          "b_dom_fetch",
+          "b_dom_library",
+          "b_dom_source",
+          "b_infra_audioel",
+          "b_infra_router",
+          "b_state_book",
+          "b_state_paged",
+          "b_state_player",
+          "b_state_pos",
+          "b_state_settings",
+          "b_ui_pdf",
+          "b_ui_play",
+          "b_ui_router",
+          "b_ui_text"
+        ],
+        "edges": [
+          "b_dom_audio>b_dom_coord",
+          "b_dom_audio>b_dom_fetch",
+          "b_dom_audio>b_infra_audioel",
+          "b_dom_audio>b_state_player",
+          "b_dom_coord>b_dom_audio",
+          "b_dom_coord>b_dom_library",
+          "b_dom_coord>b_dom_source",
+          "b_dom_coord>b_state_pos",
+          "b_dom_fetch>b_data_cache",
+          "b_dom_fetch>b_dom_audio",
+          "b_dom_fetch>b_infra_router",
+          "b_dom_source>b_dom_coord",
+          "b_infra_audioel>b_dom_audio",
+          "b_infra_router>b_dom_fetch",
+          "b_state_book>b_dom_coord",
+          "b_state_paged>b_dom_coord",
+          "b_state_settings>b_dom_audio",
+          "b_state_settings>b_dom_fetch",
+          "b_ui_pdf>b_ui_play",
+          "b_ui_play>b_dom_coord",
+          "b_ui_router>b_dom_coord",
+          "b_ui_text>b_ui_play"
+        ]
+      },
+      "sc_read": {
+        "blocks": [
+          "b_state_book",
+          "b_state_paged",
+          "b_state_pos",
+          "b_state_settings",
+          "b_ui_pdf",
+          "b_ui_play",
+          "b_ui_router",
+          "b_ui_text"
+        ],
+        "edges": [
+          "b_state_book>b_ui_text",
+          "b_state_paged>b_ui_pdf",
+          "b_state_pos>b_ui_pdf",
+          "b_state_pos>b_ui_text",
+          "b_state_settings>b_ui_pdf",
+          "b_state_settings>b_ui_text",
+          "b_ui_pdf>b_ui_play",
+          "b_ui_router>b_ui_pdf",
+          "b_ui_router>b_ui_text",
+          "b_ui_text>b_ui_play"
+        ]
+      },
+      "sc_open": {
+        "blocks": [
+          "b_data_db",
+          "b_dom_library",
+          "b_dom_parser",
+          "b_dom_pdf",
+          "b_dom_tokenize",
+          "b_state_book",
+          "b_state_paged",
+          "b_ui_library",
+          "b_ui_router"
+        ],
+        "edges": [
+          "b_dom_library>b_data_db",
+          "b_dom_library>b_dom_parser",
+          "b_dom_library>b_dom_pdf",
+          "b_dom_library>b_state_book",
+          "b_dom_parser>b_dom_tokenize",
+          "b_dom_pdf>b_state_paged",
+          "b_state_book>b_ui_library",
+          "b_ui_library>b_dom_library",
+          "b_ui_router>b_dom_library",
+          "b_ui_router>b_ui_library"
+        ]
+      }
+    }
+  }
+}
