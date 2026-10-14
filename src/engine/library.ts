@@ -5,6 +5,7 @@ import { computeBookQuality, needsAttention } from './cleanup/bookQuality';
 import { mapReadingPosition } from './cleanup/bookModel';
 import { useBookStore, type SavedBook } from '../store/bookStore';
 import { usePagedStore } from '../store/pagedStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { bumpNavNonce, closePagedSession, openPagedSession, setFocusPage } from './pdf/pagedSession';
 import {
   chapterIndexForPage,
@@ -16,6 +17,8 @@ import {
 } from './pdf/composer';
 import { coordinator } from './audio/coordinator';
 import { deleteAudioCacheForBook, purgeOrphanAudioCache } from './audio/audioFetch';
+import { parseBookFile, type ParseOptions } from './parsers';
+import type { ReplacementRule } from '../types/settings';
 
 // ---------------------------------------------------------------------------
 // Сохранение прогресса чтения: накапливаем патчи и пишем в IndexedDB с задержкой,
@@ -190,9 +193,13 @@ export function applyComposed(composed: ComposedBook): void {
 }
 
 // Слушаем изменения распознанных страниц из usePagedStore
-usePagedStore.subscribe((state, prev) => {
-  if (state.composed && state.composed !== prev.composed) applyComposed(state.composed);
-  else if ((state.quality !== prev.quality && state.quality) || (state.meta !== prev.meta && state.meta)) {
+export function onPagedStoreChange(
+  state: ReturnType<typeof usePagedStore.getState>,
+  prev: ReturnType<typeof usePagedStore.getState>
+): void {
+  if (state.composed && state.composed !== prev.composed) {
+    applyComposed(state.composed);
+  } else if ((state.quality !== prev.quality && state.quality) || (state.meta !== prev.meta && state.meta)) {
     const book = pagedBookOpen();
     if (book) {
       useBookStore.setState({
@@ -207,7 +214,9 @@ usePagedStore.subscribe((state, prev) => {
       });
     }
   }
-});
+}
+
+usePagedStore.subscribe(onPagedStoreChange);
 
 /** Открывает сессию постраничного распознавания и выставляет позицию чтения. */
 export async function activatePaged(metadata: BookMetadata, rawPdfBuffer: ArrayBuffer | undefined): Promise<void> {
@@ -277,6 +286,17 @@ export function navigatePaged(page: number, sentenceId: number | null, jumpIfUnr
 // ---------------------------------------------------------------------------
 // Публичные команды библиотеки (UI -> Domain)
 // ---------------------------------------------------------------------------
+
+/** Загрузить книгу из файла: парсит файл (с учётом правил замены и настроек) и сохраняет книгу. */
+export async function loadBookFromFile(
+  file: File,
+  replacementRules?: ReplacementRule[],
+  options?: ParseOptions
+): Promise<void> {
+  const rules = replacementRules ?? useSettingsStore.getState().replacementRules;
+  const parsedBook = await parseBookFile(file, rules, options);
+  await loadBook(parsedBook);
+}
 
 export async function loadBook(parsed: ParsedBook): Promise<void> {
   useBookStore.setState({ isLoading: true, error: null });

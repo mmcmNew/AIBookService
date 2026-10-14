@@ -12,9 +12,8 @@ import {
   Library as LibraryIcon,
   FileUp,
 } from 'lucide-react';
-import { parseBookFile } from '../../engine/parsers';
 import { SavedBook, useBookStore } from '../../store/bookStore';
-import { clearBookError as clearError, deleteBook, loadBook, selectSavedBook } from '../../engine/library';
+import { clearBookError as clearError, deleteBook, loadBookFromFile, selectSavedBook } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
 import { PdfRecognitionMode } from '../../types/settings';
@@ -286,9 +285,7 @@ export const LibraryView: React.FC = () => {
     setErrorDetail(null);
 
     try {
-      const parsedBook = await parseBookFile(file, replacementRules, options);
-      setStatusText('Сохранение книги в локальную базу данных...');
-      await loadBook(parsedBook);
+      await loadBookFromFile(file, replacementRules, options);
 
       // Успешно загружено — закрываем модальное окно и сбрасываем состояние
       setIsPdfModalOpen(false);

@@ -25,7 +25,8 @@
         "b_dom_fetch": 0,
         "b_data_cache": 0,
         "b_infra_router": 0,
-        "b_state_settings": 0
+        "b_state_settings": 0,
+        "b_state_paged": 0
       },
       "edges": [
         {
@@ -49,6 +50,12 @@
           "from": "b_state_book",
           "to": "b_dom_coord",
           "label": "текст книги",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_dom_coord",
+          "label": "готовность страниц",
           "kind": "data"
         },
         {
@@ -128,6 +135,7 @@
       ],
       "zoneOrder": [
         "z_screen",
+        "z_library",
         "z_text",
         "z_coord",
         "z_player",
@@ -146,8 +154,6 @@
         "b_ui_play": 3,
         "b_state_pos": 0,
         "b_dom_coord": 0,
-        "b_dom_tokenize": 1,
-        "b_dom_pdf": 0,
         "b_state_book": 1,
         "b_state_paged": 0,
         "b_state_settings": 0
@@ -200,23 +206,10 @@
           "label": "автоскролл, шрифт, тема"
         },
         {
-          "from": "b_dom_tokenize",
-          "to": "b_state_book",
-          "label": "предложения книги",
-          "kind": "write",
-          "known": "Токенизатор формирует предложения для глав книги, сохраняемых в b_state_book при парсинге и редактировании"
-        },
-        {
           "from": "b_state_book",
           "to": "b_ui_text",
           "label": "главы и предложения",
           "kind": "data"
-        },
-        {
-          "from": "b_dom_pdf",
-          "to": "b_state_paged",
-          "label": "готовность страниц",
-          "kind": "write"
         },
         {
           "from": "b_state_paged",
@@ -256,14 +249,157 @@
         }
       ],
       "zoneOrder": [
-        "z_text",
-        "z_coord",
         "z_screen",
+        "z_library",
+        "z_coord",
         "z_shared"
+      ]
+    },
+    {
+      "id": "sc_open",
+      "title": "Библиотека и открытие книги",
+      "desc": "Экран библиотеки: выбор сохранённой книги или загрузка файла → парсинг и токенизация → сохранение в db.books и публикация в st_book.",
+      "cols": {
+        "b_ui_library": 0,
+        "b_dom_library": 1,
+        "b_dom_parser": 2,
+        "b_dom_tokenize": 3,
+        "b_dom_pdf": 4,
+        "b_state_paged": 5,
+        "b_data_db": 6,
+        "b_state_book": 7
+      },
+      "edges": [
+        {
+          "from": "b_ui_library",
+          "to": "b_dom_library",
+          "label": "выбрать сохранённую книгу или загрузить файл",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_parser",
+          "label": "распарсить файл (parseBookFile)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_parser",
+          "to": "b_dom_tokenize",
+          "label": "разбить текст глав на предложения",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "открыть сессию PDF (activatePaged)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_state_paged",
+          "label": "инициализировать готовность страниц",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_data_db",
+          "label": "книги: прочитать, сохранить, удалить",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "опубликовать книгу и список",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_library",
+          "label": "список книг (savedBooks), статус загрузки",
+          "kind": "data"
+        }
+      ],
+      "zoneOrder": [
+        "z_screen",
+        "z_library"
       ]
     }
   ],
   "blocks": {
+    "b_ui_library": {
+      "title": "Экран библиотеки",
+      "layer": "UI",
+      "file": "src/components/library/LibraryView.tsx",
+      "line": 207,
+      "symbol": "LibraryView",
+      "summary": "Экран библиотеки: отображение сохранённых книг, добавление новых файлов (FB2, EPUB, TXT, PDF), сортировка и удаление.",
+      "entry": true,
+      "res": [
+        "res_bookStore",
+        "res_settingsStore"
+      ],
+      "zone": "z_screen"
+    },
+    "b_dom_library": {
+      "title": "Менеджер библиотеки и открытия книг",
+      "layer": "Domain",
+      "file": "src/engine/library.ts",
+      "line": 301,
+      "symbol": "loadBook",
+      "members": [
+        "loadBook",
+        "loadBookFromFile",
+        "selectSavedBook",
+        "deleteBook",
+        "loadSavedBooksList",
+        "closeBook",
+        "activatePaged",
+        "replaceBookChapters",
+        "applyComposed",
+        "onPagedStoreChange",
+        "queueProgress",
+        "flushProgress",
+        "setActiveFootnote",
+        "clearQualityNotice",
+        "setPdfViewMode",
+        "clearBookError"
+      ],
+      "summary": "Управляет книгами: открытие, сохранение, удаление, сохранение прогресса. Владелец состояния st_book и таблицы db.books.",
+      "res": [
+        "res_booksDb",
+        "res_bookStore"
+      ],
+      "zone": "z_library"
+    },
+    "b_dom_parser": {
+      "title": "Хаб парсеров книг",
+      "layer": "Domain",
+      "file": "src/engine/parsers/index.ts",
+      "line": 45,
+      "symbol": "parseBookFile",
+      "members": [
+        "parseBookFile",
+        "parsePdfPyMuPdf",
+        "parsePdfRemote"
+      ],
+      "summary": "Разбор файлов FB2, EPUB, TXT, запуск постраничной сессии PDF и токенизация глав.",
+      "res": [
+        "res_settingsStore"
+      ],
+      "zone": "z_library"
+    },
+    "b_data_db": {
+      "title": "База данных книг (Dexie)",
+      "layer": "Data",
+      "file": "src/storage/db.ts",
+      "line": 31,
+      "symbol": "books",
+      "summary": "Таблица IndexedDB db.books для хранения книг, глав и метаданных.",
+      "res": [
+        "res_booksDb"
+      ],
+      "zone": "z_library"
+    },
     "b_state_pos": {
       "title": "Позиция чтения",
       "layer": "State",
@@ -308,7 +444,7 @@
         "fn_tokenizeSentences"
       ],
       "flow": "f_dom_tokenize",
-      "zone": "z_text"
+      "zone": "z_library"
     },
     "b_data_cache": {
       "title": "Аудиокэш (RAM + IndexedDB)",
@@ -424,9 +560,10 @@
       "summary": "Открывает постраничную сессию, планирует распознавание окнами, поднимает приоритет нужной страницы, отдаёт готовые страницы PDF-экрану.",
       "flow": "f_dom_pdf",
       "res": [
-        "res_settingsStore"
+        "res_settingsStore",
+        "res_booksDb"
       ],
-      "zone": "z_text"
+      "zone": "z_library"
     },
     "b_dom_fetch": {
       "title": "Поставщик озвучки (кэш + синтез)",
@@ -498,7 +635,7 @@
       "res": [
         "res_bookStore"
       ],
-      "zone": "z_text"
+      "zone": "z_library"
     },
     "b_state_paged": {
       "title": "Страницы PDF (готовность)",
@@ -508,7 +645,7 @@
       "symbol": "usePagedStore",
       "slice": "st_paged",
       "summary": "Готовность и результат распознавания страниц PDF. Пишет PDF-координатор, читает PDF-экран.",
-      "zone": "z_text"
+      "zone": "z_library"
     },
     "b_dom_coord": {
       "title": "Координатор воспроизведения",
@@ -547,6 +684,16 @@
     }
   },
   "resources": {
+    "res_booksDb": {
+      "title": "db.books (IndexedDB)",
+      "kind": "db",
+      "nodePattern": "\\.books\\b",
+      "file": "src/storage/db.ts",
+      "line": 31,
+      "pattern": "\\.books\\b",
+      "note": "Таблица сохранённых книг и их глав в IndexedDB.",
+      "owner": "b_dom_library"
+    },
     "res_audioCache": {
       "title": "db.audioCache (IndexedDB)",
       "kind": "db",
@@ -607,6 +754,14 @@
     }
   },
   "astFlows": {
+    "b_dom_library": {
+      "file": "src/engine/library.ts",
+      "fn": "loadBook"
+    },
+    "b_dom_parser": {
+      "file": "src/engine/parsers/index.ts",
+      "fn": "parseBookFile"
+    },
     "b_dom_audio": {
       "file": "src/engine/audio/audioManager.ts",
       "fn": "AudioManager.run"
@@ -2279,6 +2434,8 @@
           "label": "Нужно ждать страницу?",
           "col": 3.2,
           "row": 3,
+          "res": "st_paged",
+          "rw": "read",
           "covers": [
             [
               188,
@@ -2468,11 +2625,16 @@
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
     "b_state_paged": "27f3464a37",
-    "b_dom_coord": "c9ece29f91"
+    "b_dom_coord": "c9ece29f91",
+    "b_ui_library": "2a4f375672",
+    "b_dom_library": "4978bfd373",
+    "b_dom_parser": "6fabb3a9ca",
+    "b_data_db": "37ea9194ef"
   },
   "approvedScenarios": {
-    "sc_tts": "0ada27eeb6",
-    "sc_read": "3e245e4758"
+    "sc_tts": "ea29486b32",
+    "sc_read": "0912b61d69",
+    "sc_open": "f629b0cd03"
   },
   "riskAcks": {
     "11b0ba5a0a": {
@@ -2531,8 +2693,8 @@
         "activeFootnote",
         "pdfViewMode"
       ],
-      "owner": null,
-      "note": "кандидат: сценарий «Открыть книгу»"
+      "owner": "b_dom_library",
+      "note": null
     },
     "st_player": {
       "title": "Статус плеера",
@@ -2591,6 +2753,11 @@
       "title": "Общая",
       "head": "b_state_settings",
       "note": "настройки читалки"
+    },
+    "z_library": {
+      "title": "Библиотека и книги",
+      "head": "b_dom_library",
+      "note": "управление книгами, парсинг и локальная база"
     }
   },
   "version": {
@@ -2627,6 +2794,11 @@
     ]
   },
   "realityAcks": {
-    "b_dom_coord>b_state_book": "Координатор читает текущую главу и позицию через методы-селекторы стора"
+    "b_dom_coord>b_state_book": "Координатор читает текущую главу и позицию через методы-селекторы стора",
+    "b_dom_pdf>b_data_db": "Сессия PDF сохраняет метаданные в db.books",
+    "b_dom_coord>b_dom_library": "Координатор сбрасывает накопленный прогресс чтения в библиотеку",
+    "b_ui_router>b_dom_library": "Роутер загружает список книг и закрывает книгу при смене экрана",
+    "b_ui_router>b_ui_library": "Роутер монтирует экран библиотеки",
+    "b_ui_library>b_state_settings": "Экран библиотеки сохраняет режим распознавания PDF по умолчанию"
   }
 }
