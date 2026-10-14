@@ -5,7 +5,7 @@ import { BookView } from './components/reader/BookView';
 import { PdfBookView } from './components/reader/PdfBookView';
 import { PagedTextView } from './components/reader/PagedTextView';
 import { PagedBookBar } from './components/reader/PagedBookBar';
-import { ControlBar } from './components/player/ControlBar';
+import { PlayerHotkeys } from './components/player/PlayerHotkeys';
 import { ChapterSidebar } from './components/reader/ChapterSidebar';
 import { FootnoteModal } from './components/reader/FootnoteModal';
 import { DictionaryModal } from './components/dictionary/DictionaryModal';
@@ -15,21 +15,11 @@ import { ToastProvider } from './components/ui/Toast';
 import { BookEditor } from './components/editor/BookEditor';
 import { QualityWatcher } from './components/editor/QualityWatcher';
 import { useBookStore } from './store/bookStore';
-import { useAudioStore } from './store/audioStore';
-import { coordinator } from './engine/audio/coordinator';
 import { closeBook, loadSavedBooksList, setActiveFootnote } from './engine/library';
 import { useSettingsStore } from './store/settingsStore';
 import { useUserStore } from './store/userStore';
 
 type SettingsTab = 'tts' | 'keys' | 'dictionary' | 'view' | 'network';
-
-/** Элементы, у которых Space/Enter/стрелки имеют собственный смысл — глобальные горячие клавиши их не перехватывают. */
-const isInteractiveTarget = (target: EventTarget | null): boolean => {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A', 'SUMMARY'].includes(target.tagName)) return true;
-  return Boolean(target.closest('[role="button"], [role="tab"], [role="slider"], [role="switch"], [role="menuitem"], [role="checkbox"]'));
-};
 
 const AppShell: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -90,7 +80,7 @@ const AppShell: React.FC = () => {
     }
   }, [hasBook]);
 
-  // Глобальные горячие клавиши
+  // Escape закрывает панели оболочки (горячие клавиши плеера живут в панели плеера)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
@@ -102,29 +92,6 @@ const AppShell: React.FC = () => {
         setIsDictionaryOpen(false);
         setIsTopUpOpen(false);
         setActiveFootnote(null);
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-      if (isInteractiveTarget(e.target) && e.code === 'Space') return;
-      if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
-      // Пока открыто модальное окно, горячие клавиши плеера отключены
-      if (document.querySelector('[aria-modal="true"]')) return;
-      if (!useBookStore.getState().currentBook) return;
-
-      const audio = useAudioStore.getState();
-      if (e.code === 'Space') {
-        e.preventDefault();
-        if (e.repeat) return;
-        if (audio.isPlaying && !audio.isPaused) coordinator.pause();
-        else if (audio.isPlaying && audio.isPaused) coordinator.resume();
-        else void coordinator.play();
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        void coordinator.playNextSentence();
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        void coordinator.playPrevSentence();
       }
     };
 
@@ -133,7 +100,6 @@ const AppShell: React.FC = () => {
   }, [setActiveFootnote]);
 
   const handleBackToLibrary = useCallback(() => {
-    coordinator.stop();
     void closeBook();
   }, [closeBook]);
 
@@ -175,9 +141,9 @@ const AppShell: React.FC = () => {
         </main>
       )}
 
-      {/* Закреплённая снизу панель воспроизведения (ControlBar) */}
+      {/* Закреплённая снизу панель воспроизведения (с горячими клавишами плеера) */}
       {currentBook && (
-        <ControlBar
+        <PlayerHotkeys
           onToggleChapters={toggleChapters}
           isChaptersOpen={isChaptersOpen}
           onOpenDictionary={() => setIsDictionaryOpen(true)}

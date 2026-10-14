@@ -37,7 +37,7 @@ const CHIP_ACTIVE =
 const POPOVER =
   'absolute right-0 bottom-full mb-2 bg-white dark:bg-zinc-900 sepia:bg-[#f6ecd2] sepia:border-[#b59a62] border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50';
 
-interface ControlBarProps {
+export interface ControlBarProps {
   onToggleChapters?: () => void;
   isChaptersOpen?: boolean;
   onOpenDictionary?: () => void;

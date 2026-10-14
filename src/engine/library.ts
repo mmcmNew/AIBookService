@@ -513,6 +513,7 @@ export async function deleteBook(bookId: string): Promise<void> {
 }
 
 export async function closeBook(): Promise<void> {
+  coordinator.stop();
   await flushProgress();
   useBookStore.setState({ currentBook: null, activeFootnote: null });
   coordinator.resetReadingPosition();
