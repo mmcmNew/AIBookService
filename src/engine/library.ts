@@ -226,6 +226,9 @@ export async function activatePaged(metadata: BookMetadata, rawPdfBuffer: ArrayB
     metadata,
     startPage,
     getBuffer: async () => (rawPdfBuffer && rawPdfBuffer.byteLength > 0 ? rawPdfBuffer : loadPdfBuffer(metadata.id)),
+    saveBookMeta: async (bookId, patch) => {
+      await db.books.update(bookId, patch as UpdateSpec<StoredBook>);
+    },
   });
   const composed = usePagedStore.getState().composed as ComposedBook;
   let sentenceId: number | null = metadata.lastSentenceId ?? null;

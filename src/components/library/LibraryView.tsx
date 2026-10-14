@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { SavedBook, useBookStore } from '../../store/bookStore';
 import { clearBookError as clearError, deleteBook, loadBookFromFile, selectSavedBook } from '../../engine/library';
+import { rememberPdfRecognitionMode } from '../../engine/settings';
 import { useSettingsStore } from '../../store/settingsStore';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
 import { PdfRecognitionMode } from '../../types/settings';
@@ -235,8 +236,6 @@ export const LibraryView: React.FC = () => {
   const replacementRules = useSettingsStore((state) => state.replacementRules);
   const pdfRecognitionMode = useSettingsStore((state) => state.pdfRecognitionMode);
   const alwaysAskPdfMode = useSettingsStore((state) => state.alwaysAskPdfMode);
-  const setPdfRecognitionMode = useSettingsStore((state) => state.setPdfRecognitionMode);
-  const setAlwaysAskPdfMode = useSettingsStore((state) => state.setAlwaysAskPdfMode);
 
   // Ошибки стора вне загрузки файла (например, не удалось открыть сохранённую книгу) показываем тостом
   useEffect(() => {
@@ -352,8 +351,7 @@ export const LibraryView: React.FC = () => {
   const handlePdfModeSelect = async (mode: PdfRecognitionMode, rememberDefault: boolean) => {
     if (!pendingPdfFile || processingRef.current) return;
     if (rememberDefault) {
-      setPdfRecognitionMode(mode);
-      setAlwaysAskPdfMode(false);
+      rememberPdfRecognitionMode(mode);
     }
     // Оставляем модалку открытой: она сама отобразит спиннер и статус обработки
     await handleFileUpload(pendingPdfFile, { pdfMode: mode });

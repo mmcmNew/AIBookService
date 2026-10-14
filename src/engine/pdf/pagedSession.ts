@@ -23,6 +23,8 @@ export interface SessionInit {
   /** Исходный PDF (лениво; нужен только распознавателю) */
   getBuffer: () => Promise<ArrayBuffer | undefined>;
   startPage: number;
+  /** Сохранить метаданные книги (запись в таблицу книг выполняет Библиотека — её владелец) */
+  saveBookMeta?: (bookId: string, patch: Record<string, unknown>) => Promise<void>;
 }
 
 /** Конфигурация планировщика под движок. Платные/медленные движки не распознают всю книгу в фоне без нужды. */
@@ -314,7 +316,7 @@ class PagedSession {
     try {
       const patch: Record<string, unknown> = { 'metadata.paged': this.meta };
       if (quality) patch['metadata.quality'] = quality;
-      await db.books.update(this.bookId, patch as never);
+      await this.init.saveBookMeta?.(this.bookId, patch);
     } catch (e) {
       console.warn('[PagedSession] Не удалось сохранить метаданные книги:', e);
     }
