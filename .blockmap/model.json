@@ -30,7 +30,8 @@
         "b_dom_library": 0,
         "b_ui_router": 0,
         "b_ui_text": 0,
-        "b_ui_pdf": 0
+        "b_ui_pdf": 0,
+        "b_ui_settings": 0
       },
       "edges": [
         {
@@ -157,16 +158,22 @@
           "from": "b_ui_pdf",
           "to": "b_ui_play",
           "label": "клик по фразе"
+        },
+        {
+          "from": "b_ui_settings",
+          "to": "b_dom_fetch",
+          "label": "проверка озвучки в окне настроек (разовый синтез)",
+          "kind": "call"
         }
       ],
       "zoneOrder": [
+        "z_audio",
+        "z_settings",
+        "z_player",
         "z_text",
-        "z_screen",
         "z_coord",
         "z_library",
-        "z_player",
-        "z_audio",
-        "z_shared"
+        "z_shell"
       ]
     },
     {
@@ -174,10 +181,10 @@
       "title": "Экран чтения (UI)",
       "desc": "Выбор экрана по типу файла; экран получает предложения или страницы, позицию и режим автоскролла. Команды на озвучку уходят через «Кнопку Play» (сценарий «Озвучка»).",
       "cols": {
-        "b_ui_router": 1,
-        "b_ui_text": 2,
+        "b_ui_router": 0,
+        "b_ui_text": 1,
         "b_ui_pdf": 0,
-        "b_ui_play": 3,
+        "b_ui_play": 0,
         "b_state_pos": 0,
         "b_state_book": 1,
         "b_state_paged": 0,
@@ -238,10 +245,11 @@
         }
       ],
       "zoneOrder": [
+        "z_library",
+        "z_shell",
+        "z_text",
         "z_coord",
-        "z_shared",
-        "z_screen",
-        "z_library"
+        "z_settings"
       ]
     },
     {
@@ -249,7 +257,7 @@
       "title": "Библиотека и открытие книги",
       "desc": "Экран библиотеки: выбор сохранённой книги или загрузка файла → парсинг и токенизация → сохранение в db.books и публикация в st_book.",
       "cols": {
-        "b_ui_library": 1,
+        "b_ui_library": 0,
         "b_dom_library": 0,
         "b_dom_parser": 2,
         "b_dom_tokenize": 3,
@@ -257,7 +265,8 @@
         "b_state_paged": 1,
         "b_data_db": 0,
         "b_state_book": 0,
-        "b_ui_router": 0
+        "b_ui_router": 1,
+        "b_ui_header": 0
       },
       "edges": [
         {
@@ -319,11 +328,79 @@
           "to": "b_dom_library",
           "label": "загрузить список книг, закрыть книгу (команды)",
           "kind": "call"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_header",
+          "label": "шапка (вставка в оболочку)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_header",
+          "to": "b_dom_library",
+          "label": "открыть книгу, режим PDF",
+          "kind": "call"
         }
       ],
       "zoneOrder": [
-        "z_screen",
+        "z_shell",
         "z_library"
+      ]
+    },
+    {
+      "id": "sc_settings",
+      "title": "Настройки читалки",
+      "desc": "Окно настроек, шапка и панель плеера просят «Настройки: команды» изменить значение; команда записывает его в стор настроек, а окно читает текущие значения.",
+      "cols": {
+        "b_ui_router": 0,
+        "b_ui_settings": 0,
+        "b_ui_header": 1,
+        "b_dom_settings": 0,
+        "b_state_settings": 0,
+        "b_ui_library": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_settings",
+          "label": "окно настроек (вставка лица зоны)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_settings",
+          "to": "b_dom_settings",
+          "label": "изменить настройку",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_header",
+          "to": "b_dom_settings",
+          "label": "тема, запомнить режим PDF",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_library",
+          "to": "b_dom_settings",
+          "label": "запомнить режим PDF по умолчанию",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_state_settings",
+          "label": "записать",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_settings",
+          "label": "текущие значения",
+          "kind": "data"
+        }
+      ],
+      "zoneOrder": [
+        "z_library",
+        "z_settings",
+        "z_shell"
       ]
     }
   ],
@@ -340,7 +417,7 @@
         "res_bookStore",
         "res_settingsStore"
       ],
-      "zone": "z_screen"
+      "zone": "z_library"
     },
     "b_dom_library": {
       "title": "Менеджер библиотеки и открытия книг",
@@ -516,7 +593,7 @@
         "res_settingsStore"
       ],
       "entry": true,
-      "zone": "z_screen"
+      "zone": "z_shell"
     },
     "b_ui_text": {
       "title": "Читалка текста",
@@ -533,7 +610,7 @@
         "res_bookStore",
         "res_settingsStore"
       ],
-      "zone": "z_screen"
+      "zone": "z_text"
     },
     "b_ui_pdf": {
       "title": "PDF-экран (оригинал + распознанное)",
@@ -551,7 +628,7 @@
         "res_bookStore",
         "res_settingsStore"
       ],
-      "zone": "z_screen"
+      "zone": "z_text"
     },
     "b_dom_pdf": {
       "title": "PDF-координатор",
@@ -583,7 +660,11 @@
       "fns": [
         "fn_getProvider"
       ],
-      "zone": "z_audio"
+      "zone": "z_audio",
+      "members": [
+        "getOrFetchAudio",
+        "synthesizeOnce"
+      ]
     },
     "b_ui_play": {
       "title": "Кнопка Play / клик по фразе",
@@ -601,7 +682,7 @@
         "Paragraph",
         "useSentenceJump"
       ],
-      "zone": "z_screen"
+      "zone": "z_coord"
     },
     "b_dom_source": {
       "title": "Поставщик фраз (книга: текст и PDF)",
@@ -625,7 +706,7 @@
         "res_settingsStore"
       ],
       "slice": "st_settings",
-      "zone": "z_shared"
+      "zone": "z_settings"
     },
     "b_state_book": {
       "title": "Текст книги (загруженная)",
@@ -684,6 +765,67 @@
         "res_settingsStore"
       ],
       "zone": "z_coord"
+    },
+    "b_ui_header": {
+      "title": "Шапка приложения",
+      "layer": "UI",
+      "file": "src/components/layout/Header.tsx",
+      "line": 114,
+      "symbol": "Header",
+      "summary": "Кнопки шапки: назад в библиотеку, режим PDF, редактор, словарь, пополнение, тема, настройки. Открывает книгу из PDF-диалога, сама состояние не меняет.",
+      "zone": "z_shell"
+    },
+    "b_dom_settings": {
+      "title": "Настройки: команды",
+      "layer": "Domain",
+      "file": "src/engine/settings.ts",
+      "line": 9,
+      "symbol": "setOpenRouterModel",
+      "members": [
+        "setOpenRouterModel",
+        "rememberPdfRecognitionMode",
+        "setTheme",
+        "setFontFamily",
+        "setFontSize",
+        "setLineHeight",
+        "setAutoscroll",
+        "setAnnounceChapters",
+        "setChapterChime",
+        "setAutoAdvanceChapter",
+        "setActiveProvider",
+        "setSelectedVoiceId",
+        "setOpenRouterApiMode",
+        "setSpeed",
+        "setVolume",
+        "setApiKey",
+        "setGeminiModel",
+        "setOpenRouterBaseUrl",
+        "setPdfRecognitionMode",
+        "setAlwaysAskPdfMode",
+        "setProxy",
+        "addReplacementRule",
+        "removeReplacementRule",
+        "toggleReplacementRule"
+      ],
+      "summary": "Единственный писатель настроек читалки: по команде из окна настроек, шапки, панели плеера и словаря записывает значение в стор настроек. Валидация и ограничения остаются в сеттерах стора.",
+      "risk": "Команда должна лишь передавать значение сеттеру стора: смена темы и ограничения скорости и громкости живут в сторе.",
+      "res": [
+        "res_settingsStore"
+      ],
+      "zone": "z_settings"
+    },
+    "b_ui_settings": {
+      "title": "Окно настроек",
+      "layer": "UI",
+      "file": "src/components/settings/SettingsModal.tsx",
+      "line": 56,
+      "symbol": "SettingsModal",
+      "summary": "Окно настроек: озвучка, ключи, словарь, вид, сеть. Читает текущие значения и отправляет команды изменения в «Настройки: команды».",
+      "res": [
+        "res_settingsStore"
+      ],
+      "zone": "z_settings",
+      "entry": true
     }
   },
   "resources": {
@@ -2872,7 +3014,7 @@
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
     "b_dom_pdf": "bd5fbc9055",
-    "b_dom_fetch": "9869ac9d7a",
+    "b_dom_fetch": "3685ca50b4",
     "b_ui_play": "54bfad0aff",
     "b_dom_source": "9e5e4b651b",
     "b_state_settings": "2c90c99f76",
@@ -2884,12 +3026,16 @@
     "b_ui_library": "f9cb1077c0",
     "b_dom_library": "6c7bc6db88",
     "b_dom_parser": "6fabb3a9ca",
-    "b_data_db": "37ea9194ef"
+    "b_data_db": "37ea9194ef",
+    "b_ui_header": "06df40c6db",
+    "b_dom_settings": "29824bf9df",
+    "b_ui_settings": "691a423f94"
   },
   "approvedScenarios": {
-    "sc_tts": "39b75aaef4",
-    "sc_read": "deb972f170",
-    "sc_open": "14706856f6"
+    "sc_tts": "cc1038998f",
+    "sc_read": "d2f65f28c4",
+    "sc_open": "3e6e0bab7c",
+    "sc_settings": "59c7bc1b6f"
   },
   "riskAcks": {
     "11b0ba5a0a": {
@@ -2961,8 +3107,7 @@
       "title": "Настройки читалки",
       "store": "useSettingsStore",
       "all": true,
-      "owner": null,
-      "note": "кандидат: «Настройки»"
+      "owner": "b_dom_settings"
     },
     "st_paged": {
       "title": "Прогресс распознавания PDF",
@@ -2979,11 +3124,6 @@
     }
   },
   "zones": {
-    "z_screen": {
-      "title": "Экран",
-      "head": "b_ui_router",
-      "note": "что и как показываем, команды пользователя"
-    },
     "z_coord": {
       "title": "Координация воспроизведения",
       "head": "b_dom_coord",
@@ -3004,15 +3144,20 @@
       "head": "b_dom_source",
       "note": "книга: текст и PDF, страницы"
     },
-    "z_shared": {
-      "title": "Общая",
-      "head": "b_state_settings",
-      "note": "настройки читалки"
-    },
     "z_library": {
       "title": "Библиотека и книги",
       "head": "b_dom_library",
       "note": "управление книгами, парсинг и локальная база"
+    },
+    "z_shell": {
+      "title": "Каркас",
+      "head": "b_ui_router",
+      "note": "оболочка приложения: выбор экрана, шапка; собирает лица остальных зон"
+    },
+    "z_settings": {
+      "title": "Настройки",
+      "head": "b_dom_settings",
+      "note": "настройки читалки: значения, ключи, словарь замен"
     }
   },
   "version": {

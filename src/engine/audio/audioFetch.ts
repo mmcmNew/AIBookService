@@ -122,6 +122,15 @@ export async function getOrFetchAudio(
   return audioBuffer;
 }
 
+/** Разовый синтез без кэша и очереди (проверка подключения в окне настроек). */
+export async function synthesizeOnce(
+  providerType: TTSProviderType,
+  text: string,
+  options: SynthesisOptions
+): Promise<ArrayBuffer> {
+  return getProvider(providerType).synthesize(text, options);
+}
+
 let prefetchAbort: AbortController | null = null;
 
 /** Предзагрузка следующей фразы в фоне; ошибки игнорируются */

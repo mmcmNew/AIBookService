@@ -20,7 +20,7 @@ import {
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
 import { AggregatorApiMode, TTSProviderType, VoiceOption } from '../../types/tts';
-import { getAllVoices, getProvider, PROVIDERS_MAP } from '../../engine/providers';
+import { getAllVoices, PROVIDERS_MAP } from '../../engine/providers';
 import { buildSynthesisOptions } from '../../engine/audio/coordinator';
 import { 
   openRouterTTSProvider, 
@@ -34,6 +34,7 @@ import {
   getDesktopProxy, 
   restartDesktopApp 
 } from '../../engine/proxy/proxyManager';
+import { synthesizeOnce } from '../../engine/audio/audioFetch';
 import { setOpenRouterModel as setOpenRouterModelDomain, setTheme, setFontFamily, setFontSize, setLineHeight, setAutoscroll, setActiveProvider, setSelectedVoiceId, setOpenRouterApiMode, setSpeed, setVolume, setApiKey, setGeminiModel, setOpenRouterBaseUrl, setProxy, setPdfRecognitionMode, setAlwaysAskPdfMode, addReplacementRule, removeReplacementRule, toggleReplacementRule } from '../../engine/settings';
 
 interface SettingsModalProps {
@@ -197,7 +198,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     setTestState({ status: 'loading' });
     try {
       const opts = buildSynthesisOptions();
-      const buffer = await getProvider(activeProvider).synthesize(
+      const buffer = await synthesizeOnce(
+        activeProvider,
         'Проверка озвучки. Если вы слышите эту фразу, подключение работает.',
         opts
       );
