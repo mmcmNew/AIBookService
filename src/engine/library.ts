@@ -16,6 +16,7 @@ import {
   type ComposedBook,
 } from './pdf/composer';
 import { coordinator } from './audio/coordinator';
+import { currentPhrase, isPageReady, nextPhrase, previousPhraseId, type CurrentPhrase, type NextPhrase } from './phrases';
 import { deleteAudioCacheForBook, purgeOrphanAudioCache } from './audio/audioFetch';
 import { parseBookFile, type ParseOptions } from './parsers';
 import type { ReplacementRule } from '../types/settings';
@@ -564,6 +565,124 @@ export async function replaceBookChapters(chapters: Chapter[], options?: { title
   coordinator.setReadingPosition({ chapterIndex: pos.chapterIndex, sentenceId: pos.sentenceId });
 
   void loadSavedBooksList();
+}
+
+// ---------------------------------------------------------------------------
+// Вход зоны для Координатора: ответы о книге («какая следующая фраза?», где она, куда перейти).
+// Координатор не читает книгу и страницы PDF сам — он спрашивает здесь.
+// ---------------------------------------------------------------------------
+
+/** Открыта постраничная (PDF) книга */
+export function bookIsPaged(): boolean {
+  return Boolean(useBookStore.getState().currentBook?.metadata.paged);
+}
+
+/** Фраза, с которой начать озвучку: фраза | ждём страницу | конец (внутри — Поставщик фраз) */
+export function phraseToPlay(autoAdvanceChapter: boolean): CurrentPhrase {
+  return currentPhrase(autoAdvanceChapter);
+}
+
+/** Следующая фраза: фраза | глава | ждём страницу | конец */
+export function phraseAfterCurrent(autoAdvanceChapter: boolean): NextPhrase {
+  return nextPhrase(autoAdvanceChapter);
+}
+
+/** id предыдущей фразы или null */
+export function phraseBeforeCurrent(): number | null {
+  return previousPhraseId();
+}
+
+/** Страница PDF распознана и вошла в сборку книги */
+export function pageReady(page: number): boolean {
+  return isPageReady(page);
+}
+
+/** Перейти на страницу PDF (первая фраза страницы, если она уже распознана) */
+export function goToPagedPage(page: number): void {
+  const book = pagedBookOpen();
+  if (!book) return;
+  const composed = usePagedStore.getState().composed;
+  const p = Math.min(Math.max(1, Math.round(page) || 1), book.metadata.paged!.pageCount);
+  const ready = composed?.pages[p - 1]?.state === 'done';
+  const target = ready && composed ? firstSentenceOnPage(composed, p) ?? firstSentenceAtOrAfterPage(composed, p) : null;
+  navigatePaged(p, target?.id ?? null, !ready);
+}
+
+/** Страница просмотра PDF в границах книги (null — постраничная книга не открыта) */
+export function pagedPageRef(page: number): { bookId: string; page: number } | null {
+  const book = pagedBookOpen();
+  if (!book) return null;
+  return { bookId: book.metadata.id, page: Math.min(Math.max(1, Math.round(page) || 1), book.metadata.paged!.pageCount) };
+}
+
+/** Где в постраничной книге лежит предложение (null — это не постраничная книга или предложения нет в сборке) */
+export function sentenceLocation(id: number): { page: number; chapterIndex: number | undefined } | null {
+  if (!pagedBookOpen()) return null;
+  const composed = usePagedStore.getState().composed;
+  const idx = composed?.indexById.get(id);
+  if (!composed || idx === undefined) return null;
+  return { page: sentencePage(composed.order[idx]), chapterIndex: composed.chapterOfSentence.get(id) };
+}
+
+/** Книга и глава для записи прогресса чтения (null — книга не открыта) */
+export function progressRef(chapterIndex: number): { bookId: string; chapterId: string | undefined } | null {
+  const book = useBookStore.getState().currentBook;
+  return book ? { bookId: book.metadata.id, chapterId: book.chapters[chapterIndex]?.id } : null;
+}
+
+export type ChapterTarget =
+  | { kind: 'paged-sentence'; page: number; sentenceId: number }
+  | { kind: 'paged-page'; page: number }
+  | { kind: 'text'; bookId: string; chapterId: string; sentenceId: number | null };
+
+/** Куда перейти при выборе главы (null — такой главы нет) */
+export function chapterTarget(index: number): ChapterTarget | null {
+  const book = useBookStore.getState().currentBook;
+  if (!book || index < 0 || index >= book.chapters.length) return null;
+  const ch = book.chapters[index];
+  if (book.metadata.paged) {
+    const composed = usePagedStore.getState().composed;
+    const startPage = ch.startPage ?? 1;
+    const first = ch.sentences[0];
+    if (composed && first && composed.pages[startPage - 1]?.state === 'done' && sentencePage(first) === startPage) {
+      return { kind: 'paged-sentence', page: startPage, sentenceId: first.id };
+    }
+    return { kind: 'paged-page', page: startPage };
+  }
+  return { kind: 'text', bookId: book.metadata.id, chapterId: ch.id, sentenceId: ch.sentences[0]?.id ?? null };
+}
+
+/** Показать страницу PDF как «в фокусе» (onlyIfChanged — не трогать, если фокус уже на ней) */
+export function focusPage(page: number, onlyIfChanged = false): void {
+  if (onlyIfChanged && usePagedStore.getState().focusPage === page) return;
+  setFocusPage(page);
+}
+
+export interface BookObserver {
+  /** Явная навигация по PDF (navNonce) */
+  onNavigated: () => void;
+  /** Любое другое изменение страниц PDF (распознавание) */
+  onPagesChanged: () => void;
+  /** Книга закрыта/сменена или сменилась глава */
+  onBookOrChapterChanged: (change: { bookChanged: boolean; closed: boolean; paged: boolean }) => void;
+}
+
+/** Подписка Координатора на события книги (подписки на сторы живут внутри зоны книги) */
+export function observeBook(observer: BookObserver): void {
+  usePagedStore.subscribe((state, prev) => {
+    if (state.navNonce !== prev.navNonce) observer.onNavigated();
+    else observer.onPagesChanged();
+  });
+  useBookStore.subscribe((state, prev) => {
+    const bookChanged = state.currentBook?.metadata.id !== prev.currentBook?.metadata.id;
+    const chapterChanged = state.currentChapterIndex !== prev.currentChapterIndex;
+    if (!bookChanged && !chapterChanged) return;
+    observer.onBookOrChapterChanged({
+      bookChanged,
+      closed: !state.currentBook,
+      paged: Boolean(state.currentBook?.metadata.paged),
+    });
+  });
 }
 
 export function setActiveFootnote(activeFootnote: Footnote | null): void {
