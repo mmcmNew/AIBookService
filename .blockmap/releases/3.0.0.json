@@ -1,0 +1,327 @@
+{
+  "version": "3.0.0",
+  "date": "2026-10-14",
+  "milestone": "Единая книга и управление через Менеджера",
+  "structure": {
+    "blocks": {
+      "b_ui_library": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Экран библиотеки",
+        "zone": "z_library"
+      },
+      "b_dom_library": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Менеджер библиотеки и открытия книг",
+        "zone": "z_library"
+      },
+      "b_dom_parser": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Хаб парсеров книг",
+        "zone": "z_library"
+      },
+      "b_data_db": {
+        "layer": "Data",
+        "planned": false,
+        "title": "База данных книг (Dexie)",
+        "zone": "z_library"
+      },
+      "b_dom_audio": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Оркестратор аудио",
+        "zone": "z_player"
+      },
+      "b_dom_tokenize": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Токенизатор предложений",
+        "zone": "z_library"
+      },
+      "b_data_cache": {
+        "layer": "Data",
+        "planned": false,
+        "title": "Аудиокэш (RAM + IndexedDB)",
+        "zone": "z_audio"
+      },
+      "b_infra_audioel": {
+        "layer": "Infra",
+        "planned": false,
+        "title": "Плеер (HTML Audio)",
+        "zone": "z_player"
+      },
+      "b_infra_router": {
+        "layer": "Infra",
+        "planned": false,
+        "title": "TTS-провайдеры (адаптеры)",
+        "zone": "z_audio"
+      },
+      "b_state_player": {
+        "layer": "State",
+        "planned": false,
+        "title": "Статус плеера",
+        "zone": "z_player"
+      },
+      "b_ui_router": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Выбор экрана по типу файла",
+        "zone": "z_shell"
+      },
+      "b_dom_pdf": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "PDF-координатор",
+        "zone": "z_library"
+      },
+      "b_dom_fetch": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Поставщик озвучки (кэш + синтез)",
+        "zone": "z_audio"
+      },
+      "b_ui_play": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Панель плеера",
+        "zone": "z_player"
+      },
+      "b_dom_source": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Поставщик фраз (книга: текст и PDF)",
+        "zone": "z_library"
+      },
+      "b_state_settings": {
+        "layer": "State",
+        "planned": false,
+        "title": "Настройки читалки",
+        "zone": "z_settings"
+      },
+      "b_state_book": {
+        "layer": "State",
+        "planned": false,
+        "title": "Книга и позиция чтения",
+        "zone": "z_library"
+      },
+      "b_state_paged": {
+        "layer": "State",
+        "planned": false,
+        "title": "Страницы PDF (готовность)",
+        "zone": "z_library"
+      },
+      "b_dom_coord": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Координатор воспроизведения",
+        "zone": "z_coord"
+      },
+      "b_ui_header": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Шапка приложения",
+        "zone": "z_shell"
+      },
+      "b_dom_settings": {
+        "layer": "Domain",
+        "planned": false,
+        "title": "Настройки: команды",
+        "zone": "z_settings"
+      },
+      "b_ui_settings": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Окно настроек",
+        "zone": "z_settings"
+      },
+      "b_ui_book": {
+        "layer": "UI",
+        "planned": false,
+        "title": "Экран книги",
+        "zone": "z_library"
+      }
+    },
+    "states": {
+      "st_book": {
+        "owner": "b_dom_library"
+      },
+      "st_player": {
+        "owner": "b_dom_audio"
+      },
+      "st_settings": {
+        "owner": "b_dom_settings"
+      },
+      "st_paged": {
+        "owner": "b_dom_pdf"
+      },
+      "st_user": {
+        "owner": null
+      }
+    },
+    "resources": {
+      "res_booksDb": {
+        "owner": "b_dom_library"
+      },
+      "res_audioCache": {
+        "owner": "b_dom_fetch"
+      },
+      "res_bookStore": {
+        "owner": null
+      },
+      "res_settingsStore": {
+        "owner": null
+      }
+    },
+    "scenarios": {
+      "sc_tts": {
+        "blocks": [
+          "b_data_cache",
+          "b_dom_audio",
+          "b_dom_coord",
+          "b_dom_fetch",
+          "b_dom_library",
+          "b_dom_settings",
+          "b_infra_audioel",
+          "b_infra_router",
+          "b_state_book",
+          "b_state_player",
+          "b_state_settings",
+          "b_ui_book",
+          "b_ui_play"
+        ],
+        "edges": [
+          "b_dom_audio>b_dom_coord",
+          "b_dom_audio>b_dom_fetch",
+          "b_dom_audio>b_infra_audioel",
+          "b_dom_audio>b_state_player",
+          "b_dom_coord>b_dom_audio",
+          "b_dom_coord>b_dom_fetch",
+          "b_dom_coord>b_dom_library",
+          "b_dom_coord>b_dom_library",
+          "b_dom_coord>b_dom_settings",
+          "b_dom_fetch>b_data_cache",
+          "b_dom_fetch>b_dom_audio",
+          "b_dom_fetch>b_infra_router",
+          "b_dom_library>b_dom_coord",
+          "b_dom_library>b_dom_coord",
+          "b_dom_library>b_state_book",
+          "b_infra_audioel>b_dom_audio",
+          "b_infra_router>b_dom_fetch",
+          "b_state_book>b_dom_coord",
+          "b_state_book>b_dom_library",
+          "b_state_book>b_ui_book",
+          "b_state_book>b_ui_play",
+          "b_state_player>b_dom_coord",
+          "b_state_player>b_ui_book",
+          "b_state_player>b_ui_play",
+          "b_state_settings>b_dom_audio",
+          "b_state_settings>b_dom_coord",
+          "b_state_settings>b_dom_fetch",
+          "b_state_settings>b_dom_library",
+          "b_state_settings>b_ui_book",
+          "b_state_settings>b_ui_play",
+          "b_ui_book>b_dom_library",
+          "b_ui_play>b_dom_audio",
+          "b_ui_play>b_dom_library"
+        ]
+      },
+      "sc_read": {
+        "blocks": [
+          "b_state_book",
+          "b_state_paged",
+          "b_state_settings",
+          "b_ui_book",
+          "b_ui_router"
+        ],
+        "edges": [
+          "b_state_book>b_ui_book",
+          "b_state_paged>b_ui_book",
+          "b_state_settings>b_ui_book",
+          "b_ui_router>b_ui_book",
+          "b_ui_router>b_ui_book"
+        ]
+      },
+      "sc_open": {
+        "blocks": [
+          "b_data_db",
+          "b_dom_library",
+          "b_dom_parser",
+          "b_dom_pdf",
+          "b_dom_tokenize",
+          "b_state_book",
+          "b_state_paged",
+          "b_state_settings",
+          "b_ui_book",
+          "b_ui_header",
+          "b_ui_library",
+          "b_ui_play",
+          "b_ui_router"
+        ],
+        "edges": [
+          "b_dom_library>b_data_db",
+          "b_dom_library>b_dom_parser",
+          "b_dom_library>b_dom_pdf",
+          "b_dom_library>b_state_book",
+          "b_dom_parser>b_dom_tokenize",
+          "b_dom_pdf>b_state_paged",
+          "b_state_book>b_ui_book",
+          "b_state_book>b_ui_header",
+          "b_state_book>b_ui_library",
+          "b_state_book>b_ui_router",
+          "b_state_settings>b_dom_parser",
+          "b_state_settings>b_dom_pdf",
+          "b_ui_book>b_dom_library",
+          "b_ui_header>b_dom_library",
+          "b_ui_library>b_dom_library",
+          "b_ui_router>b_dom_library",
+          "b_ui_router>b_ui_book",
+          "b_ui_router>b_ui_header",
+          "b_ui_router>b_ui_library",
+          "b_ui_router>b_ui_play"
+        ]
+      },
+      "sc_settings": {
+        "blocks": [
+          "b_dom_fetch",
+          "b_dom_settings",
+          "b_state_settings",
+          "b_ui_header",
+          "b_ui_library",
+          "b_ui_play",
+          "b_ui_router",
+          "b_ui_settings"
+        ],
+        "edges": [
+          "b_dom_settings>b_dom_fetch",
+          "b_dom_settings>b_state_settings",
+          "b_state_settings>b_ui_library",
+          "b_state_settings>b_ui_play",
+          "b_state_settings>b_ui_router",
+          "b_state_settings>b_ui_settings",
+          "b_ui_header>b_dom_settings",
+          "b_ui_library>b_dom_settings",
+          "b_ui_play>b_dom_settings",
+          "b_ui_router>b_ui_settings",
+          "b_ui_settings>b_dom_settings"
+        ]
+      },
+      "sc_phrases": {
+        "blocks": [
+          "b_dom_library",
+          "b_dom_source",
+          "b_state_book",
+          "b_state_paged"
+        ],
+        "edges": [
+          "b_dom_library>b_dom_source",
+          "b_dom_source>b_dom_library",
+          "b_state_book>b_dom_source",
+          "b_state_paged>b_dom_library",
+          "b_state_paged>b_dom_source"
+        ]
+      }
+    }
+  }
+}
