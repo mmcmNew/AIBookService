@@ -26,7 +26,11 @@
         "b_data_cache": 0,
         "b_infra_router": 0,
         "b_state_settings": 0,
-        "b_state_paged": 0
+        "b_state_paged": 0,
+        "b_dom_library": 0,
+        "b_ui_router": 0,
+        "b_ui_text": 0,
+        "b_ui_pdf": 0
       },
       "edges": [
         {
@@ -131,13 +135,35 @@
           "to": "b_state_player",
           "label": "статус плеера",
           "kind": "write"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "накопить и сбросить прогресс чтения (queueProgress / flushProgress)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_dom_coord",
+          "label": "горячие клавиши (play/pause/nav)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_text",
+          "to": "b_ui_play",
+          "label": "клик по фразе"
+        },
+        {
+          "from": "b_ui_pdf",
+          "to": "b_ui_play",
+          "label": "клик по фразе"
         }
       ],
       "zoneOrder": [
-        "z_screen",
-        "z_library",
         "z_text",
+        "z_screen",
         "z_coord",
+        "z_library",
         "z_player",
         "z_audio",
         "z_shared"
@@ -153,7 +179,6 @@
         "b_ui_pdf": 0,
         "b_ui_play": 3,
         "b_state_pos": 0,
-        "b_dom_coord": 0,
         "b_state_book": 1,
         "b_state_paged": 0,
         "b_state_settings": 0
@@ -190,12 +215,6 @@
           "label": "клик по фразе"
         },
         {
-          "from": "b_ui_router",
-          "to": "b_dom_coord",
-          "label": "горячие клавиши (play/pause/nav)",
-          "kind": "call"
-        },
-        {
           "from": "b_state_settings",
           "to": "b_ui_text",
           "label": "автоскролл, шрифт, тема"
@@ -216,43 +235,13 @@
           "to": "b_ui_pdf",
           "label": "распознанные страницы, баннер",
           "kind": "data"
-        },
-        {
-          "from": "b_ui_text",
-          "to": "b_dom_coord",
-          "label": "команды: глава, страница",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_pdf",
-          "to": "b_dom_coord",
-          "label": "команды: страница",
-          "kind": "call"
-        },
-        {
-          "from": "b_dom_coord",
-          "to": "b_state_pos",
-          "label": "записать позицию",
-          "kind": "write"
-        },
-        {
-          "from": "b_state_book",
-          "to": "b_dom_coord",
-          "label": "текст книги: проверить позицию",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_paged",
-          "to": "b_dom_coord",
-          "label": "готовность страниц",
-          "kind": "data"
         }
       ],
       "zoneOrder": [
-        "z_screen",
-        "z_library",
         "z_coord",
-        "z_shared"
+        "z_shared",
+        "z_screen",
+        "z_library"
       ]
     },
     {
@@ -260,14 +249,15 @@
       "title": "Библиотека и открытие книги",
       "desc": "Экран библиотеки: выбор сохранённой книги или загрузка файла → парсинг и токенизация → сохранение в db.books и публикация в st_book.",
       "cols": {
-        "b_ui_library": 0,
-        "b_dom_library": 1,
+        "b_ui_library": 1,
+        "b_dom_library": 0,
         "b_dom_parser": 2,
         "b_dom_tokenize": 3,
-        "b_dom_pdf": 4,
-        "b_state_paged": 5,
-        "b_data_db": 6,
-        "b_state_book": 7
+        "b_dom_pdf": 1,
+        "b_state_paged": 1,
+        "b_data_db": 0,
+        "b_state_book": 0,
+        "b_ui_router": 0
       },
       "edges": [
         {
@@ -317,6 +307,18 @@
           "to": "b_ui_library",
           "label": "список книг (savedBooks), статус загрузки",
           "kind": "data"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_library",
+          "label": "показать экран библиотеки, когда книга не открыта",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_dom_library",
+          "label": "загрузить список книг, закрыть книгу (команды)",
+          "kind": "call"
         }
       ],
       "zoneOrder": [
@@ -520,7 +522,7 @@
       "title": "Читалка текста",
       "layer": "UI",
       "file": "src/components/reader/BookView.tsx",
-      "line": 86,
+      "line": 36,
       "symbol": "BookView",
       "summary": "Экран для FB2 / EPUB / TXT. Получает предложения, позицию чтения и режим автоскролла; сам подсвечивает активную фразу и вызывает автоскролл (функции). Клик по фразе отдаёт команду play Домену, состояние не меняет.",
       "fns": [
@@ -555,7 +557,7 @@
       "title": "PDF-координатор",
       "layer": "Domain",
       "file": "src/engine/pdf/pagedSession.ts",
-      "line": 513,
+      "line": 515,
       "symbol": "openPagedSession",
       "summary": "Открывает постраничную сессию, планирует распознавание окнами, поднимает приоритет нужной страницы, отдаёт готовые страницы PDF-экрану.",
       "flow": "f_dom_pdf",
@@ -586,8 +588,8 @@
     "b_ui_play": {
       "title": "Кнопка Play / клик по фразе",
       "layer": "UI",
-      "file": "src/components/reader/BookView.tsx",
-      "line": 22,
+      "file": "src/components/reader/Sentence.tsx",
+      "line": 27,
       "symbol": "Sentence",
       "summary": "Точка входа: клик по фразе. Обработчик handleJump отдаёт команду воспроизведению. Состояние сам не меняет.",
       "entry": true,
@@ -595,8 +597,9 @@
         "res_bookStore"
       ],
       "members": [
-        "handleJump",
-        "Sentence"
+        "Sentence",
+        "Paragraph",
+        "useSentenceJump"
       ],
       "zone": "z_screen"
     },
@@ -1176,7 +1179,8 @@
           "col": 0,
           "row": 4,
           "covers": [],
-          "bind": []
+          "bind": [],
+          "impl": "src/engine/providers/cloudTts.ts#CloudTTSProvider.synthesize"
         },
         {
           "id": "n1",
@@ -1266,6 +1270,38 @@
           "bind": [
             "e62f344a0b#0"
           ]
+        },
+        {
+          "id": "c4",
+          "t": "cond",
+          "label": "Запрос отменён?",
+          "col": 2,
+          "row": 4,
+          "covers": [
+            [
+              94,
+              94
+            ]
+          ],
+          "bind": [
+            "783182f916#1"
+          ]
+        },
+        {
+          "id": "e5",
+          "t": "end",
+          "label": "прервать (AbortError)",
+          "col": 3,
+          "row": 4,
+          "covers": [
+            [
+              94,
+              94
+            ]
+          ],
+          "bind": [
+            "783182f916#1"
+          ]
         }
       ],
       "edges": [
@@ -1299,11 +1335,6 @@
           "label": "Да"
         },
         {
-          "from": "c3",
-          "to": "n0",
-          "label": "Нет"
-        },
-        {
           "from": "n0",
           "to": "n1"
         },
@@ -1324,6 +1355,21 @@
         {
           "from": "n3",
           "to": "e"
+        },
+        {
+          "from": "c3",
+          "to": "c4",
+          "label": "Нет"
+        },
+        {
+          "from": "c4",
+          "to": "e5",
+          "label": "Да"
+        },
+        {
+          "from": "c4",
+          "to": "n0",
+          "label": "Нет"
         }
       ]
     },
@@ -1530,20 +1576,23 @@
           ]
         },
         {
-          "id": "e",
-          "t": "end",
-          "label": "Воспроизведение активно",
+          "id": "n_try",
+          "t": "step",
+          "label": "Войти в защищённый блок: сбой уйдёт в onFailed",
           "col": 0,
-          "row": 8,
-          "covers": [],
-          "bind": []
+          "row": 0.5,
+          "covers": [
+            [
+              169,
+              169
+            ]
+          ],
+          "bind": [
+            "08a4f7cd38#0"
+          ]
         }
       ],
       "edges": [
-        {
-          "from": "s",
-          "to": "c_intro"
-        },
         {
           "from": "c_intro",
           "to": "n_intro",
@@ -1573,10 +1622,6 @@
           "label": "Нет"
         },
         {
-          "from": "n_speech",
-          "to": "e"
-        },
-        {
           "from": "n_fetch",
           "to": "n_setup"
         },
@@ -1589,10 +1634,6 @@
           "to": "n_prefetch"
         },
         {
-          "from": "n_prefetch",
-          "to": "e"
-        },
-        {
           "from": "n_fetch",
           "to": "n_err",
           "label": "Сбой"
@@ -1603,8 +1644,12 @@
           "label": "Сбой"
         },
         {
-          "from": "n_err",
-          "to": "e"
+          "from": "s",
+          "to": "n_try"
+        },
+        {
+          "from": "n_try",
+          "to": "c_intro"
         }
       ]
     },
@@ -1633,7 +1678,8 @@
           "col": 1.5,
           "row": 1,
           "covers": [],
-          "bind": []
+          "bind": [],
+          "impl": "src/engine/audio/coordinator.ts#isPaged"
         },
         {
           "id": "p1",
@@ -1738,7 +1784,8 @@
           "col": 2.6,
           "row": 3,
           "covers": [],
-          "bind": []
+          "bind": [],
+          "impl": "src/engine/audio/textSource.ts#nextTextStep"
         },
         {
           "id": "t3",
@@ -1747,7 +1794,8 @@
           "col": 3.4,
           "row": 3,
           "covers": [],
-          "bind": []
+          "bind": [],
+          "impl": "src/engine/audio/textSource.ts#nextTextStep"
         },
         {
           "id": "t4",
@@ -1756,18 +1804,130 @@
           "col": 4.2,
           "row": 3,
           "covers": [],
-          "bind": []
+          "bind": [],
+          "impl": "src/engine/audio/textSource.ts#nextTextStep"
+        },
+        {
+          "id": "n_pos",
+          "t": "step",
+          "label": "Найти позицию текущей фразы и её страницу",
+          "col": 0,
+          "row": 1,
+          "covers": [
+            [
+              254,
+              257
+            ]
+          ],
+          "bind": [
+            "69067adf89#0"
+          ]
+        },
+        {
+          "id": "n_idx",
+          "t": "cond",
+          "label": "Фраза найдена в порядке чтения?",
+          "col": 0,
+          "row": 1.5,
+          "covers": [
+            [
+              258,
+              258
+            ]
+          ],
+          "bind": [
+            "c59c9de61d#0",
+            "74e62be600#0"
+          ]
+        },
+        {
+          "id": "n_inc",
+          "t": "step",
+          "label": "Следующая = текущая + 1",
+          "col": -1,
+          "row": 2,
+          "covers": [
+            [
+              258,
+              258
+            ]
+          ],
+          "bind": [
+            "c59c9de61d#0",
+            "74e62be600#0"
+          ]
+        },
+        {
+          "id": "n_emp",
+          "t": "cond",
+          "label": "Порядок чтения пуст?",
+          "col": 1,
+          "row": 2,
+          "covers": [
+            [
+              259,
+              259
+            ]
+          ],
+          "bind": [
+            "68ab885579#0",
+            "59947da019#0"
+          ]
+        },
+        {
+          "id": "n_zero",
+          "t": "step",
+          "label": "Следующая = первая",
+          "col": 0,
+          "row": 2.5,
+          "covers": [
+            [
+              259,
+              259
+            ]
+          ],
+          "bind": [
+            "68ab885579#0",
+            "59947da019#0"
+          ]
+        },
+        {
+          "id": "n_loc",
+          "t": "step",
+          "label": "Найти ближайшую фразу по id",
+          "col": 1.5,
+          "row": 2.5,
+          "covers": [
+            [
+              261,
+              262
+            ]
+          ],
+          "bind": [
+            "a975f420cd#0"
+          ]
+        },
+        {
+          "id": "n_nx",
+          "t": "step",
+          "label": "Взять следующую фразу и границу страниц",
+          "col": 0,
+          "row": 3,
+          "covers": [
+            [
+              264,
+              267
+            ]
+          ],
+          "bind": [
+            "c1c3565a9e#0"
+          ]
         }
       ],
       "edges": [
         {
           "from": "s",
           "to": "c1"
-        },
-        {
-          "from": "c1",
-          "to": "p1",
-          "label": "Да (PDF)"
         },
         {
           "from": "c1",
@@ -1805,6 +1965,51 @@
         {
           "from": "t1",
           "to": "t4"
+        },
+        {
+          "from": "c1",
+          "to": "n_pos",
+          "label": "Да (PDF)"
+        },
+        {
+          "from": "n_pos",
+          "to": "n_idx"
+        },
+        {
+          "from": "n_idx",
+          "to": "n_inc",
+          "label": "Да"
+        },
+        {
+          "from": "n_idx",
+          "to": "n_emp",
+          "label": "Нет"
+        },
+        {
+          "from": "n_emp",
+          "to": "n_zero",
+          "label": "Да"
+        },
+        {
+          "from": "n_emp",
+          "to": "n_loc",
+          "label": "Нет"
+        },
+        {
+          "from": "n_inc",
+          "to": "n_nx"
+        },
+        {
+          "from": "n_zero",
+          "to": "n_nx"
+        },
+        {
+          "from": "n_loc",
+          "to": "n_nx"
+        },
+        {
+          "from": "n_nx",
+          "to": "p1"
         }
       ]
     },
@@ -1820,8 +2025,8 @@
           "row": 0,
           "covers": [
             [
-              513,
-              513
+              515,
+              515
             ]
           ],
           "bind": []
@@ -1835,8 +2040,8 @@
           "via": "external",
           "covers": [
             [
-              514,
-              514
+              516,
+              516
             ]
           ],
           "bind": [
@@ -1851,8 +2056,8 @@
           "row": 2,
           "covers": [
             [
-              515,
-              515
+              517,
+              517
             ]
           ],
           "bind": [
@@ -1868,8 +2073,8 @@
           "row": 2,
           "covers": [
             [
-              515,
-              515
+              517,
+              517
             ]
           ],
           "bind": [
@@ -1885,8 +2090,8 @@
           "row": 3,
           "covers": [
             [
-              516,
-              517
+              518,
+              519
             ]
           ],
           "bind": [
@@ -1901,7 +2106,8 @@
           "row": 4,
           "via": "external",
           "covers": [],
-          "bind": []
+          "bind": [],
+          "impl": "src/engine/pdf/pagedSession.ts#PagedSession.open"
         },
         {
           "id": "n_sched",
@@ -1910,7 +2116,8 @@
           "col": 0,
           "row": 5,
           "covers": [],
-          "bind": []
+          "bind": [],
+          "impl": "src/engine/pdf/pagedSession.ts#PagedSession.open"
         },
         {
           "id": "n_open",
@@ -1922,8 +2129,8 @@
           "rw": "write",
           "covers": [
             [
-              518,
-              518
+              520,
+              520
             ]
           ],
           "bind": [
@@ -1938,22 +2145,13 @@
           "row": 7,
           "covers": [
             [
-              519,
-              519
+              521,
+              521
             ]
           ],
           "bind": [
             "762d0e6e01#0"
           ]
-        },
-        {
-          "id": "e_ok",
-          "t": "end",
-          "label": "Сессия активна, страницы поступают",
-          "col": 0,
-          "row": 8,
-          "covers": [],
-          "bind": []
         }
       ],
       "edges": [
@@ -1990,10 +2188,6 @@
         {
           "from": "n_open",
           "to": "n_start"
-        },
-        {
-          "from": "n_start",
-          "to": "e_ok"
         }
       ]
     },
@@ -2155,6 +2349,22 @@
           "bind": [
             "2cf87dda5f#0"
           ]
+        },
+        {
+          "id": "n_init",
+          "t": "step",
+          "label": "Подготовить список предложений и счётчик id",
+          "col": 0,
+          "row": 1.5,
+          "covers": [
+            [
+              37,
+              38
+            ]
+          ],
+          "bind": [
+            "197b0a0622#0"
+          ]
         }
       ],
       "edges": [
@@ -2166,11 +2376,6 @@
           "from": "c_empty",
           "to": "e_empty",
           "label": "Да"
-        },
-        {
-          "from": "c_empty",
-          "to": "c_intl",
-          "label": "Нет"
         },
         {
           "from": "c_intl",
@@ -2197,6 +2402,15 @@
         {
           "from": "n_dict_regex",
           "to": "e_ok"
+        },
+        {
+          "from": "c_empty",
+          "to": "n_init",
+          "label": "Нет"
+        },
+        {
+          "from": "n_init",
+          "to": "c_intl"
         }
       ]
     },
@@ -2320,15 +2534,6 @@
           "bind": [
             "05f625ef82#0"
           ]
-        },
-        {
-          "id": "e_ok",
-          "t": "end",
-          "label": "Аудиоэлемент готов к play()",
-          "col": 0,
-          "row": 5,
-          "covers": [],
-          "bind": []
         }
       ],
       "edges": [
@@ -2363,10 +2568,6 @@
         {
           "from": "n_blob",
           "to": "n_apply"
-        },
-        {
-          "from": "n_apply",
-          "to": "e_ok"
         }
       ]
     },
@@ -2514,13 +2715,57 @@
           ]
         },
         {
-          "id": "e3",
-          "t": "end",
-          "label": "ждать started / ended от Оркестратора",
+          "id": "c3",
+          "t": "cond",
+          "label": "Глава сменилась, а автопереход выключен?",
           "col": 0.4,
-          "row": 6,
-          "covers": [],
-          "bind": []
+          "row": 2,
+          "covers": [
+            [
+              181,
+              182
+            ]
+          ],
+          "bind": [
+            "4124529111#0",
+            "03f8590733#0"
+          ]
+        },
+        {
+          "id": "e4",
+          "t": "end",
+          "label": "стоп «Конец главы»",
+          "col": 1.5,
+          "row": 3,
+          "covers": [
+            [
+              183,
+              184
+            ]
+          ],
+          "bind": [
+            "6f32006269#0",
+            "042a136cd3#1"
+          ]
+        },
+        {
+          "id": "n3",
+          "t": "step",
+          "label": "сохранить прогресс чтения в Библиотеке",
+          "col": 0.4,
+          "row": 4,
+          "block": "b_dom_library",
+          "res": "st_position",
+          "rw": "read",
+          "covers": [
+            [
+              186,
+              186
+            ]
+          ],
+          "bind": [
+            "a51d5bad1c#0"
+          ]
         }
       ],
       "edges": [
@@ -2531,11 +2776,6 @@
         {
           "from": "n0",
           "to": "c1"
-        },
-        {
-          "from": "c1",
-          "to": "n1",
-          "label": "Да"
         },
         {
           "from": "c1",
@@ -2553,12 +2793,27 @@
           "label": "Нет"
         },
         {
-          "from": "n1",
-          "to": "n2"
+          "from": "c1",
+          "to": "c3",
+          "label": "Да"
         },
         {
-          "from": "n2",
-          "to": "e3"
+          "from": "c3",
+          "to": "e4",
+          "label": "Да"
+        },
+        {
+          "from": "c3",
+          "to": "n1",
+          "label": "Нет"
+        },
+        {
+          "from": "n1",
+          "to": "n3"
+        },
+        {
+          "from": "n3",
+          "to": "n2"
         }
       ]
     }
@@ -2566,28 +2821,28 @@
   "approved": {
     "b_dom_fetch": {
       "codeHash": "55651ac571",
-      "schemaHash": "229efe6f6b",
+      "schemaHash": "637b3b9111",
       "at": "2026-10-14"
     },
     "b_dom_audio": {
       "codeHash": "91fa85fc94",
-      "schemaHash": "c3f78ee832",
+      "schemaHash": "2a88ee928f",
       "at": "2026-10-14"
     },
     "b_dom_tokenize": {
       "codeHash": "67dea76532",
-      "schemaHash": "a7ff0c316a",
-      "at": "2026-10-13"
+      "schemaHash": "1707c775dd",
+      "at": "2026-10-14"
     },
     "b_dom_source": {
       "codeHash": "e84dd8f0b2",
-      "schemaHash": "10dd32c52e",
-      "at": "2026-10-13"
+      "schemaHash": "3fbb96e81c",
+      "at": "2026-10-14"
     },
     "b_dom_pdf": {
       "codeHash": "ca1c56c39d",
-      "schemaHash": "06a52eea10",
-      "at": "2026-10-13"
+      "schemaHash": "11c80c9f11",
+      "at": "2026-10-14"
     },
     "b_infra_router": {
       "codeHash": "04ea0cb757",
@@ -2596,45 +2851,45 @@
     },
     "b_infra_audioel": {
       "codeHash": "e49c65f48f",
-      "schemaHash": "454f1552da",
+      "schemaHash": "f3074ea38f",
       "at": "2026-10-14"
     },
     "b_dom_coord": {
       "codeHash": "2c47b4a01a",
-      "schemaHash": "b227e2d0b2",
+      "schemaHash": "a48df2258a",
       "at": "2026-10-14"
     }
   },
   "approvedBlocks": {
     "b_state_pos": "e1c56ee76b",
-    "b_dom_tokenize": "dd8be3bb00",
+    "b_dom_tokenize": "8e7a6d65cc",
     "b_data_cache": "37ea9194ef",
-    "b_infra_audioel": "6df45c0d1b",
+    "b_infra_audioel": "21ef53b7fe",
     "b_infra_router": "a1115c2829",
     "b_state_player": "844c49386a",
-    "b_dom_audio": "e79e7c1472",
+    "b_dom_audio": "64549e2d87",
     "b_ui_router": "583a5201ef",
-    "b_ui_text": "b8ac96908d",
-    "b_ui_pdf": "6c534b8f2d",
-    "b_dom_pdf": "12a237cd68",
-    "b_dom_fetch": "8e7ef5eb35",
-    "b_ui_play": "5f5714b379",
-    "b_dom_source": "a7d414a84f",
+    "b_ui_text": "fc04250090",
+    "b_ui_pdf": "5fad08fae8",
+    "b_dom_pdf": "bd5fbc9055",
+    "b_dom_fetch": "9869ac9d7a",
+    "b_ui_play": "54bfad0aff",
+    "b_dom_source": "9e5e4b651b",
     "b_state_settings": "2c90c99f76",
     "b_state_orch": "305e51b3f2",
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
     "b_state_paged": "27f3464a37",
-    "b_dom_coord": "c9ece29f91",
-    "b_ui_library": "2a4f375672",
-    "b_dom_library": "4978bfd373",
+    "b_dom_coord": "ac6a032b13",
+    "b_ui_library": "f9cb1077c0",
+    "b_dom_library": "6c7bc6db88",
     "b_dom_parser": "6fabb3a9ca",
     "b_data_db": "37ea9194ef"
   },
   "approvedScenarios": {
-    "sc_tts": "ea29486b32",
-    "sc_read": "0912b61d69",
-    "sc_open": "f629b0cd03"
+    "sc_tts": "39b75aaef4",
+    "sc_read": "deb972f170",
+    "sc_open": "14706856f6"
   },
   "riskAcks": {
     "11b0ba5a0a": {
@@ -2642,18 +2897,6 @@
       "at": "2026-10-12",
       "where": "src/engine/audio/audioManager.ts:283",
       "kind": "catch"
-    },
-    "aa900b44ab": {
-      "reason": "сбой чтения кэша не должен прерывать озвучку (фоллбэк на синтез)",
-      "at": "2026-10-13",
-      "where": "src/engine/audio/audioManager.ts:398",
-      "kind": "catch"
-    },
-    "95f8e903bd": {
-      "reason": "фоновая запись в кэш не должна прерывать воспроизведение при сбое хранилища",
-      "at": "2026-10-13",
-      "where": "src/engine/audio/audioManager.ts:417",
-      "kind": "promise.catch"
     },
     "3a6bbec084": {
       "reason": "сбой чтения кэша не должен прерывать озвучку (фоллбэк на синтез)",
@@ -2666,6 +2909,18 @@
       "at": "2026-10-14",
       "where": "src/engine/audio/audioFetch.ts:110",
       "kind": "promise.catch"
+    },
+    "7458b78834": {
+      "reason": "оценка качества текста вспомогательна: сбой не должен мешать открыть книгу (ошибка пишется в лог)",
+      "at": "2026-10-14",
+      "where": "src/engine/library.ts:330",
+      "kind": "catch"
+    },
+    "d6cbacc4e5": {
+      "reason": "первая запись с исходным PDF может упасть по размеру: логируем и повторяем без бинарника, при втором сбое ошибка пробрасывается",
+      "at": "2026-10-14",
+      "where": "src/engine/library.ts:366",
+      "kind": "catch"
     }
   },
   "states": {
@@ -2794,11 +3049,6 @@
     ]
   },
   "realityAcks": {
-    "b_dom_coord>b_state_book": "Координатор читает текущую главу и позицию через методы-селекторы стора",
-    "b_dom_pdf>b_data_db": "Сессия PDF сохраняет метаданные в db.books",
-    "b_dom_coord>b_dom_library": "Координатор сбрасывает накопленный прогресс чтения в библиотеку",
-    "b_ui_router>b_dom_library": "Роутер загружает список книг и закрывает книгу при смене экрана",
-    "b_ui_router>b_ui_library": "Роутер монтирует экран библиотеки",
-    "b_ui_library>b_state_settings": "Экран библиотеки сохраняет режим распознавания PDF по умолчанию"
+    "b_dom_coord>b_state_book": "Координатор только читает текст книги (стрелка «текст книги» есть на sc_tts). Запись «write» в отчёте — артефакт инструмента: bookStore.ts общий для st_book и st_position, и запись позиции (b_dom_coord>b_state_pos, нарисована) засчитывается и на b_state_book"
   }
 }

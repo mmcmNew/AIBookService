@@ -2,62 +2,11 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef }
 import { ChevronLeft, ChevronRight, Bookmark, FileWarning } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { coordinator } from '../../engine/audio/coordinator';
 import { setChapterIndex } from '../../engine/navigation';
 import { SentenceItem } from '../../types/book';
 import { clsx } from 'clsx';
+import { Paragraph, useSentenceJump } from './Sentence';
 import { ResumeAutoscrollButton, ensureVisible, scrollIntoComfortZone, useAutoscrollPause, useIsReading } from './readerScroll';
-
-/* ----------------------------- Предложение ----------------------------- */
-
-interface SentenceProps {
-  sentence: SentenceItem;
-  isActive: boolean;
-  onJump: (id: number) => void;
-}
-
-const Sentence = memo(({ sentence, isActive, onJump }: SentenceProps) => (
-  <>
-    <span
-      data-sentence-id={sentence.id}
-      onClick={() => onJump(sentence.id)}
-      className={clsx('sentence-interactive', isActive && 'sentence-active')}
-      title="Нажмите, чтобы начать воспроизведение с этого места"
-    >
-      {sentence.rawText}
-    </span>{' '}
-  </>
-));
-Sentence.displayName = 'Sentence';
-
-/* ------------------------------- Параграф ------------------------------ */
-
-interface ParagraphProps {
-  sentences: SentenceItem[];
-  onJump: (id: number) => void;
-}
-
-/**
- * Параграф сам подписывается на currentSentenceId, но возвращает значение только если
- * активное предложение принадлежит ему, поэтому при смене предложения перерисовываются
- * максимум два параграфа, а не вся глава.
- */
-export const Paragraph = memo(({ sentences, onJump }: ParagraphProps) => {
-  const activeId = useBookStore((state) => {
-    const id = state.currentSentenceId;
-    if (id === null) return null;
-    return sentences.some((s) => s.id === id) ? id : null;
-  });
-
-  return (
-    <p className="text-left md:text-justify hyphens-auto indent-6">
-      {sentences.map((sentence) => (
-        <Sentence key={sentence.id} sentence={sentence} isActive={sentence.id === activeId} onJump={onJump} />
-      ))}
-    </p>
-  );
-});
-Paragraph.displayName = 'Paragraph';
 
 /* --------------------------- Текст всей главы -------------------------- */
 
@@ -88,7 +37,6 @@ export const BookView: React.FC = () => {
   const currentBook = useBookStore((state) => state.currentBook);
   const currentChapterIndex = useBookStore((state) => state.currentChapterIndex);
   const currentSentenceId = useBookStore((state) => state.currentSentenceId);
-  const jumpToSentence = coordinator.jumpToSentence;
 
   const fontFamily = useSettingsStore((state) => state.fontFamily);
   const fontSize = useSettingsStore((state) => state.fontSize);
@@ -115,13 +63,7 @@ export const BookView: React.FC = () => {
   readingRef.current = reading;
 
   // Клик по предложению — пользователь явно хочет читать отсюда: снимаем паузу автоскролла
-  const handleJump = useCallback(
-    (id: number) => {
-      resume();
-      void jumpToSentence(id);
-    },
-    [jumpToSentence, resume]
-  );
+  const handleJump = useSentenceJump(resume);
 
   // Позиция при открытии книги / смене главы: сразу показываем сохранённое место (без анимации)
   useLayoutEffect(() => {

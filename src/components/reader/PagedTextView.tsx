@@ -3,7 +3,6 @@ import { Loader2, AlertCircle, RefreshCw, SkipForward, Hourglass } from 'lucide-
 import { clsx } from 'clsx';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { coordinator } from '../../engine/audio/coordinator';
 import { setFocusPage, setViewPage } from '../../engine/navigation';
 import { usePagedStore } from '../../store/pagedStore';
 import type { SentenceItem } from '../../types/book';
@@ -12,7 +11,7 @@ import type { ComposedPage } from '../../engine/pdf/pageCompose';
 import type { PageState } from '../../engine/pdf/types';
 import { paragraphIndexFor } from '../../engine/pdf/pageSentences';
 import { sentencePage } from '../../engine/pdf/composer';
-import { Paragraph } from './BookView';
+import { Paragraph, useSentenceJump } from './Sentence';
 import { openRerecognizeDialog } from './PagedBookBar';
 import { ResumeAutoscrollButton, ensureVisible, scrollIntoComfortZone, useAutoscrollPause, useIsReading } from './readerScroll';
 
@@ -216,7 +215,6 @@ export const PagedTextView: React.FC = () => {
   const currentBook = useBookStore((s) => s.currentBook);
   const currentPage = useBookStore((s) => s.currentPage);
   const currentSentenceId = useBookStore((s) => s.currentSentenceId);
-  const jumpToSentence = coordinator.jumpToSentence;
   const composed = usePagedStore((s) => s.composed);
   const states = usePagedStore((s) => s.states);
   const errors = usePagedStore((s) => s.errors);
@@ -255,13 +253,7 @@ export const PagedTextView: React.FC = () => {
 
   const { paused, resume } = useAutoscrollPause(mainRef, bookId, { getActive: findActiveElement });
 
-  const handleJump = useCallback(
-    (id: number) => {
-      resume();
-      void jumpToSentence(id);
-    },
-    [jumpToSentence, resume],
-  );
+  const handleJump = useSentenceJump(resume);
 
   // Явная навигация (номер страницы, глава, «Распознать сейчас»): окно вокруг страницы и прокрутка к ней
   const lastNav = useRef(navNonce);
