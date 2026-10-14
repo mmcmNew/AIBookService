@@ -301,6 +301,23 @@ export async function loadBookFromFile(
   await loadBook(parsedBook);
 }
 
+/**
+ * Перераспознать PDF уже открытой книги: парсит файл в заданном режиме и загружает результат.
+ * Если парсер не вернул исходный PDF, подставляется переданный буфер.
+ */
+export async function reparsePdfBook(
+  file: File,
+  replacementRules: ReplacementRule[],
+  options: ParseOptions,
+  fallbackBuffer?: ArrayBuffer
+): Promise<void> {
+  const newBook = await parseBookFile(file, replacementRules, options);
+  if (!newBook.rawPdfBuffer && fallbackBuffer) {
+    newBook.rawPdfBuffer = fallbackBuffer;
+  }
+  await loadBook(newBook);
+}
+
 export async function loadBook(parsed: ParsedBook): Promise<void> {
   useBookStore.setState({ isLoading: true, error: null });
   try {

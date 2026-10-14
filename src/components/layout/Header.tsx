@@ -15,13 +15,12 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
-import { loadBook, setPdfViewMode } from '../../engine/library';
+import { reparsePdfBook, setPdfViewMode } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
 import { RerecognizeDialog } from '../reader/RerecognizeDialog';
 import { PdfRecognitionMode, ReaderTheme } from '../../types/settings';
-import { parseBookFile } from '../../engine/parsers';
 import { useToast } from '../ui/Toast';
 
 interface HeaderProps {
@@ -164,11 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
       }
       const fileName = currentBook.metadata.fileName || `${currentBook.metadata.title}.pdf`;
       const file = new File([currentBook.rawPdfBuffer], fileName, { type: 'application/pdf' });
-      const newBook = await parseBookFile(file, replacementRules, { pdfMode: mode });
-      if (!newBook.rawPdfBuffer) {
-        newBook.rawPdfBuffer = currentBook.rawPdfBuffer;
-      }
-      await loadBook(newBook);
+      await reparsePdfBook(file, replacementRules, { pdfMode: mode }, currentBook.rawPdfBuffer);
       setIsPdfModalOpen(false);
       const q = useBookStore.getState().currentBook?.metadata.quality;
       toast.success(q ? `PDF перераспознан. Качество текста: ${q.score}/100` : 'PDF успешно перераспознан');
