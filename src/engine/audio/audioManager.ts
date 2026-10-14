@@ -8,8 +8,6 @@ import { playChime } from './chime';
 import { htmlAudioPlayer } from '../../infra/audio/htmlAudioPlayer';
 import {
   getOrFetchAudio,
-  prefetchAudio,
-  cancelPrefetch,
   buildCacheKey,
   buildChapterCacheKey,
   purgeOrphanAudioCache,
@@ -48,8 +46,6 @@ export interface SpeakJob {
   options: SynthesisOptions;
   /** Объявление главы перед фразой (ошибки объявления не блокируют чтение) */
   intro?: { title: string; chime: boolean } | null;
-  /** Следующая фраза — для фоновой предзагрузки */
-  next?: { chapterId: string; sentence: SentenceItem } | null;
 }
 
 const CHAPTER_PAUSE_MS = 600;
@@ -112,7 +108,6 @@ export class AudioManager {
     this.utterance = null;
     this.abort?.abort();
     this.abort = null;
-    cancelPrefetch();
     for (const hook of Array.from(this.cancelHooks)) hook();
     this.cancelHooks.clear();
     htmlAudioPlayer.stop();
@@ -191,12 +186,10 @@ export class AudioManager {
       await htmlAudioPlayer.play();
       if (!this.isCurrent(token)) return;
       this.handlers.onStarted(token);
-
-      if (job.next) prefetchAudio(job.bookId, job.next.chapterId, job.next.sentence, providerType, options);
     } catch (err) {
       if (!this.isCurrent(token)) return;
       const e = err as { name?: string; message?: string };
-      if (e?.name === 'AbortError') return;
+      if (e?.name === 'AbortError') return; // отмена — не ошибка: Оркестратор молча выходит
       this.mainToken = null;
       this.handlers.onFailed(token, e?.message || 'Ошибка синтеза речи.');
     }

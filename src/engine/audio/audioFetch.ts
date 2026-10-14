@@ -54,7 +54,7 @@ export function buildChapterCacheKey(
 }
 
 /**
- * Аудио из памяти, IndexedDB или сети (с сохранением в кэш).
+ * Команда «возьми аудио»: аудио из памяти, IndexedDB или сети (с сохранением в кэш). Запрос ЖДЁТ внутри, пока аудио не готово.
  * Блок b_dom_fetch (Поставщик озвучки), ответственный за res_audioCache.
  */
 export async function getOrFetchAudio(
@@ -70,14 +70,14 @@ export async function getOrFetchAudio(
   const mem = memoryAudioCache.get(cacheKey);
   if (mem) return mem;
 
-  // Такой же запрос уже выполняется (например, prefetch) — ждём его, а не дублируем
+  // Такой же запрос уже выполняется (например, «приготовь») — ждём его, а не дублируем
   const pending = inflight.get(cacheKey);
   if (pending) {
     try {
       return await pending;
     } catch {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-      // prefetch упал/отменён — пробуем сами
+      // подготовка упала/отменена — пробуем сами
     }
   }
 
@@ -131,10 +131,14 @@ export async function synthesizeOnce(
   return getProvider(providerType).synthesize(text, options);
 }
 
-let prefetchAbort: AbortController | null = null;
+let prepareAbort: AbortController | null = null;
 
-/** Предзагрузка следующей фразы в фоне; ошибки игнорируются */
-export function prefetchAudio(
+/**
+ * Команда «приготовь»: готовит аудио фразы заранее (в кэш), пока играет предыдущая.
+ * Ключ кэша тот же, что у запроса Оркестратора «возьми аудио» (параметры синтеза одни и те же). Ошибки игнорируются:
+ * если подготовка не удалась, Оркестратор получит аудио обычным запросом.
+ */
+export function prepareAudio(
   bookId: string,
   chapterId: string,
   sentence: SentenceItem,
@@ -142,20 +146,21 @@ export function prefetchAudio(
   options: SynthesisOptions
 ): void {
   if (providerType === 'webspeech') return;
-  prefetchAbort?.abort();
-  prefetchAbort = new AbortController();
+  prepareAbort?.abort();
+  prepareAbort = new AbortController();
 
   const rules = useSettingsStore.getState().replacementRules;
   const text = applyPronunciationDictionary(sentence.rawText, rules, bookId);
   const key = buildCacheKey(bookId, chapterId, sentence.id, providerType, options, text);
-  getOrFetchAudio(key, bookId, chapterId, sentence.id, text, providerType, options, prefetchAbort.signal).catch(
+  getOrFetchAudio(key, bookId, chapterId, sentence.id, text, providerType, options, prepareAbort.signal).catch(
     () => undefined
   );
 }
 
-export function cancelPrefetch(): void {
-  prefetchAbort?.abort();
-  prefetchAbort = null;
+/** Команда «отмени»: бросает подготовку (при прыжке, остановке, ошибке) */
+export function cancelPrepare(): void {
+  prepareAbort?.abort();
+  prepareAbort = null;
 }
 
 /** Удаляет записи кэша для предложений, которых больше нет в книге (владелец res_audioCache: b_dom_fetch) */

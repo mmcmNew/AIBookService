@@ -1,9 +1,11 @@
 import { audioManager } from './audioManager';
 import { acceptEnded, PlayTrigger, shouldAnnounceChapter } from './playerState';
+import { cancelPrepare, prepareAudio } from './audioFetch';
 import { useBookStore } from '../../store/bookStore';
 import { useAudioStore } from '../../store/audioStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { SynthesisOptions } from '../../types/tts';
+import { SynthesisOptions, TTSProviderType } from '../../types/tts';
+import type { SentenceItem } from '../../types/book';
 import { getCatalogModelInfo, getKnownModelVoices, normalizeAggregatorVoice } from '../providers/openRouterTts';
 import {
   chapterTarget,
@@ -78,7 +80,24 @@ export function setChapterInternally(index: number): void {
   }
 }
 
+/** Задание на подготовку озвучки следующей фразы: запускается, когда текущая зазвучала */
+let pendingPrepare: {
+  token: number;
+  bookId: string;
+  chapterKey: string;
+  sentence: SentenceItem;
+  providerType: TTSProviderType;
+  options: SynthesisOptions;
+} | null = null;
+
+/** «Отмени»: Поставщик озвучки бросает подготовку следующей фразы */
+function cancelPreparation(): void {
+  pendingPrepare = null;
+  cancelPrepare();
+}
+
 export function stopAll(notice: string | null = null): void {
+  cancelPreparation();
   audioManager.stopPlayer(notice);
 }
 
@@ -87,6 +106,7 @@ let waitMode: 'jump' | 'next' = 'next';
 /** Чтение ждёт страницу: плеер в статусе loading, сообщение «Распознаём страницу N…» показывает панель страниц */
 export function beginWait(page: number, mode: 'jump' | 'next'): void {
   waitMode = mode;
+  cancelPreparation();
   audioManager.beginPlayerWait(page);
   focusPage(page);
 }
@@ -138,15 +158,26 @@ export function startPlayback(trigger: PlayTrigger): void {
     trigger,
   });
 
+  const options = buildSynthesisOptions(settings);
+  cancelPreparation();
+  pendingPrepare = phrase.next
+    ? {
+        token: state.token,
+        bookId: phrase.bookId,
+        chapterKey: phrase.next.chapterKey,
+        sentence: phrase.next.sentence,
+        providerType: settings.activeProvider,
+        options,
+      }
+    : null;
   audioManager.speak({
     token: state.token,
     bookId: phrase.bookId,
     chapterId: phrase.chapterKey,
     sentence: phrase.sentence,
     providerType: settings.activeProvider,
-    options: buildSynthesisOptions(settings),
+    options,
     intro: announce && phrase.chapterTitle ? { title: phrase.chapterTitle, chime: settings.chapterChime } : null,
-    next: phrase.next ? { chapterId: phrase.next.chapterKey, sentence: phrase.next.sentence } : null,
   });
 }
 
@@ -169,6 +200,12 @@ export function advance(auto: boolean): void {
 
 export function onStarted(token: number): void {
   audioManager.onPlayerStarted(token);
+  // Фраза зазвучала — Поставщик озвучки готовит следующую
+  if (pendingPrepare && pendingPrepare.token === token) {
+    const job = pendingPrepare;
+    pendingPrepare = null;
+    prepareAudio(job.bookId, job.chapterKey, job.sentence, job.providerType, job.options);
+  }
 }
 
 export function onEnded(token: number): void {
@@ -181,7 +218,10 @@ export function onEnded(token: number): void {
 export function onFailed(token: number, message: string): void {
   const before = useAudioStore.getState().playToken;
   const next = audioManager.onPlayerFailed(token, message);
-  if (next.token !== before) audioManager.stop();
+  if (next.token !== before) {
+    cancelPreparation();
+    audioManager.stop();
+  }
 }
 
 export async function play(): Promise<void> {
