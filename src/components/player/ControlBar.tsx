@@ -19,8 +19,8 @@ import {
   Square,
 } from 'lucide-react';
 import { useAudioStore } from '../../store/audioStore';
-import { coordinator } from '../../engine/audio/coordinator';
-import { setChapterIndex } from '../../engine/navigation';
+import { audioManager } from '../../engine/audio/audioManager';
+import { selectChapter, stepPhrase } from '../../engine/library';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { setSpeed, setVolume, setAutoscroll, setAnnounceChapters, setChapterChime, setAutoAdvanceChapter } from '../../engine/settings';
@@ -72,7 +72,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   const status = useAudioStore((s) => s.status);
   const error = useAudioStore((s) => s.error);
   const notice = useAudioStore((s) => s.notice);
-  const { clearError, play, pause, stop, playNextSentence, playPrevSentence } = coordinator;
+  const clearError = () => audioManager.clearError();
 
   const currentBook = useBookStore((state) => state.currentBook);
   const currentChapter = useBookStore((state) => state.getCurrentChapter());
@@ -96,11 +96,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   const totalChapters = currentBook.chapters.length;
 
   // Кнопка отражает ТОЛЬКО status: loading → остановить, playing → пауза, остальное → воспроизвести
-  const handlePlayToggle = () => {
-    if (status === 'loading') stop();
-    else if (status === 'playing') pause();
-    else void play();
-  };
+  const handlePlayToggle = () => audioManager.toggle();
   const playLabel =
     status === 'loading' ? 'Загрузка… Нажмите, чтобы остановить' : status === 'playing' ? 'Пауза' : 'Воспроизвести';
 
@@ -143,7 +139,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           {/* Быстрое переключение глав в плеере */}
           <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-zinc-400 sepia:text-[#4a3920]">
             <button
-              onClick={() => currentChapterIndex > 0 && setChapterIndex(currentChapterIndex - 1)}
+              onClick={() => currentChapterIndex > 0 && selectChapter(currentChapterIndex - 1)}
               disabled={currentChapterIndex === 0}
               className="p-1 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 sepia:hover:bg-[#e2cf9f] disabled:opacity-30 disabled:pointer-events-none transition-colors"
               title="Предыдущая глава"
@@ -159,7 +155,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
               Гл. {currentChapterIndex + 1}/{totalChapters}
             </button>
             <button
-              onClick={() => currentChapterIndex < totalChapters - 1 && setChapterIndex(currentChapterIndex + 1)}
+              onClick={() => currentChapterIndex < totalChapters - 1 && selectChapter(currentChapterIndex + 1)}
               disabled={currentChapterIndex >= totalChapters - 1}
               className="p-1 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 sepia:hover:bg-[#e2cf9f] disabled:opacity-30 disabled:pointer-events-none transition-colors"
               title="Следующая глава"
@@ -183,7 +179,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         {/* Центральные кнопки управления плеером */}
         <div className="flex items-center gap-3">
           <button
-            onClick={playPrevSentence}
+            onClick={() => stepPhrase(-1)}
             disabled={currentSentenceIndex === 0}
             className={`${ICON_BTN} rounded-full disabled:opacity-30 disabled:pointer-events-none`}
             title="Предыдущее предложение (←)"
@@ -218,7 +214,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           </button>
 
           <button
-            onClick={playNextSentence}
+            onClick={() => stepPhrase(1)}
             disabled={currentSentenceIndex >= totalSentences - 1 && currentChapterIndex >= totalChapters - 1}
             className={`${ICON_BTN} rounded-full disabled:opacity-30 disabled:pointer-events-none`}
             title="Следующее предложение (→)"

@@ -20,7 +20,7 @@ import { useBookStore } from '../../store/bookStore';
 import { replaceBookChapters } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAudioStore } from '../../store/audioStore';
-import { coordinator } from '../../engine/audio/coordinator';
+import { audioManager } from '../../engine/audio/audioManager';
 import {
   applyCleanupToDraft,
   addParagraph,
@@ -220,7 +220,7 @@ const EditorInner: React.FC<{ onClose: () => void; initialTab?: Tab }> = ({ onCl
         return false;
       }
       const audio = useAudioStore.getState();
-      if (audio.isPlaying) coordinator.stop();
+      if (audio.isPlaying) audioManager.requestStop();
       await replaceBookChapters(result.chapters);
       const saved = useBookStore.getState().currentBook;
       setHist({ past: [], present: chaptersToDraft(saved?.chapters ?? result.chapters), future: [] });

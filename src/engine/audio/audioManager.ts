@@ -34,6 +34,10 @@ export interface AudioEngineHandlers {
   onEnded: (token: number) => void;
   /** Ошибка синтеза/воспроизведения основной фразы */
   onFailed: (token: number, message: string) => void;
+  /** Пользователь нажал play, а плеер стоит: «хочу играть» */
+  onWantPlay?: () => void;
+  /** Пользователь остановил плеер: «остановлен» */
+  onStopped?: () => void;
 }
 
 export interface SpeakJob {
@@ -394,6 +398,25 @@ export class AudioManager {
 
   public onPlayerFailed(token: number, message: string): PlayerState {
     return this.dispatch({ type: 'failed', token, message });
+  }
+
+  /**
+   * Транспорт от панели плеера (кнопка, пробел): решение принимает Оркестратор по статусу плеера.
+   * Играет — пауза (Координатору не сообщаем); загружается — остановка; на паузе — продолжить;
+   * стоит — «хочу играть» Координатору.
+   */
+  public toggle(): void {
+    const { status } = useAudioStore.getState();
+    if (status === 'playing') this.pausePlayer();
+    else if (status === 'loading') this.requestStop();
+    else if (status === 'paused') this.resumePlayer();
+    else this.handlers.onWantPlay?.();
+  }
+
+  /** Остановка по команде пользователя: останавливаем и сообщаем Координатору «остановлен» */
+  public requestStop(): void {
+    this.stopPlayer(null);
+    this.handlers.onStopped?.();
   }
 
   public pausePlayer(): void {

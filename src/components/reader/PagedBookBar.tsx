@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, AlertCircle, Loader2, RefreshCw, SkipForward, Settings2, Pause, Play, Wand2 } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
-import { goToPage } from '../../engine/navigation';
+import { goToPage } from '../../engine/library';
 import { usePagedStore } from '../../store/pagedStore';
 import { useAudioStore } from '../../store/audioStore';
 import { RerecognizeDialog } from './RerecognizeDialog';

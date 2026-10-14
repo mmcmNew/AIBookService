@@ -8,33 +8,14 @@ import { SynthesisOptions, TTSProviderType } from '../../types/tts';
 import type { SentenceItem } from '../../types/book';
 import { buildSynthesisOptions } from '../settings';
 import {
-  chapterTarget,
+  currentPhrase,
   flushProgress,
   focusPage,
-  goToPagedPage,
-  navigatePaged,
+  nextPhrase,
   observeBook,
   pageReady,
-  pagedPageRef,
-  phraseAfterCurrent,
-  phraseBeforeCurrent,
-  phraseToPlay,
-  progressRef,
-  queueProgress,
-  sentenceLocation,
+  type ExternalMove,
 } from '../library';
-
-/** true, пока мы сами меняем главу (подписка на книгу не должна запускать озвучку повторно) */
-let internalChapterChange = false;
-
-export function setChapterInternally(index: number): void {
-  internalChapterChange = true;
-  try {
-    setChapterIndex(index);
-  } finally {
-    internalChapterChange = false;
-  }
-}
 
 /** Задание на подготовку озвучки следующей фразы: запускается, когда текущая зазвучала */
 let pendingPrepare: {
@@ -52,7 +33,7 @@ function cancelPreparation(): void {
   cancelPrepare();
 }
 
-export function stopAll(notice: string | null = null): void {
+function stopAll(notice: string | null = null): void {
   cancelPreparation();
   audioManager.stopPlayer(notice);
 }
@@ -60,7 +41,7 @@ export function stopAll(notice: string | null = null): void {
 let waitMode: 'jump' | 'next' = 'next';
 
 /** Чтение ждёт страницу: плеер в статусе loading, сообщение «Распознаём страницу N…» показывает панель страниц */
-export function beginWait(page: number, mode: 'jump' | 'next'): void {
+function beginWait(page: number, mode: 'jump' | 'next'): void {
   waitMode = mode;
   cancelPreparation();
   audioManager.beginPlayerWait(page);
@@ -68,7 +49,7 @@ export function beginWait(page: number, mode: 'jump' | 'next'): void {
 }
 
 /** Страница, которую ждёт плеер, распознана — продолжаем чтение */
-export function checkWait(): void {
+function checkWait(): void {
   const audioState = useAudioStore.getState();
   const w = audioState.waitingPage;
   if (w == null) return;
@@ -87,9 +68,9 @@ export function checkWait(): void {
  * Фразу даёт Менеджер книги; Координатор собирает параметры синтеза ОДИН раз и отдаёт
  * Оркестратору «играй это», а Поставщику озвучки — «приготовь» следующую фразу (с теми же параметрами).
  */
-export function startPlayback(trigger: PlayTrigger): void {
+function startPlayback(trigger: PlayTrigger): void {
   const settings = useSettingsStore.getState();
-  const phrase = phraseToPlay(settings.autoAdvanceChapter);
+  const phrase = currentPhrase(settings.autoAdvanceChapter);
   if (phrase.kind === 'none') {
     stopAll();
     return;
@@ -102,7 +83,6 @@ export function startPlayback(trigger: PlayTrigger): void {
     stopAll('Конец книги');
     return;
   }
-  if (phrase.positionFix) setSentenceId(phrase.sentence.id);
 
   const state = audioManager.startPlayerRequest();
 
@@ -138,15 +118,12 @@ export function startPlayback(trigger: PlayTrigger): void {
 }
 
 /** Переход к следующей фразе; auto=true — по окончании фразы (учитывает «авто-переход») */
-export function advance(auto: boolean): void {
+function advance(auto: boolean): void {
   const autoAdvance = !auto || useSettingsStore.getState().autoAdvanceChapter;
-  const next = phraseAfterCurrent(autoAdvance);
-  if (next.kind === 'sentence') {
-    setSentenceId(next.sentenceId);
+  // Менеджер книги сам сдвигает позицию и сразу отвечает; события «внешний переход» на наш запрос нет
+  const next = nextPhrase(autoAdvance);
+  if (next.kind === 'phrase') {
     startPlayback(next.trigger);
-  } else if (next.kind === 'chapter') {
-    setChapterInternally(next.chapterIndex);
-    startPlayback('chapter');
   } else if (next.kind === 'wait') {
     beginWait(next.page, 'next');
   } else if (next.kind === 'end') {
@@ -180,136 +157,15 @@ export function onFailed(token: number, message: string): void {
   }
 }
 
-export async function play(): Promise<void> {
-  const { status } = useAudioStore.getState();
-  if (status === 'paused') resume();
-  else if (status === 'idle' || status === 'error') startPlayback('start');
+/** «Хочу играть»: Оркестратор получил play на тишине — запускаем озвучку с текущей позиции */
+export function onWantPlay(): void {
+  startPlayback('start');
 }
 
-export function pause(): void {
-  const status = useAudioStore.getState().status;
-  if (status === 'playing') {
-    audioManager.pausePlayer();
-  } else if (status === 'loading') {
-    stopAll();
-  }
-}
-
-export function resume(): void {
-  if (useAudioStore.getState().status !== 'paused') return;
-  audioManager.resumePlayer();
-}
-
-export function stop(): void {
-  stopAll();
-}
-
-export async function playNextSentence(): Promise<void> {
-  advance(false);
-}
-
-export async function playPrevSentence(): Promise<void> {
-  const prevId = phraseBeforeCurrent();
-  if (prevId === null) return;
-  setSentenceId(prevId);
-  startPlayback('navigate');
-}
-
-export async function jumpToSentence(sentenceId: number): Promise<void> {
-  setSentenceId(sentenceId);
-  const status = useAudioStore.getState().status;
-  if (status === 'loading' || status === 'playing' || status === 'paused') startPlayback('navigate');
-}
-
-export function clearError(): void {
-  audioManager.clearError();
-}
-
-// ---------------------------------------------------------------------------
-// Управление позицией чтения (b_dom_coord — владелец st_position)
-// ---------------------------------------------------------------------------
-
-export function setReadingPosition(pos: { chapterIndex?: number; sentenceId?: number | null; page?: number }): void {
-  useBookStore.getState().setPosition(pos);
-}
-
-export function resetReadingPosition(): void {
-  useBookStore.getState().resetPosition();
-}
-
-export function goToPage(page: number): void {
-  goToPagedPage(page);
-}
-
-export function setViewPage(page: number): void {
-  const ref = pagedPageRef(page);
-  if (!ref) return;
-  if (ref.page === useBookStore.getState().currentPage) return;
-  useBookStore.getState().setViewPage(ref.page);
-  focusPage(ref.page);
-  queueProgress(ref.bookId, { 'metadata.lastPage': ref.page, 'metadata.lastReadAt': Date.now() });
-}
-
-export function setChapterIndex(index: number): void {
-  const target = chapterTarget(index);
-  if (!target) return;
-  if (target.kind === 'paged-sentence') {
-    navigatePaged(target.page, target.sentenceId, false);
-    return;
-  }
-  if (target.kind === 'paged-page') {
-    goToPage(target.page);
-    return;
-  }
-
-  useBookStore.getState().setPosition({
-    chapterIndex: index,
-    sentenceId: target.sentenceId,
-  });
-
-  queueProgress(target.bookId, {
-    'metadata.lastReadAt': Date.now(),
-    'metadata.lastChapterId': target.chapterId,
-    'metadata.lastSentenceId': target.sentenceId ?? undefined,
-  });
+/** «Остановлен»: пользователь остановил плеер — отменяем подготовленное и просим Менеджера сохранить прогресс */
+export function onStopped(): void {
+  cancelPreparation();
   void flushProgress();
-}
-
-export function setSentenceId(id: number | null): void {
-  if (id !== null && useBookStore.getState().currentSentenceId === id) return;
-  if (id === null) {
-    useBookStore.getState().setSentenceId(null);
-    return;
-  }
-  const located = sentenceLocation(id);
-  if (located) {
-    const chapterIndex = located.chapterIndex ?? useBookStore.getState().currentChapterIndex;
-    useBookStore.getState().setPosition({
-      sentenceId: id,
-      page: located.page,
-      chapterIndex,
-    });
-    focusPage(located.page, true);
-    const ref = progressRef(chapterIndex);
-    if (ref) {
-      queueProgress(ref.bookId, {
-        'metadata.lastReadAt': Date.now(),
-        'metadata.lastPage': located.page,
-        'metadata.lastChapterId': ref.chapterId,
-        'metadata.lastSentenceId': id,
-      });
-    }
-    return;
-  }
-  useBookStore.getState().setSentenceId(id);
-  const ref = progressRef(useBookStore.getState().currentChapterIndex);
-  if (ref) {
-    queueProgress(ref.bookId, {
-      'metadata.lastReadAt': Date.now(),
-      'metadata.lastChapterId': ref.chapterId,
-      'metadata.lastSentenceId': id,
-    });
-  }
 }
 
 // Связываем AudioManager с координатором
@@ -317,39 +173,56 @@ audioManager.setHandlers({
   onStarted,
   onEnded,
   onFailed,
+  onWantPlay,
+  onStopped,
 });
 
-// События книги (подписки на сторы книги живут в зоне книги, Координатор только реагирует)
-observeBook({
-  // Явная навигация по страницам: плеер перестраивается
-  onNavigated: () => {
-    const status = useAudioStore.getState().status;
-    if (status === 'loading' || status === 'playing') {
-      audioManager.clearWaitingPage();
-      startPlayback('chapter');
-    } else if (status !== 'idle') {
-      stopAll();
+/** Пользователь сдвинул позицию через Менеджера книги: плеер подстраивается под новую фразу */
+export function onExternalMove(move: ExternalMove): void {
+  const status = useAudioStore.getState().status;
+  switch (move.kind) {
+    case 'jump':
+      // Клик по предложению: играло или стояло на паузе — играем отсюда
+      if (status === 'loading' || status === 'playing' || status === 'paused') startPlayback('navigate');
+      break;
+    case 'step': {
+      // Кнопки «предыдущая/следующая фраза»: дальше как при автопереходе (в т.ч. ожидание страницы, конец)
+      const result = move.result;
+      if (result.kind === 'phrase') startPlayback(result.trigger);
+      else if (result.kind === 'wait') beginWait(result.page, 'next');
+      else if (result.kind === 'end') stopAll(result.notice);
+      break;
     }
-  },
+    case 'chapter':
+      // Ручная смена главы текстовой книги
+      if (status === 'idle') return;
+      if (status === 'loading' || status === 'playing') startPlayback('chapter');
+      else stopAll();
+      break;
+    case 'page':
+      // Явная навигация по страницам PDF: плеер перестраивается
+      if (status === 'loading' || status === 'playing') {
+        audioManager.clearWaitingPage();
+        startPlayback('chapter');
+      } else if (status !== 'idle') {
+        stopAll();
+      }
+      break;
+  }
+}
+
+// Менеджер книги сообщает о событиях своей зоны; Координатор только реагирует
+observeBook({
+  onExternalMove,
   // Страницы распознаются: возможно, дождались нужной
   onPagesChanged: () => {
     if (useAudioStore.getState().waitingPage != null) checkWait();
   },
-  // Ручная смена главы / закрытие книги во время воспроизведения
-  onBookOrChapterChanged: ({ bookChanged, closed, paged }) => {
-    if (internalChapterChange) return;
-    const status = useAudioStore.getState().status;
-    if (status === 'idle') return;
-    if (bookChanged || closed) {
-      stopAll();
-    } else if (paged) {
-      return;
-    } else if (status === 'loading' || status === 'playing') {
-      startPlayback('chapter');
-    } else {
-      stopAll();
-    }
+  // Книга сменена или закрыта во время воспроизведения
+  onBookChanged: () => {
+    if (useAudioStore.getState().status !== 'idle') stopAll();
   },
+  onBookClosing: () => stopAll(),
 });
 
 // Скорость и громкость применяются сразу
@@ -357,27 +230,3 @@ useSettingsStore.subscribe((state, prev) => {
   if (state.speed !== prev.speed) audioManager.setSpeed(state.speed);
   if (state.volume !== prev.volume) audioManager.setVolume(state.volume);
 });
-
-export const coordinator = {
-  play,
-  pause,
-  resume,
-  stop,
-  playNextSentence,
-  playPrevSentence,
-  jumpToSentence,
-  clearError,
-  advance,
-  stopAll,
-  startPlayback,
-  beginWait,
-  checkWait,
-  setChapterInternally,
-  buildSynthesisOptions,
-  setChapterIndex,
-  setViewPage,
-  goToPage,
-  setSentenceId,
-  setReadingPosition,
-  resetReadingPosition,
-};

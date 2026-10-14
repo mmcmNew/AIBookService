@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ControlBar, type ControlBarProps } from './ControlBar';
-import { coordinator } from '../../engine/audio/coordinator';
-import { useAudioStore } from '../../store/audioStore';
+import { audioManager } from '../../engine/audio/audioManager';
+import { stepPhrase } from '../../engine/library';
 import { useBookStore } from '../../store/bookStore';
 
 /** Элементы, у которых Space/Enter/стрелки имеют собственный смысл — горячие клавиши плеера их не перехватывают. */
@@ -14,7 +14,7 @@ const isInteractiveTarget = (target: EventTarget | null): boolean => {
 
 /**
  * Панель плеера вместе с её горячими клавишами: Space — play/пауза, стрелки — предыдущая/следующая фраза.
- * Команды уходят Координатору, статус плеера читается здесь же; оболочка приложения горячих клавиш не знает.
+ * Play/пауза идут Оркестратору, шаги по фразам — Менеджеру книги; оболочка приложения горячих клавиш не знает.
  */
 export const PlayerHotkeys: React.FC<ControlBarProps> = (props) => {
   useEffect(() => {
@@ -27,19 +27,16 @@ export const PlayerHotkeys: React.FC<ControlBarProps> = (props) => {
       if (document.querySelector('[aria-modal="true"]')) return;
       if (!useBookStore.getState().currentBook) return;
 
-      const audio = useAudioStore.getState();
       if (e.code === 'Space') {
         e.preventDefault();
         if (e.repeat) return;
-        if (audio.isPlaying && !audio.isPaused) coordinator.pause();
-        else if (audio.isPlaying && audio.isPaused) coordinator.resume();
-        else void coordinator.play();
+        audioManager.toggle();
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
-        void coordinator.playNextSentence();
+        stepPhrase(1);
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
-        void coordinator.playPrevSentence();
+        stepPhrase(-1);
       }
     };
 

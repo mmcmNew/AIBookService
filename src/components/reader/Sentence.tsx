@@ -1,18 +1,17 @@
 import React, { memo, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { useBookStore } from '../../store/bookStore';
-import { coordinator } from '../../engine/audio/coordinator';
+import { jumpToSentence } from '../../engine/library';
 import { SentenceItem } from '../../types/book';
 
-/** Клик по предложению: снимаем паузу автоскролла и отдаём команду воспроизведению «играть отсюда». */
+/** Клик по предложению: снимаем паузу автоскролла и отдаём Менеджеру книги «перейти к этому предложению». */
 export function useSentenceJump(resume: () => void): (id: number) => void {
-  const jumpToSentence = coordinator.jumpToSentence;
   return useCallback(
     (id: number) => {
       resume();
-      void jumpToSentence(id);
+      jumpToSentence(id);
     },
-    [jumpToSentence, resume]
+    [resume]
   );
 }
 

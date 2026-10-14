@@ -4,7 +4,7 @@ import { Modal } from '../ui/Modal';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/Toast';
 import { useBookStore } from '../../store/bookStore';
-import { goToPage } from '../../engine/navigation';
+import { goToPage } from '../../engine/library';
 import { usePagedStore } from '../../store/pagedStore';
 import { assessBook } from '../../engine/cleanup/bookQuality';
 import { planFromHeadings, planFromOutline, type ChapterSpec } from '../../engine/pdf/chapterPlan';

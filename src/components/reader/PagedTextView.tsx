@@ -3,7 +3,7 @@ import { Loader2, AlertCircle, RefreshCw, SkipForward, Hourglass } from 'lucide-
 import { clsx } from 'clsx';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { setFocusPage, setViewPage } from '../../engine/navigation';
+import { focusPage, setViewPage } from '../../engine/library';
 import { usePagedStore } from '../../store/pagedStore';
 import type { SentenceItem } from '../../types/book';
 import type { ChapterSpec } from '../../engine/pdf/chapterPlan';
@@ -58,7 +58,7 @@ const PagePlaceholder: React.FC<{ page: number; state: PageState; error?: string
           <p>Страница {page} ждёт своей очереди на распознавание.</p>
           <button
             type="button"
-            onClick={() => setFocusPage(page)}
+            onClick={() => focusPage(page)}
             className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-zinc-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-zinc-800"
           >
             Распознать сейчас

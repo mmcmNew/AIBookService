@@ -15,8 +15,26 @@ import {
   sentencePage,
   type ComposedBook,
 } from './pdf/composer';
-import { coordinator } from './audio/coordinator';
-import { currentPhrase, isPageReady, nextPhrase, previousPhraseId, type CurrentPhrase, type NextPhrase } from './phrases';
+import { isPageReady, type CurrentPhrase } from './phrases';
+import {
+  configurePosition,
+  currentPhrase as positionCurrentPhrase,
+  getPendingJump,
+  goToPage as positionGoToPage,
+  jumpToSentence as positionJumpToSentence,
+  nextPhrase as positionNextPhrase,
+  onExternalMove,
+  pagedBookOpen,
+  resetPosition,
+  selectChapter as positionSelectChapter,
+  setPendingJump,
+  setViewPage as positionSetViewPage,
+  stepPhrase as positionStepPhrase,
+  writePosition,
+  type ExternalMove,
+  type ProgressPatch,
+  type StepResult,
+} from './bookPosition';
 import { deleteAudioCacheForBook, purgeOrphanAudioCache } from './audio/audioFetch';
 import { parseBookFile, type ParseOptions } from './parsers';
 import type { ReplacementRule } from '../types/settings';
@@ -25,19 +43,12 @@ import type { ReplacementRule } from '../types/settings';
 // Сохранение прогресса чтения: накапливаем патчи и пишем в IndexedDB с задержкой,
 // чтобы не делать запись на каждое озвученное предложение и не получать гонки.
 // ---------------------------------------------------------------------------
-export interface ProgressPatch {
-  'metadata.lastReadAt'?: number;
-  'metadata.lastChapterId'?: string;
-  'metadata.lastSentenceId'?: number;
-  'metadata.lastPage'?: number;
-}
-
 const PROGRESS_DEBOUNCE_MS = 600;
 const pendingProgress = new Map<string, ProgressPatch>();
 let progressTimer: ReturnType<typeof setTimeout> | null = null;
 let progressWriteChain: Promise<void> = Promise.resolve();
 
-export function queueProgress(bookId: string, patch: ProgressPatch): void {
+function queueProgress(bookId: string, patch: ProgressPatch): void {
   pendingProgress.set(bookId, { ...(pendingProgress.get(bookId) ?? {}), ...patch });
   if (progressTimer) clearTimeout(progressTimer);
   progressTimer = setTimeout(() => {
@@ -45,7 +56,7 @@ export function queueProgress(bookId: string, patch: ProgressPatch): void {
   }, PROGRESS_DEBOUNCE_MS);
 }
 
-/** Немедленно записать накопленный прогресс. Записи выстраиваются в очередь (без гонок). */
+/** Сохранить прогресс сейчас (накопленное по позиции). Записи выстраиваются в очередь (без гонок). */
 export function flushProgress(): Promise<void> {
   if (progressTimer) {
     clearTimeout(progressTimer);
@@ -142,13 +153,16 @@ function errorText(err: unknown, fallback: string): string {
 let selectToken = 0;
 let listToken = 0;
 
-/** Страница, на которую перешли, но она ещё не распознана: позиция выставится, когда страница будет готова */
-let pendingJump: number | null = null;
-
-export function pagedBookOpen(): ParsedBook | null {
-  const b = useBookStore.getState().currentBook;
-  return b && b.metadata.paged && usePagedStore.getState().bookId === b.metadata.id ? b : null;
-}
+// Позиция чтения — зона Менеджера книги (bookPosition.ts): побочные действия подключаем здесь
+configurePosition({
+  saveProgress: queueProgress,
+  flushProgress,
+  showPage: (page, onlyIfChanged = false) => {
+    if (onlyIfChanged && usePagedStore.getState().focusPage === page) return;
+    setFocusPage(page);
+  },
+  bumpNavNonce,
+});
 
 /** Новая сборка глав из страниц: обновляем главы, не сдвигая позицию чтения (она определяется по предложению). */
 export function applyComposed(composed: ComposedBook): void {
@@ -156,10 +170,11 @@ export function applyComposed(composed: ComposedBook): void {
   const book = pagedBookOpen();
   if (!book) return;
   let sentenceId = st.currentSentenceId;
-  if (pendingJump != null && composed.pages[pendingJump - 1]?.state === 'done') {
-    const target = firstSentenceOnPage(composed, pendingJump) ?? firstSentenceAtOrAfterPage(composed, pendingJump);
+  const jumpPage = getPendingJump();
+  if (jumpPage != null && composed.pages[jumpPage - 1]?.state === 'done') {
+    const target = firstSentenceOnPage(composed, jumpPage) ?? firstSentenceAtOrAfterPage(composed, jumpPage);
     sentenceId = target?.id ?? null;
-    pendingJump = null;
+    setPendingJump(null);
   } else if (sentenceId != null && !composed.indexById.has(sentenceId)) {
     const page = st.currentPage;
     // Страница перераспознаётся: id вернётся вместе с ней. Иначе берём ближайшее следующее предложение
@@ -190,7 +205,7 @@ export function applyComposed(composed: ComposedBook): void {
   useBookStore.setState({
     currentBook: { ...book, metadata, chapters: composed.chapters },
   });
-  coordinator.setReadingPosition({ chapterIndex, sentenceId });
+  writePosition({ chapterIndex, sentenceId });
 }
 
 // Слушаем изменения распознанных страниц из usePagedStore
@@ -239,13 +254,13 @@ export async function activatePaged(metadata: BookMetadata, rawPdfBuffer: ArrayB
   } else {
     sentenceId = null;
   }
-  pendingJump = null;
+  setPendingJump(null);
   if (sentenceId == null) {
     // Позиция ещё не распознана: первое предложение страницы появится, когда страница будет готова
     if (composed.pages[currentPage - 1]?.state === 'done') {
       sentenceId = (firstSentenceOnPage(composed, currentPage) ?? firstSentenceAtOrAfterPage(composed, currentPage))?.id ?? null;
     } else {
-      pendingJump = currentPage;
+      setPendingJump(currentPage);
     }
   }
   const chapterIndex =
@@ -259,32 +274,8 @@ export async function activatePaged(metadata: BookMetadata, rawPdfBuffer: ArrayB
     isLoading: false,
     qualityNotice: null,
   });
-  coordinator.setReadingPosition({ chapterIndex, sentenceId, page: currentPage });
+  writePosition({ chapterIndex, sentenceId, page: currentPage });
   setFocusPage(currentPage);
-}
-
-/** Навигация (страница + предложение): повышает navNonce, чтобы виды прокрутились, а плеер перестроился. */
-export function navigatePaged(page: number, sentenceId: number | null, jumpIfUnready: boolean): void {
-  const book = pagedBookOpen();
-  if (!book) return;
-  const composed = usePagedStore.getState().composed;
-  const p = Math.min(Math.max(1, Math.round(page) || 1), book.metadata.paged!.pageCount);
-  const chapterIndex =
-    composed && sentenceId != null && composed.chapterOfSentence.has(sentenceId)
-      ? (composed.chapterOfSentence.get(sentenceId) as number)
-      : composed
-        ? chapterIndexForPage(composed, p)
-        : 0;
-  pendingJump = jumpIfUnready ? p : null;
-  coordinator.setReadingPosition({ chapterIndex, sentenceId, page: p });
-  bumpNavNonce();
-  setFocusPage(p);
-  queueProgress(book.metadata.id, {
-    'metadata.lastReadAt': Date.now(),
-    'metadata.lastPage': p,
-    'metadata.lastChapterId': book.chapters[chapterIndex]?.id,
-    'metadata.lastSentenceId': sentenceId ?? undefined,
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -400,7 +391,7 @@ export async function loadBook(parsed: ParsedBook): Promise<void> {
           ? { bookId: book.metadata.id, title: book.metadata.title, quality: book.metadata.quality }
           : null,
     });
-    coordinator.setReadingPosition({ chapterIndex, sentenceId, page: 1 });
+    writePosition({ chapterIndex, sentenceId, page: 1 });
 
     void loadSavedBooksList();
   } catch (err) {
@@ -460,7 +451,7 @@ export async function selectSavedBook(bookId: string): Promise<void> {
       pdfViewMode: book.rawPdfBuffer ? 'original' : 'reflow',
       isLoading: false,
     });
-    coordinator.setReadingPosition({ chapterIndex: safeChapterIndex, sentenceId: lastSentenceId, page: 1 });
+    writePosition({ chapterIndex: safeChapterIndex, sentenceId: lastSentenceId, page: 1 });
   } catch (err) {
     if (token !== selectToken) return;
     useBookStore.setState({ error: errorText(err, 'Не удалось открыть книгу'), isLoading: false });
@@ -503,7 +494,7 @@ export async function deleteBook(bookId: string): Promise<void> {
 
     if (useBookStore.getState().currentBook?.metadata.id === bookId) {
       useBookStore.setState({ currentBook: null });
-      coordinator.resetReadingPosition();
+      resetPosition();
     }
     await loadSavedBooksList();
   } catch (e) {
@@ -513,11 +504,11 @@ export async function deleteBook(bookId: string): Promise<void> {
 }
 
 export async function closeBook(): Promise<void> {
-  coordinator.stop();
+  bookObserver?.onBookClosing();
   await flushProgress();
   useBookStore.setState({ currentBook: null, activeFootnote: null });
-  coordinator.resetReadingPosition();
-  pendingJump = null;
+  resetPosition();
+  setPendingJump(null);
   await closePagedSession();
   await loadSavedBooksList();
 }
@@ -563,29 +554,24 @@ export async function replaceBookChapters(chapters: Chapter[], options?: { title
     currentBook: next,
     pdfViewMode: next.rawPdfBuffer ? 'reflow' : state.pdfViewMode,
   });
-  coordinator.setReadingPosition({ chapterIndex: pos.chapterIndex, sentenceId: pos.sentenceId });
+  writePosition({ chapterIndex: pos.chapterIndex, sentenceId: pos.sentenceId });
 
   void loadSavedBooksList();
 }
 
 // ---------------------------------------------------------------------------
-// Вход зоны для Координатора: ответы о книге («какая следующая фраза?», где она, куда перейти).
-// Координатор не читает книгу и страницы PDF сам — он спрашивает здесь.
+// Вход зоны для Координатора: ответы о книге («какая фраза сейчас / следующая?»).
+// Координатор не читает книгу и страницы PDF сам и позицию не меняет — он спрашивает здесь.
 // ---------------------------------------------------------------------------
 
-/** Фраза, с которой начать озвучку: фраза | ждём страницу | конец (внутри — Поставщик фраз) */
-export function phraseToPlay(autoAdvanceChapter: boolean): CurrentPhrase {
-  return currentPhrase(autoAdvanceChapter);
+/** Текущая фраза (позиция не сдвигается): фраза | ждём страницу | конец (внутри — Поставщик фраз) */
+export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
+  return positionCurrentPhrase(autoAdvanceChapter);
 }
 
-/** Следующая фраза: фраза | глава | ждём страницу | конец */
-export function phraseAfterCurrent(autoAdvanceChapter: boolean): NextPhrase {
-  return nextPhrase(autoAdvanceChapter);
-}
-
-/** id предыдущей фразы или null */
-export function phraseBeforeCurrent(): number | null {
-  return previousPhraseId();
+/** Следующая фраза: позиция сдвигается сразу, ответ — фраза | ждём страницу | конец */
+export function nextPhrase(autoAdvanceChapter: boolean): StepResult {
+  return positionNextPhrase(autoAdvanceChapter);
 }
 
 /** Страница PDF распознана и вошла в сборку книги */
@@ -593,59 +579,34 @@ export function pageReady(page: number): boolean {
   return isPageReady(page);
 }
 
+// ---------------------------------------------------------------------------
+// Навигация для UI: Менеджер сам двигает позицию, копит прогресс и, если переход пришёл не от Координатора,
+// сообщает ему событием «внешний переход».
+// ---------------------------------------------------------------------------
+
+/** Клик по предложению */
+export function jumpToSentence(sentenceId: number): void {
+  positionJumpToSentence(sentenceId);
+}
+
+/** Выбор главы */
+export function selectChapter(index: number): void {
+  positionSelectChapter(index);
+}
+
 /** Перейти на страницу PDF (первая фраза страницы, если она уже распознана) */
-export function goToPagedPage(page: number): void {
-  const book = pagedBookOpen();
-  if (!book) return;
-  const composed = usePagedStore.getState().composed;
-  const p = Math.min(Math.max(1, Math.round(page) || 1), book.metadata.paged!.pageCount);
-  const ready = composed?.pages[p - 1]?.state === 'done';
-  const target = ready && composed ? firstSentenceOnPage(composed, p) ?? firstSentenceAtOrAfterPage(composed, p) : null;
-  navigatePaged(p, target?.id ?? null, !ready);
+export function goToPage(page: number): void {
+  positionGoToPage(page);
 }
 
-/** Страница просмотра PDF в границах книги (null — постраничная книга не открыта) */
-export function pagedPageRef(page: number): { bookId: string; page: number } | null {
-  const book = pagedBookOpen();
-  if (!book) return null;
-  return { bookId: book.metadata.id, page: Math.min(Math.max(1, Math.round(page) || 1), book.metadata.paged!.pageCount) };
+/** Страница просмотра PDF (чтение не сдвигается) */
+export function setViewPage(page: number): void {
+  positionSetViewPage(page);
 }
 
-/** Где в постраничной книге лежит предложение (null — это не постраничная книга или предложения нет в сборке) */
-export function sentenceLocation(id: number): { page: number; chapterIndex: number | undefined } | null {
-  if (!pagedBookOpen()) return null;
-  const composed = usePagedStore.getState().composed;
-  const idx = composed?.indexById.get(id);
-  if (!composed || idx === undefined) return null;
-  return { page: sentencePage(composed.order[idx]), chapterIndex: composed.chapterOfSentence.get(id) };
-}
-
-/** Книга и глава для записи прогресса чтения (null — книга не открыта) */
-export function progressRef(chapterIndex: number): { bookId: string; chapterId: string | undefined } | null {
-  const book = useBookStore.getState().currentBook;
-  return book ? { bookId: book.metadata.id, chapterId: book.chapters[chapterIndex]?.id } : null;
-}
-
-export type ChapterTarget =
-  | { kind: 'paged-sentence'; page: number; sentenceId: number }
-  | { kind: 'paged-page'; page: number }
-  | { kind: 'text'; bookId: string; chapterId: string; sentenceId: number | null };
-
-/** Куда перейти при выборе главы (null — такой главы нет) */
-export function chapterTarget(index: number): ChapterTarget | null {
-  const book = useBookStore.getState().currentBook;
-  if (!book || index < 0 || index >= book.chapters.length) return null;
-  const ch = book.chapters[index];
-  if (book.metadata.paged) {
-    const composed = usePagedStore.getState().composed;
-    const startPage = ch.startPage ?? 1;
-    const first = ch.sentences[0];
-    if (composed && first && composed.pages[startPage - 1]?.state === 'done' && sentencePage(first) === startPage) {
-      return { kind: 'paged-sentence', page: startPage, sentenceId: first.id };
-    }
-    return { kind: 'paged-page', page: startPage };
-  }
-  return { kind: 'text', bookId: book.metadata.id, chapterId: ch.id, sentenceId: ch.sentences[0]?.id ?? null };
+/** Шаг на одну фразу: 1 — следующая (через главы), -1 — предыдущая */
+export function stepPhrase(delta: 1 | -1): void {
+  positionStepPhrase(delta);
 }
 
 /** Показать страницу PDF как «в фокусе» (onlyIfChanged — не трогать, если фокус уже на ней) */
@@ -654,30 +615,32 @@ export function focusPage(page: number, onlyIfChanged = false): void {
   setFocusPage(page);
 }
 
+export type { ExternalMove };
+
 export interface BookObserver {
-  /** Явная навигация по PDF (navNonce) */
-  onNavigated: () => void;
-  /** Любое другое изменение страниц PDF (распознавание) */
+  /** Пользователь сдвинул позицию (клик, глава, страница, шаг ±1 фраза): переход не от Координатора */
+  onExternalMove: (move: ExternalMove) => void;
+  /** Распознаны страницы PDF: возможно, дождались нужной («страница готова») */
   onPagesChanged: () => void;
-  /** Книга закрыта/сменена или сменилась глава */
-  onBookOrChapterChanged: (change: { bookChanged: boolean; closed: boolean; paged: boolean }) => void;
+  /** Книга сменена или закрыта */
+  onBookChanged: () => void;
+  /** Книгу сейчас закроют (до сохранения прогресса): воспроизведение нужно остановить */
+  onBookClosing: () => void;
 }
 
-/** Подписка Координатора на события книги (подписки на сторы живут внутри зоны книги) */
+let bookObserver: BookObserver | null = null;
+
+/** Координатор подписывается на события зоны книги (подписки на сторы живут внутри зоны книги) */
 export function observeBook(observer: BookObserver): void {
+  bookObserver = observer;
+  onExternalMove(observer.onExternalMove);
   usePagedStore.subscribe((state, prev) => {
-    if (state.navNonce !== prev.navNonce) observer.onNavigated();
-    else observer.onPagesChanged();
+    // Явную навигацию по PDF (navNonce) Менеджер сообщает сам событием «внешний переход»
+    if (state.navNonce !== prev.navNonce) return;
+    observer.onPagesChanged();
   });
   useBookStore.subscribe((state, prev) => {
-    const bookChanged = state.currentBook?.metadata.id !== prev.currentBook?.metadata.id;
-    const chapterChanged = state.currentChapterIndex !== prev.currentChapterIndex;
-    if (!bookChanged && !chapterChanged) return;
-    observer.onBookOrChapterChanged({
-      bookChanged,
-      closed: !state.currentBook,
-      paged: Boolean(state.currentBook?.metadata.paged),
-    });
+    if (state.currentBook?.metadata.id !== prev.currentBook?.metadata.id) observer.onBookChanged();
   });
 }
 

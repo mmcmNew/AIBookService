@@ -2,7 +2,7 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef }
 import { ChevronLeft, ChevronRight, Bookmark, FileWarning } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { setChapterIndex } from '../../engine/navigation';
+import { selectChapter } from '../../engine/library';
 import { SentenceItem } from '../../types/book';
 import { clsx } from 'clsx';
 import { Paragraph, useSentenceJump } from './Sentence';
@@ -157,7 +157,7 @@ export const BookView: React.FC = () => {
           >
             {prevChapter ? (
               <button
-                onClick={() => setChapterIndex(currentChapterIndex - 1)}
+                onClick={() => selectChapter(currentChapterIndex - 1)}
                 className="min-w-0 w-full sm:w-auto sm:max-w-[48%] flex items-center gap-2 px-4 py-3 rounded-2xl border border-slate-200 dark:border-zinc-700 hover:border-amber-500 hover:bg-slate-50 dark:hover:bg-zinc-800/80 transition-all text-left text-xs md:text-sm group"
               >
                 <ChevronLeft className="w-5 h-5 text-amber-600 dark:text-amber-500 group-hover:-translate-x-0.5 transition-transform shrink-0" aria-hidden="true" />
@@ -172,7 +172,7 @@ export const BookView: React.FC = () => {
 
             {nextChapter ? (
               <button
-                onClick={() => setChapterIndex(currentChapterIndex + 1)}
+                onClick={() => selectChapter(currentChapterIndex + 1)}
                 className="min-w-0 w-full sm:w-auto sm:max-w-[48%] flex items-center justify-between sm:justify-end gap-2 px-4 py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20 transition-all text-right text-xs md:text-sm group"
               >
                 <div className="min-w-0 text-left sm:text-right">

@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { X, BookOpen, Check, Search } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
-import { setChapterIndex } from '../../engine/navigation';
+import { selectChapter } from '../../engine/library';
 import { Modal } from '../ui/Modal';
 import { useMediaQuery } from '../ui/useMediaQuery';
 import { clsx } from 'clsx';
@@ -94,7 +94,7 @@ const ChapterPanel: React.FC<PanelProps> = ({ titleId, onClose, closeOnSelect })
               ref={isActive ? activeRef : null}
               aria-current={isActive ? 'true' : undefined}
               onClick={() => {
-                setChapterIndex(originalIndex);
+                selectChapter(originalIndex);
                 if (closeOnSelect) onClose();
               }}
               className={clsx(
