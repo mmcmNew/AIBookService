@@ -23,6 +23,7 @@ import { coordinator } from '../../engine/audio/coordinator';
 import { setChapterIndex } from '../../engine/navigation';
 import { useBookStore } from '../../store/bookStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { setSpeed, setVolume, setAutoscroll, setAnnounceChapters, setChapterChime, setAutoAdvanceChapter } from '../../engine/settings';
 
 const SPEED_PRESETS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
 
@@ -79,9 +80,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   const currentSentenceIndex = useBookStore((state) => state.getCurrentSentenceIndex());
 
   const {
-    speed, setSpeed, volume, setVolume, activeProvider, geminiModel, openRouterModel, autoscroll, setAutoscroll,
-    announceChapters, setAnnounceChapters, chapterChime, setChapterChime, autoAdvanceChapter, setAutoAdvanceChapter,
-  } = useSettingsStore();
+    speed, volume, activeProvider, geminiModel, openRouterModel, autoscroll, announceChapters, chapterChime, autoAdvanceChapter } = useSettingsStore();
 
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
   const speedMenuRef = useRef<HTMLDivElement | null>(null);

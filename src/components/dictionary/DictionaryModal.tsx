@@ -2,6 +2,7 @@ import React, { useId, useState } from 'react';
 import { X, Plus, Trash2, BookText, Globe, Check, Sparkles, HelpCircle } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useBookStore } from '../../store/bookStore';
+import { addReplacementRule, removeReplacementRule, toggleReplacementRule } from '../../engine/settings';
 import { applyPronunciationDictionary, validateRegexPattern } from '../../engine/tokenizer/dictionaryReplacer';
 import { Modal } from '../ui/Modal';
 
@@ -12,7 +13,7 @@ interface DictionaryModalProps {
 
 export const DictionaryModal: React.FC<DictionaryModalProps> = ({ isOpen, onClose }) => {
   const currentBook = useBookStore((state) => state.currentBook);
-  const { replacementRules, addReplacementRule, removeReplacementRule, toggleReplacementRule } = useSettingsStore();
+  const { replacementRules } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<'book' | 'global'>('book');
   const [newPattern, setNewPattern] = useState('');

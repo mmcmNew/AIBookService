@@ -17,6 +17,7 @@ import {
 import { useBookStore } from '../../store/bookStore';
 import { reparsePdfBook, setPdfViewMode } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
+import { setTheme, setPdfRecognitionMode, setAlwaysAskPdfMode } from '../../engine/settings';
 import { useUserStore } from '../../store/userStore';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
 import { RerecognizeDialog } from '../reader/RerecognizeDialog';
@@ -124,17 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
   const currentChapterIndex = useBookStore((state) => state.currentChapterIndex);
   const pdfViewMode = useBookStore((state) => state.pdfViewMode);
 
-  const {
-    theme,
-    setTheme,
-    activeProvider,
-    geminiModel,
-    openRouterModel,
-    replacementRules,
-    pdfRecognitionMode,
-    setPdfRecognitionMode,
-    setAlwaysAskPdfMode,
-  } = useSettingsStore();
+  const { theme, activeProvider, geminiModel, openRouterModel, replacementRules, pdfRecognitionMode } = useSettingsStore();
   const balance = useUserStore((state) => state.balance);
   const toast = useToast();
 

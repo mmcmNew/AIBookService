@@ -34,7 +34,7 @@ import {
   getDesktopProxy, 
   restartDesktopApp 
 } from '../../engine/proxy/proxyManager';
-import { setOpenRouterModel as setOpenRouterModelDomain } from '../../engine/settings';
+import { setOpenRouterModel as setOpenRouterModelDomain, setTheme, setFontFamily, setFontSize, setLineHeight, setAutoscroll, setActiveProvider, setSelectedVoiceId, setOpenRouterApiMode, setSpeed, setVolume, setApiKey, setGeminiModel, setOpenRouterBaseUrl, setProxy, setPdfRecognitionMode, setAlwaysAskPdfMode, addReplacementRule, removeReplacementRule, toggleReplacementRule } from '../../engine/settings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -75,45 +75,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   const testAudioRef = useRef<HTMLAudioElement | null>(null);
   const testUrlRef = useRef<string | null>(null);
 
-  const {
-    theme,
-    setTheme,
-    fontFamily,
-    setFontFamily,
-    fontSize,
-    setFontSize,
-    lineHeight,
-    setLineHeight,
-    autoscroll,
-    setAutoscroll,
-    activeProvider,
-    setActiveProvider,
-    selectedVoiceIds,
-    setSelectedVoiceId,
-    openRouterApiMode,
-    setOpenRouterApiMode,
-    speed,
-    setSpeed,
-    volume,
-    setVolume,
-    apiKeys,
-    setApiKey,
-    geminiModel,
-    setGeminiModel,
-    openRouterModel,
-    openRouterBaseUrl,
-    setOpenRouterBaseUrl,
-    proxy,
-    setProxy,
-    pdfRecognitionMode,
-    setPdfRecognitionMode,
-    alwaysAskPdfMode,
-    setAlwaysAskPdfMode,
-    replacementRules,
-    addReplacementRule,
-    removeReplacementRule,
-    toggleReplacementRule,
-  } = useSettingsStore();
+  const { theme, fontFamily, fontSize, lineHeight, autoscroll, activeProvider, selectedVoiceIds, openRouterApiMode, speed, volume, apiKeys, geminiModel, openRouterModel, openRouterBaseUrl, proxy, pdfRecognitionMode, alwaysAskPdfMode, replacementRules } = useSettingsStore();
 
   const modelsReqRef = useRef(0);
   const handleFetchModels = async (force = true) => {
