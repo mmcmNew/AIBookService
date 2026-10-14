@@ -21,7 +21,6 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
 import { AggregatorApiMode, TTSProviderType, VoiceOption } from '../../types/tts';
 import { getAllVoices, PROVIDERS_MAP } from '../../engine/providers';
-import { buildSynthesisOptions } from '../../engine/audio/coordinator';
 import { 
   openRouterTTSProvider, 
   AggregatorModelInfo,
@@ -34,8 +33,7 @@ import {
   getDesktopProxy, 
   restartDesktopApp 
 } from '../../engine/proxy/proxyManager';
-import { synthesizeOnce } from '../../engine/audio/audioFetch';
-import { setOpenRouterModel as setOpenRouterModelDomain, setTheme, setFontFamily, setFontSize, setLineHeight, setAutoscroll, setActiveProvider, setSelectedVoiceId, setOpenRouterApiMode, setSpeed, setVolume, setApiKey, setGeminiModel, setOpenRouterBaseUrl, setProxy, setPdfRecognitionMode, setAlwaysAskPdfMode, addReplacementRule, removeReplacementRule, toggleReplacementRule } from '../../engine/settings';
+import { setOpenRouterModel as setOpenRouterModelDomain, setTheme, setFontFamily, setFontSize, setLineHeight, setAutoscroll, setActiveProvider, setSelectedVoiceId, setOpenRouterApiMode, setSpeed, setVolume, setApiKey, setGeminiModel, setOpenRouterBaseUrl, setProxy, setPdfRecognitionMode, setAlwaysAskPdfMode, addReplacementRule, removeReplacementRule, toggleReplacementRule, checkVoice } from '../../engine/settings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -197,12 +195,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     stopTestAudio();
     setTestState({ status: 'loading' });
     try {
-      const opts = buildSynthesisOptions();
-      const buffer = await synthesizeOnce(
-        activeProvider,
-        'Проверка озвучки. Если вы слышите эту фразу, подключение работает.',
-        opts
-      );
+      const buffer = await checkVoice('Проверка озвучки. Если вы слышите эту фразу, подключение работает.');
       if (!buffer || buffer.byteLength === 0) throw new Error('Получен пустой аудио-ответ.');
       const head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
       const isWav = String.fromCharCode(...Array.from(head)) === 'RIFF';

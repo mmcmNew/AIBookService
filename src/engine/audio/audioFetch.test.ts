@@ -5,7 +5,7 @@ import type { ITTSProvider, SynthesisOptions } from '../../types/tts';
 import type { SentenceItem } from '../../types/book';
 import { useSettingsStore } from '../../store/settingsStore';
 import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
-import { buildCacheKey, cancelPrepare, getOrFetchAudio, prepareAudio } from './audioFetch';
+import { buildCacheKey, cancelPrepare, getOrFetchAudio, prepareAudio, synthesizeOnce } from './audioFetch';
 import { AudioManager, type AudioEngineHandlers } from './audioManager';
 
 /** Поддельный провайдер: считает вызовы, ждёт ручного «готово», уважает signal */
@@ -124,6 +124,24 @@ test('«возьми аудио» с отменённым сигналом: Abor
       getOrFetchAudio(key, 'book-abort', 'ch1', s.id, text, 'openai', options, controller.signal),
       (e: { name?: string }) => e.name === 'AbortError'
     );
+  } finally {
+    restore();
+  }
+});
+
+test('«проверить озвучку» (synthesizeOnce): разовый синтез мимо кэша и очереди, ошибка уходит вызывающему', async () => {
+  const { fake, restore } = installFakeProvider();
+  try {
+    const first = synthesizeOnce('openai', 'Проверка.', options);
+    fake.calls[0].resolve();
+    assert.equal((await first).byteLength, 8);
+    const second = synthesizeOnce('openai', 'Проверка.', options);
+    fake.calls[1].resolve();
+    await second;
+    assert.equal(fake.calls.length, 2, 'повторная проверка снова идёт к провайдеру: кэша нет');
+    const failing = synthesizeOnce('openai', 'Проверка.', options);
+    fake.calls[2].reject(new Error('Неверный ключ'));
+    await assert.rejects(failing, /Неверный ключ/);
   } finally {
     restore();
   }

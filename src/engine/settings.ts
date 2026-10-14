@@ -2,6 +2,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import type { FontFamily, PdfRecognitionMode, ReaderTheme } from '../types/settings';
 import type { AggregatorApiMode, TTSProviderType } from '../types/tts';
 import { isVoiceValidForModel, getCatalogModelInfo } from './providers/openRouterTts';
+import { synthesizeOnce } from './audio/audioFetch';
+import { buildSynthesisOptions } from './audio/coordinator';
 
 /**
  * Установка модели OpenRouter с валидацией выбранного голоса.
@@ -120,4 +122,13 @@ export function removeReplacementRule(id: string): void {
 
 export function toggleReplacementRule(id: string): void {
   useSettingsStore.getState().toggleReplacementRule(id);
+}
+
+/**
+ * «Проверить озвучку»: разовый синтез фразы активным провайдером с текущими настройками голоса,
+ * без кэша и очереди (идёт через Поставщика озвучки). Ошибку синтеза отдаёт вызывающему.
+ */
+export async function checkVoice(text: string): Promise<ArrayBuffer> {
+  const { activeProvider } = useSettingsStore.getState();
+  return synthesizeOnce(activeProvider, text, buildSynthesisOptions());
 }
