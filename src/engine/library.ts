@@ -573,11 +573,6 @@ export async function replaceBookChapters(chapters: Chapter[], options?: { title
 // Координатор не читает книгу и страницы PDF сам — он спрашивает здесь.
 // ---------------------------------------------------------------------------
 
-/** Открыта постраничная (PDF) книга */
-export function bookIsPaged(): boolean {
-  return Boolean(useBookStore.getState().currentBook?.metadata.paged);
-}
-
 /** Фраза, с которой начать озвучку: фраза | ждём страницу | конец (внутри — Поставщик фраз) */
 export function phraseToPlay(autoAdvanceChapter: boolean): CurrentPhrase {
   return currentPhrase(autoAdvanceChapter);
