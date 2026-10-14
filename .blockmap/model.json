@@ -47,7 +47,7 @@
         },
         {
           "from": "b_state_book",
-          "to": "b_dom_source",
+          "to": "b_dom_coord",
           "label": "текст книги",
           "kind": "data"
         },
@@ -59,13 +59,24 @@
         },
         {
           "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "озвучить фразу",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_dom_coord",
+          "label": "started / ended / failed"
+        },
+        {
+          "from": "b_dom_audio",
           "to": "b_dom_fetch",
           "label": "дай аудио для фразы",
           "kind": "call"
         },
         {
           "from": "b_dom_fetch",
-          "to": "b_dom_coord",
+          "to": "b_dom_audio",
           "label": "аудио"
         },
         {
@@ -90,17 +101,6 @@
           "from": "b_infra_router",
           "to": "b_dom_fetch",
           "label": "аудио"
-        },
-        {
-          "from": "b_dom_coord",
-          "to": "b_dom_audio",
-          "label": "играй это аудио",
-          "kind": "call"
-        },
-        {
-          "from": "b_dom_audio",
-          "to": "b_dom_coord",
-          "label": "started / ended / failed"
         },
         {
           "from": "b_state_settings",
@@ -184,6 +184,12 @@
           "label": "клик по фразе"
         },
         {
+          "from": "b_ui_router",
+          "to": "b_dom_coord",
+          "label": "горячие клавиши (play/pause/nav)",
+          "kind": "call"
+        },
+        {
           "from": "b_state_settings",
           "to": "b_ui_text",
           "label": "автоскролл, шрифт, тема"
@@ -197,7 +203,8 @@
           "from": "b_dom_tokenize",
           "to": "b_state_book",
           "label": "предложения книги",
-          "kind": "write"
+          "kind": "write",
+          "known": "Токенизатор формирует предложения для глав книги, сохраняемых в b_state_book при парсинге и редактировании"
         },
         {
           "from": "b_state_book",
@@ -240,6 +247,12 @@
           "to": "b_dom_coord",
           "label": "текст книги: проверить позицию",
           "kind": "data"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_dom_coord",
+          "label": "готовность страниц",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
@@ -255,7 +268,7 @@
       "title": "Позиция чтения",
       "layer": "State",
       "file": "src/store/bookStore.ts",
-      "line": 649,
+      "line": 81,
       "symbol": "setSentenceId",
       "summary": "Позиция чтения: фраза, глава, страница. Владелец: Координатор воспроизведения.",
       "res": [
@@ -268,7 +281,7 @@
       "title": "Оркестратор аудио",
       "layer": "Domain",
       "file": "src/engine/audio/audioManager.ts",
-      "line": 84,
+      "line": 66,
       "symbol": "AudioManager",
       "summary": "Берёт готовое аудио и фразу, управляет Плеером, ведёт статус плеера (владелец). С поставщиками не общается: аудио ему приносит Координатор.",
       "risk": "Обязательная проверка токена: события с устаревшим токеном отсекаются.",
@@ -478,7 +491,7 @@
       "title": "Текст книги (загруженная)",
       "layer": "State",
       "file": "src/store/bookStore.ts",
-      "line": 188,
+      "line": 51,
       "symbol": "useBookStore",
       "slice": "st_book",
       "summary": "Загруженная книга: главы и предложения. Пишет сценарий «Открыть книгу», читают Домен и UI.",
@@ -501,8 +514,8 @@
       "title": "Координатор воспроизведения",
       "layer": "Domain",
       "file": "src/engine/audio/coordinator.ts",
-      "line": 260,
-      "symbol": "advance",
+      "line": 172,
+      "symbol": "advancePaged",
       "members": [
         "setChapterInternally",
         "stopAll",
@@ -549,7 +562,7 @@
       "kind": "store",
       "nodePattern": "useBookStore\\b",
       "file": "src/store/bookStore.ts",
-      "line": 188,
+      "line": 51,
       "note": "Текущая книга, глава, предложение."
     },
     "res_settingsStore": {
@@ -624,7 +637,7 @@
     },
     "b_dom_coord": {
       "file": "src/engine/audio/coordinator.ts",
-      "fn": "advance"
+      "fn": "advancePaged"
     }
   },
   "flows": {
@@ -701,6 +714,7 @@
           "label": "Прямой запрос к указанному эндпоинту",
           "col": 1.5,
           "row": 2,
+          "via": "external",
           "covers": [
             [
               359,
@@ -721,6 +735,7 @@
           "label": "Запрос к первичному эндпоинту (speech или chat)",
           "col": 0.5,
           "row": 3,
+          "via": "external",
           "covers": [
             [
               367,
@@ -757,6 +772,7 @@
           "label": "Повтор через альтернативный эндпоинт (1 раз)",
           "col": 1.5,
           "row": 4,
+          "via": "external",
           "covers": [
             [
               374,
@@ -883,8 +899,8 @@
           "row": 0,
           "covers": [
             [
-              367,
-              376
+              60,
+              69
             ]
           ],
           "bind": []
@@ -897,12 +913,12 @@
           "row": 1,
           "covers": [
             [
-              377,
-              378
+              70,
+              71
             ]
           ],
           "bind": [
-            "a35323950e#0",
+            "fd39643fbe#0",
             "25e4bef4a9#0",
             "d6cb400a92#0"
           ]
@@ -915,8 +931,8 @@
           "row": 1,
           "covers": [
             [
-              378,
-              378
+              71,
+              71
             ]
           ],
           "bind": [
@@ -932,12 +948,12 @@
           "row": 2,
           "covers": [
             [
-              381,
-              382
+              74,
+              75
             ]
           ],
           "bind": [
-            "ee49967ed2#0",
+            "6f131455af#0",
             "e428b27438#0"
           ]
         },
@@ -949,13 +965,14 @@
           "row": 2,
           "covers": [
             [
-              383,
-              384
+              76,
+              81
             ]
           ],
           "bind": [
             "08a4f7cd38#0",
-            "e5ef59c3c9#0"
+            "e5ef59c3c9#0",
+            "783182f916#0"
           ]
         },
         {
@@ -968,14 +985,16 @@
           "rw": "read",
           "covers": [
             [
-              391,
-              393
+              84,
+              93
             ]
           ],
           "bind": [
             "08a4f7cd38#1",
             "8eb3ac5d73#0",
-            "65398891a7#0"
+            "65398891a7#0",
+            "54ac59bf1b#0",
+            "ba66106480#0"
           ]
         },
         {
@@ -986,12 +1005,12 @@
           "row": 3,
           "covers": [
             [
-              394,
-              396
+              87,
+              89
             ]
           ],
           "bind": [
-            "7f75235708#0",
+            "54ac59bf1b#0",
             "ba66106480#0"
           ]
         },
@@ -1010,16 +1029,20 @@
           "label": "Синтез через провайдера",
           "col": 0,
           "row": 5,
+          "res": "st_settings",
+          "rw": "read",
           "covers": [
             [
-              403,
-              407
+              96,
+              103
             ]
           ],
           "bind": [
-            "c4c4cd6bc1#0",
+            "067712da07#0",
             "08a4f7cd38#2",
-            "ebae2bfa67#0"
+            "ebae2bfa67#0",
+            "633b991218#0",
+            "6422d9de66#0"
           ],
           "block": "b_infra_router"
         },
@@ -1031,8 +1054,8 @@
           "row": 6,
           "covers": [
             [
-              411,
-              411
+              104,
+              104
             ]
           ],
           "bind": [
@@ -1047,8 +1070,8 @@
           "row": 6,
           "covers": [
             [
-              412,
-              412
+              105,
+              105
             ]
           ],
           "bind": [
@@ -1065,12 +1088,12 @@
           "rw": "write",
           "covers": [
             [
-              414,
-              427
+              107,
+              120
             ]
           ],
           "bind": [
-            "fc5b98a361#0"
+            "d370bb7285#0"
           ]
         },
         {
@@ -1081,8 +1104,8 @@
           "row": 8,
           "covers": [
             [
-              429,
-              429
+              122,
+              122
             ]
           ],
           "bind": [
@@ -1161,8 +1184,8 @@
           "row": 0,
           "covers": [
             [
-              198,
-              205
+              160,
+              168
             ]
           ],
           "bind": [
@@ -1177,8 +1200,8 @@
           "row": 1,
           "covers": [
             [
-              208,
-              208
+              170,
+              170
             ]
           ],
           "bind": [
@@ -1191,14 +1214,17 @@
           "label": "Озвучить заголовок главы и пауза",
           "col": 1,
           "row": 1,
+          "via": "input",
           "covers": [
             [
-              209,
-              209
+              171,
+              173
             ]
           ],
           "bind": [
-            "ef8f6071e0#0"
+            "ef8f6071e0#0",
+            "838b04f510#0",
+            "042a136cd3#0"
           ]
         },
         {
@@ -1211,8 +1237,8 @@
           "rw": "read",
           "covers": [
             [
-              213,
-              214
+              175,
+              176
             ]
           ],
           "bind": [
@@ -1227,8 +1253,8 @@
           "row": 3,
           "covers": [
             [
-              216,
-              216
+              178,
+              178
             ]
           ],
           "bind": [
@@ -1241,10 +1267,11 @@
           "label": "Синтез через Web Speech и старт",
           "col": 1,
           "row": 3,
+          "via": "external",
           "covers": [
             [
-              217,
-              220
+              179,
+              183
             ]
           ],
           "bind": [
@@ -1258,14 +1285,17 @@
           "label": "Получить аудио (кэш или синтез)",
           "col": 0,
           "row": 4,
+          "block": "b_dom_fetch",
           "covers": [
             [
-              223,
-              224
+              185,
+              187
             ]
           ],
           "bind": [
-            "11d837ef65#0"
+            "db47ddaed6#0",
+            "838b04f510#1",
+            "042a136cd3#2"
           ]
         },
         {
@@ -1274,14 +1304,17 @@
           "label": "Загрузить аудио в HTML Audio и играть",
           "col": 0,
           "row": 5,
+          "block": "b_infra_audioel",
           "covers": [
             [
-              227,
-              229
+              189,
+              192
             ]
           ],
           "bind": [
-            "f8145dc34f#0"
+            "30152a5fb4#0",
+            "838b04f510#2",
+            "042a136cd3#3"
           ]
         },
         {
@@ -1290,10 +1323,11 @@
           "label": "Подтвердить старт (onStarted)",
           "col": 0,
           "row": 6,
+          "via": "input",
           "covers": [
             [
-              231,
-              231
+              193,
+              193
             ]
           ],
           "bind": [
@@ -1306,15 +1340,16 @@
           "label": "Запустить предзагрузку следующей фразы",
           "col": 0,
           "row": 7,
+          "via": "input",
           "covers": [
             [
-              233,
-              233
+              195,
+              195
             ]
           ],
           "bind": [
             "26114bbb63#0",
-            "3972ff0de6#0"
+            "a08903fa92#0"
           ]
         },
         {
@@ -1323,13 +1358,19 @@
           "label": "Ошибка синтеза (onFailed)",
           "col": 1,
           "row": 6,
+          "via": "input",
           "covers": [
             [
-              238,
-              239
+              196,
+              202
             ]
           ],
           "bind": [
+            "838b04f510#3",
+            "042a136cd3#4",
+            "3b30e096c1#0",
+            "852dbb4718#0",
+            "042a136cd3#5",
             "cc9ef477a9#0"
           ]
         },
@@ -1636,6 +1677,7 @@
           "label": "Закрыть предыдущую активную сессию",
           "col": 0,
           "row": 1,
+          "via": "external",
           "covers": [
             [
               514,
@@ -1702,6 +1744,7 @@
           "label": "Загрузить сохранённые страницы из Dexie db.pdfPages",
           "col": 0,
           "row": 4,
+          "via": "external",
           "covers": [],
           "bind": []
         },
@@ -1720,6 +1763,8 @@
           "label": "Собрать книгу и опубликовать начальное состояние",
           "col": 0,
           "row": 6,
+          "res": "st_paged",
+          "rw": "write",
           "covers": [
             [
               518,
@@ -2012,8 +2057,8 @@
           "row": 0,
           "covers": [
             [
-              441,
-              442
+              41,
+              42
             ]
           ],
           "bind": [
@@ -2028,8 +2073,8 @@
           "row": 1,
           "covers": [
             [
-              443,
-              443
+              43,
+              43
             ]
           ],
           "bind": [
@@ -2045,8 +2090,8 @@
           "row": 1,
           "covers": [
             [
-              443,
-              443
+              43,
+              43
             ]
           ],
           "bind": [
@@ -2062,8 +2107,8 @@
           "row": 2,
           "covers": [
             [
-              444,
-              444
+              44,
+              44
             ]
           ],
           "bind": [
@@ -2079,8 +2124,8 @@
           "row": 2,
           "covers": [
             [
-              444,
-              444
+              44,
+              44
             ]
           ],
           "bind": [
@@ -2094,10 +2139,11 @@
           "label": "Создать Blob и зарегистрировать новый Object URL",
           "col": 0,
           "row": 3,
+          "via": "input",
           "covers": [
             [
-              445,
-              445
+              45,
+              45
             ]
           ],
           "bind": [
@@ -2112,8 +2158,8 @@
           "row": 4,
           "covers": [
             [
-              446,
-              448
+              46,
+              48
             ]
           ],
           "bind": [
@@ -2171,7 +2217,7 @@
     },
     "f_dom_coord": {
       "title": "План: Координатор воспроизведения",
-      "source": "src/engine/audio/coordinator.ts",
+      "source": "src/engine/audio/coordinator.ts · advancePaged",
       "nodes": [
         {
           "id": "s",
@@ -2179,7 +2225,18 @@
           "label": "команда: play / jump / следующая / предыдущая / глава",
           "col": 1.5,
           "row": 0,
-          "covers": []
+          "covers": [
+            [
+              172,
+              178
+            ]
+          ],
+          "bind": [
+            "bf7bb179e6#0",
+            "1604b21b8b#0",
+            "042a136cd3#0",
+            "f7c87f6804#0"
+          ]
         },
         {
           "id": "n0",
@@ -2188,7 +2245,17 @@
           "col": 1.5,
           "row": 1,
           "block": "b_dom_source",
-          "covers": []
+          "res": "st_book",
+          "rw": "read",
+          "covers": [
+            [
+              179,
+              179
+            ]
+          ],
+          "bind": [
+            "f7c87f6804#0"
+          ]
         },
         {
           "id": "c1",
@@ -2196,7 +2263,15 @@
           "label": "Фраза есть?",
           "col": 1.5,
           "row": 2,
-          "covers": []
+          "covers": [
+            [
+              180,
+              180
+            ]
+          ],
+          "bind": [
+            "116840f14e#0"
+          ]
         },
         {
           "id": "c2",
@@ -2204,7 +2279,15 @@
           "label": "Нужно ждать страницу?",
           "col": 3.2,
           "row": 3,
-          "covers": []
+          "covers": [
+            [
+              188,
+              188
+            ]
+          ],
+          "bind": [
+            "90a4eede0c#0"
+          ]
         },
         {
           "id": "e1",
@@ -2212,7 +2295,15 @@
           "label": "статус «ждём страницу»",
           "col": 2.4,
           "row": 4,
-          "covers": []
+          "covers": [
+            [
+              189,
+              189
+            ]
+          ],
+          "bind": [
+            "cd9f7c16f3#0"
+          ]
         },
         {
           "id": "e2",
@@ -2220,7 +2311,15 @@
           "label": "конец книги",
           "col": 4,
           "row": 4,
-          "covers": []
+          "covers": [
+            [
+              191,
+              191
+            ]
+          ],
+          "bind": [
+            "eacdbef145#0"
+          ]
         },
         {
           "id": "n1",
@@ -2230,16 +2329,15 @@
           "row": 3,
           "res": "st_position",
           "rw": "write",
-          "covers": []
-        },
-        {
-          "id": "n3",
-          "t": "step",
-          "label": "у Поставщика озвучки получить аудио фразы",
-          "col": 0.4,
-          "row": 4,
-          "block": "b_dom_fetch",
-          "covers": []
+          "covers": [
+            [
+              186,
+              186
+            ]
+          ],
+          "bind": [
+            "a51d5bad1c#0"
+          ]
         },
         {
           "id": "n2",
@@ -2248,7 +2346,15 @@
           "col": 0.4,
           "row": 5,
           "block": "b_dom_audio",
-          "covers": []
+          "covers": [
+            [
+              187,
+              187
+            ]
+          ],
+          "bind": [
+            "a51d5bad1c#0"
+          ]
         },
         {
           "id": "e3",
@@ -2256,7 +2362,8 @@
           "label": "ждать started / ended от Оркестратора",
           "col": 0.4,
           "row": 6,
-          "covers": []
+          "covers": [],
+          "bind": []
         }
       ],
       "edges": [
@@ -2290,10 +2397,6 @@
         },
         {
           "from": "n1",
-          "to": "n3"
-        },
-        {
-          "from": "n3",
           "to": "n2"
         },
         {
@@ -2305,14 +2408,14 @@
   },
   "approved": {
     "b_dom_fetch": {
-      "codeHash": "b4db3b5e2f",
-      "schemaHash": "4bcdda7045",
-      "at": "2026-10-13"
+      "codeHash": "55651ac571",
+      "schemaHash": "229efe6f6b",
+      "at": "2026-10-14"
     },
     "b_dom_audio": {
-      "codeHash": "48402dbcd6",
-      "schemaHash": "07b1ba119b",
-      "at": "2026-10-13"
+      "codeHash": "91fa85fc94",
+      "schemaHash": "c3f78ee832",
+      "at": "2026-10-14"
     },
     "b_dom_tokenize": {
       "codeHash": "67dea76532",
@@ -2335,36 +2438,41 @@
       "at": "2026-10-13"
     },
     "b_infra_audioel": {
-      "codeHash": "570636dd33",
+      "codeHash": "e49c65f48f",
       "schemaHash": "454f1552da",
-      "at": "2026-10-13"
+      "at": "2026-10-14"
+    },
+    "b_dom_coord": {
+      "codeHash": "2c47b4a01a",
+      "schemaHash": "b227e2d0b2",
+      "at": "2026-10-14"
     }
   },
   "approvedBlocks": {
-    "b_state_pos": "dea3244cf7",
+    "b_state_pos": "e1c56ee76b",
     "b_dom_tokenize": "dd8be3bb00",
     "b_data_cache": "37ea9194ef",
-    "b_infra_audioel": "2408f73671",
+    "b_infra_audioel": "6df45c0d1b",
     "b_infra_router": "a1115c2829",
-    "b_state_player": "4d155e8378",
-    "b_dom_audio": "dee9e677aa",
-    "b_ui_router": "30e17e1a4d",
-    "b_ui_text": "d8f0981e58",
-    "b_ui_pdf": "be046423d8",
+    "b_state_player": "844c49386a",
+    "b_dom_audio": "e79e7c1472",
+    "b_ui_router": "583a5201ef",
+    "b_ui_text": "b8ac96908d",
+    "b_ui_pdf": "6c534b8f2d",
     "b_dom_pdf": "12a237cd68",
-    "b_dom_fetch": "0e298b6f7d",
+    "b_dom_fetch": "8e7ef5eb35",
     "b_ui_play": "5f5714b379",
     "b_dom_source": "a7d414a84f",
-    "b_state_settings": "3eab22534f",
+    "b_state_settings": "2c90c99f76",
     "b_state_orch": "305e51b3f2",
     "b_dom_nav": "bed97175b0",
-    "b_state_book": "dea3244cf7",
+    "b_state_book": "e1c56ee76b",
     "b_state_paged": "27f3464a37",
-    "b_dom_coord": "c42c2b85ad"
+    "b_dom_coord": "c9ece29f91"
   },
   "approvedScenarios": {
-    "sc_tts": "7ec9900605",
-    "sc_read": "b9ff00b6e8"
+    "sc_tts": "0ada27eeb6",
+    "sc_read": "3e245e4758"
   },
   "riskAcks": {
     "11b0ba5a0a": {
@@ -2383,6 +2491,18 @@
       "reason": "фоновая запись в кэш не должна прерывать воспроизведение при сбое хранилища",
       "at": "2026-10-13",
       "where": "src/engine/audio/audioManager.ts:417",
+      "kind": "promise.catch"
+    },
+    "3a6bbec084": {
+      "reason": "сбой чтения кэша не должен прерывать озвучку (фоллбэк на синтез)",
+      "at": "2026-10-14",
+      "where": "src/engine/audio/audioFetch.ts:91",
+      "kind": "catch"
+    },
+    "3ce9a894a6": {
+      "reason": "фоновая запись в кэш не должна прерывать воспроизведение при сбое хранилища",
+      "at": "2026-10-14",
+      "where": "src/engine/audio/audioFetch.ts:110",
       "kind": "promise.catch"
     }
   },
@@ -2488,5 +2608,8 @@
         ]
       }
     ]
+  },
+  "realityAcks": {
+    "b_dom_coord>b_state_book": "Координатор читает текущую главу и позицию через методы-селекторы стора"
   }
 }
