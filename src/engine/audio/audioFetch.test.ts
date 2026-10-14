@@ -5,7 +5,8 @@ import type { ITTSProvider, SynthesisOptions } from '../../types/tts';
 import type { SentenceItem } from '../../types/book';
 import { useSettingsStore } from '../../store/settingsStore';
 import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
-import { buildCacheKey, cancelPrepare, getOrFetchAudio, prepareAudio, synthesizeOnce } from './audioFetch';
+import { buildCacheKey } from './cacheKey';
+import { cancelPrepare, getOrFetchAudio, prepareAudio, synthesizeOnce } from './audioFetch';
 import { AudioManager, type AudioEngineHandlers } from './audioManager';
 
 /** Поддельный провайдер: считает вызовы, ждёт ручного «готово», уважает signal */

@@ -4,7 +4,8 @@ import { SynthesisOptions, TTSProviderType } from '../../types/tts';
 import { getProvider } from '../providers';
 import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
 import { useSettingsStore } from '../../store/settingsStore';
-import { sniffAudioMime } from '../../infra/audio/htmlAudioPlayer';
+import { sniffAudioMime } from './mime';
+import { buildCacheKey } from './cacheKey';
 
 const MEMORY_CACHE_LIMIT = 40;
 
@@ -18,39 +19,6 @@ function rememberInMemory(key: string, buffer: ArrayBuffer): void {
     if (oldest === undefined) break;
     memoryAudioCache.delete(oldest);
   }
-}
-
-/** Ключ кэша учитывает провайдера, модель, голос, шлюз и режим API — кэши разных источников не смешиваются */
-export function buildCacheKey(
-  bookId: string,
-  chapterId: string,
-  sentenceId: number,
-  providerType: TTSProviderType,
-  options: SynthesisOptions,
-  text: string
-): string {
-  return [
-    bookId,
-    chapterId,
-    sentenceId,
-    providerType,
-    options.model || '',
-    options.voiceId || '',
-    options.baseUrl || '',
-    options.apiMode || '',
-    text,
-  ].join('_');
-}
-
-/** Ключ кэша объявления главы: префикс 'chapter:' отличает его от обычных предложений */
-export function buildChapterCacheKey(
-  bookId: string,
-  chapterId: string,
-  providerType: TTSProviderType,
-  options: SynthesisOptions,
-  title: string
-): string {
-  return 'chapter:' + buildCacheKey(bookId, chapterId, -1, providerType, options, title);
 }
 
 /**

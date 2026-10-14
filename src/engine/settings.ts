@@ -1,9 +1,9 @@
 import { useSettingsStore } from '../store/settingsStore';
 import type { FontFamily, PdfRecognitionMode, ReaderTheme } from '../types/settings';
-import type { AggregatorApiMode, TTSProviderType } from '../types/tts';
-import { isVoiceValidForModel, getCatalogModelInfo } from './providers/openRouterTts';
+import type { AggregatorApiMode, SynthesisOptions, TTSProviderType } from '../types/tts';
+import { isVoiceValidForModel, getCatalogModelInfo, getKnownModelVoices } from './providers/openRouterTts';
+import { normalizeAggregatorVoice } from '../types/voice';
 import { synthesizeOnce } from './audio/audioFetch';
-import { buildSynthesisOptions } from './audio/coordinator';
 
 /**
  * Установка модели OpenRouter с валидацией выбранного голоса.
@@ -131,4 +131,48 @@ export function toggleReplacementRule(id: string): void {
 export async function checkVoice(text: string): Promise<ArrayBuffer> {
   const { activeProvider } = useSettingsStore.getState();
   return synthesizeOnce(activeProvider, text, buildSynthesisOptions());
+}
+
+/**
+ * Собирает параметры синтеза из текущих настроек (общая точка для плеера и кнопки «Тест озвучки»).
+ * Голос берётся отдельно для каждого провайдера; для агрегатора пустой голос = «по умолчанию модели».
+ */
+export function buildSynthesisOptions(settings = useSettingsStore.getState()): SynthesisOptions {
+  const provider = settings.activeProvider;
+  const apiKey = provider === 'gemini' ? settings.apiKeys.gemini
+    : provider === 'openai' ? settings.apiKeys.openai
+    : provider === 'elevenlabs' ? settings.apiKeys.elevenlabs
+    : provider === 'openrouter' ? settings.apiKeys.openrouter
+    : undefined;
+
+  const model = provider === 'gemini' ? settings.geminiModel
+    : provider === 'openrouter' ? (settings.openRouterModel?.trim() || 'openai/gpt-audio-mini')
+    : undefined;
+
+  let voiceId = settings.selectedVoiceIds?.[provider] ?? '';
+  if (provider === 'openrouter') {
+    voiceId = normalizeAggregatorVoice(voiceId);
+    // Если модель известна и голос ей не подходит — не отправляем его вовсе
+    const catalogVoices = getCatalogModelInfo(settings.openRouterBaseUrl, model)?.voices;
+    if (voiceId && catalogVoices && catalogVoices.length > 0) {
+      if (!catalogVoices.includes(voiceId)) voiceId = '';
+    } else {
+      const known = getKnownModelVoices(model);
+      if (voiceId && known && !known.some((v) => v.id === voiceId)) voiceId = '';
+    }
+  }
+
+  const speed = Number.isFinite(settings.speed) ? Math.max(0.5, Math.min(2.5, settings.speed)) : 1;
+  const volume = Number.isFinite(settings.volume) ? Math.max(0, Math.min(1, settings.volume)) : 1;
+
+  return {
+    voiceId,
+    speed,
+    pitch: Number.isFinite(settings.pitch) ? settings.pitch : 0,
+    volume,
+    apiKey,
+    model,
+    baseUrl: provider === 'openrouter' ? (settings.openRouterBaseUrl || 'https://openrouter.ai/api/v1') : undefined,
+    apiMode: provider === 'openrouter' ? (settings.openRouterApiMode || 'auto') : undefined,
+  };
 }

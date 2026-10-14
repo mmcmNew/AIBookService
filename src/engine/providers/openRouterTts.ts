@@ -1,4 +1,5 @@
 import { AggregatorApiMode, ITTSProvider, SynthesisOptions, VoiceOption } from '../../types/tts';
+import { normalizeAggregatorVoice } from '../../types/voice';
 
 /**
  * Тип модели с точки зрения озвучки:
@@ -112,12 +113,6 @@ export function getKnownModelVoices(model?: string): VoiceOption[] | null {
   if (/(^|\/)tts-1(-hd)?$/.test(id)) return VOICES_TTS_1;
   if (/gpt-4o(-mini)?-audio|(^|\/)gpt-audio/.test(id)) return VOICES_CHAT_AUDIO;
   return null;
-}
-
-/** Нормализация голоса: пустая строка и 'default' означают «по умолчанию модели» */
-export function normalizeAggregatorVoice(voiceId?: string): string {
-  const t = (voiceId || '').trim();
-  return t.toLowerCase() === 'default' ? '' : t;
 }
 
 /** Голоса из каталога (supported_voices) → VoiceOption[] */

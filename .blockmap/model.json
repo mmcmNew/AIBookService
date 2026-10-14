@@ -26,7 +26,8 @@
         "b_infra_router": 0,
         "b_state_settings": 0,
         "b_dom_library": 0,
-        "b_ui_book": 0
+        "b_ui_book": 0,
+        "b_dom_settings": 0
       },
       "edges": [
         {
@@ -206,13 +207,31 @@
           "to": "b_ui_book",
           "label": "ждём страницу (баннер)",
           "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_settings",
+          "label": "параметры синтеза из настроек",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_pos",
+          "to": "b_dom_library",
+          "label": "позиция чтения",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_dom_coord",
+          "label": "статус плеера (на паузе? идёт?)",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
         "z_library",
         "z_coord",
-        "z_settings",
         "z_player",
+        "z_settings",
         "z_audio"
       ]
     },
@@ -295,7 +314,8 @@
         "b_ui_header": 0,
         "b_state_pos": 0,
         "b_ui_book": 0,
-        "b_ui_play": 0
+        "b_ui_play": 0,
+        "b_state_settings": 0
       },
       "edges": [
         {
@@ -411,13 +431,26 @@
           "to": "b_ui_play",
           "label": "панель плеера (вставка в оболочку)",
           "kind": "call"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_pdf",
+          "label": "ключи, правила замен (распознавание)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_parser",
+          "label": "ключи (удалённый разбор)",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
         "z_coord",
         "z_player",
         "z_shell",
-        "z_library"
+        "z_library",
+        "z_settings"
       ]
     },
     {
@@ -551,6 +584,12 @@
           "to": "b_dom_source",
           "label": "позиция чтения (фраза, глава, страница)",
           "kind": "data"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_dom_library",
+          "label": "готовность страниц",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
@@ -682,7 +721,7 @@
       "title": "Токенизатор предложений",
       "layer": "Domain",
       "file": "src/engine/tokenizer/sentenceTokenizer.ts",
-      "line": 35,
+      "line": 28,
       "symbol": "tokenizeSentences",
       "summary": "Intl.Segmenter с защитой сокращений («т.е.»).",
       "risk": "Браузеры без Intl.Segmenter требуют полифила.",
@@ -708,7 +747,7 @@
       "title": "Плеер (HTML Audio)",
       "layer": "Infra",
       "file": "src/infra/audio/htmlAudioPlayer.ts",
-      "line": 41,
+      "line": 33,
       "symbol": "setupAudioBuffer",
       "summary": "Низкоуровневый плеер: играет звук, сообщает координатору started / ended.",
       "flow": "f_infra_audioel",
@@ -733,7 +772,7 @@
       "title": "Статус плеера",
       "layer": "State",
       "file": "src/store/audioStore.ts",
-      "line": 43,
+      "line": 41,
       "symbol": "useAudioStore",
       "summary": "idle / loading / playing / error / waiting. Статус меняется через dispatch (reducePlayer). По замыслу пишет только Домен по подтверждённым событиям.",
       "risk": "Если UI выставит «играет» заранее, при падении домена статус будет врать.",
@@ -780,7 +819,7 @@
       "title": "Поставщик озвучки (кэш + синтез)",
       "layer": "Domain",
       "file": "src/engine/audio/audioFetch.ts",
-      "line": 60,
+      "line": 28,
       "symbol": "getOrFetchAudio",
       "summary": "Поставляет аудио для фразы: ищет в кэше, иначе просит синтез у провайдера и сохраняет в кэш. Команды: «приготовь» и «отмени» (Координатор), «возьми аудио» (Оркестратор; запрос ждёт внутри), «проверить озвучку» (настройки).",
       "fresh": true,
@@ -876,7 +915,7 @@
       "title": "Координатор воспроизведения",
       "layer": "Domain",
       "file": "src/engine/audio/coordinator.ts",
-      "line": 134,
+      "line": 90,
       "symbol": "startPlayback",
       "members": [
         "setChapterInternally",
@@ -918,7 +957,7 @@
       "title": "Настройки: команды",
       "layer": "Domain",
       "file": "src/engine/settings.ts",
-      "line": 9,
+      "line": 12,
       "symbol": "setOpenRouterModel",
       "members": [
         "setOpenRouterModel",
@@ -945,7 +984,8 @@
         "addReplacementRule",
         "removeReplacementRule",
         "toggleReplacementRule",
-        "checkVoice"
+        "checkVoice",
+        "buildSynthesisOptions"
       ],
       "summary": "Единственный писатель настроек читалки: по команде из окна настроек, шапки, панели плеера и словаря записывает значение в стор настроек; по команде «проверить озвучку» делает разовый синтез через Поставщика озвучки. Валидация и ограничения остаются в сеттерах стора.",
       "risk": "Команда должна лишь передавать значение сеттеру стора: смена темы и ограничения скорости и громкости живут в сторе.",
@@ -970,10 +1010,11 @@
     "b_ui_book": {
       "title": "Экран книги",
       "layer": "UI",
-      "file": "src/components/reader/BookView.tsx",
-      "line": 36,
-      "symbol": "BookView",
+      "file": "src/components/reader/BookScreen.tsx",
+      "line": 12,
+      "symbol": "BookScreen",
       "files": [
+        "src/components/reader/BookView.tsx",
         "src/components/reader/PagedTextView.tsx",
         "src/components/reader/PdfBookView.tsx",
         "src/components/reader/Sentence.tsx",
@@ -985,7 +1026,11 @@
         "res_bookStore",
         "res_settingsStore"
       ],
-      "zone": "z_library"
+      "zone": "z_library",
+      "api": [
+        "BookScreen",
+        "ChapterSidebar"
+      ]
     }
   },
   "resources": {
@@ -2469,7 +2514,8 @@
           "from": "n_open",
           "to": "n_start"
         }
-      ]
+      ],
+      "partial": true
     },
     "f_dom_tokenize": {
       "title": "Токенизация текста на предложения",
@@ -3031,7 +3077,8 @@
           ],
           "bind": [
             "779434af8a#0"
-          ]
+          ],
+          "block": "b_dom_settings"
         },
         {
           "id": "n_prep",
@@ -3117,7 +3164,8 @@
           "from": "n_opts",
           "to": "n2"
         }
-      ]
+      ],
+      "partial": true
     }
   },
   "approved": {
@@ -3170,14 +3218,14 @@
     "b_infra_router": "a1115c2829",
     "b_state_player": "844c49386a",
     "b_dom_audio": "c4e7291d64",
-    "b_ui_router": "1437f0dc12",
+    "b_ui_router": "db3f964f7e",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
     "b_dom_pdf": "bd5fbc9055",
     "b_dom_fetch": "01c0566d00",
     "b_ui_play": "8e4c822eb0",
     "b_dom_source": "2da0fa62d1",
-    "b_state_settings": "2c90c99f76",
+    "b_state_settings": "d8a99631a8",
     "b_state_orch": "305e51b3f2",
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
@@ -3188,16 +3236,16 @@
     "b_dom_parser": "6fabb3a9ca",
     "b_data_db": "37ea9194ef",
     "b_ui_header": "06df40c6db",
-    "b_dom_settings": "560e71aaeb",
+    "b_dom_settings": "3ab399afb8",
     "b_ui_settings": "d85ade3a69",
-    "b_ui_book": "44008f10a9"
+    "b_ui_book": "f804fb7069"
   },
   "approvedScenarios": {
-    "sc_tts": "4148e743c8",
-    "sc_read": "703cfa2ec5",
-    "sc_open": "0542445a87",
-    "sc_settings": "5093f8e976",
-    "sc_phrases": "b4a26cb449"
+    "sc_tts": "b786fc3035",
+    "sc_read": "4913df8787",
+    "sc_open": "8afeb9f021",
+    "sc_settings": "3a1c692207",
+    "sc_phrases": "8628de708c"
   },
   "riskAcks": {
     "11b0ba5a0a": {

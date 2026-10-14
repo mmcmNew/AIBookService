@@ -6,10 +6,9 @@ import { useAudioStore } from '../../store/audioStore';
 import { PlayerEvent, PlayerState, reducePlayer } from './playerState';
 import { playChime } from './chime';
 import { htmlAudioPlayer } from '../../infra/audio/htmlAudioPlayer';
+import { buildCacheKey, buildChapterCacheKey } from './cacheKey';
 import {
   getOrFetchAudio,
-  buildCacheKey,
-  buildChapterCacheKey,
   purgeOrphanAudioCache,
   deleteAudioCacheForBook,
 } from './audioFetch';

@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/layout/Header';
 import { LibraryView } from './components/library/LibraryView';
-import { BookView } from './components/reader/BookView';
-import { PdfBookView } from './components/reader/PdfBookView';
-import { PagedTextView } from './components/reader/PagedTextView';
-import { PagedBookBar } from './components/reader/PagedBookBar';
+import { BookScreen } from './components/reader/BookScreen';
 import { PlayerHotkeys } from './components/player/PlayerHotkeys';
 import { ChapterSidebar } from './components/reader/ChapterSidebar';
 import { FootnoteModal } from './components/reader/FootnoteModal';
@@ -44,12 +41,10 @@ const AppShell: React.FC = () => {
 
   const currentBook = useBookStore((state) => state.currentBook);
   const activeFootnote = useBookStore((state) => state.activeFootnote);
-  const pdfViewMode = useBookStore((state) => state.pdfViewMode);
   const theme = useSettingsStore((state) => state.theme);
   const fetchBalance = useUserStore((state) => state.fetchBalance);
 
   const hasBook = currentBook !== null;
-  const showPdfOriginal = Boolean(currentBook?.rawPdfBuffer) && pdfViewMode === 'original';
 
   // Применение темы оформления
   useEffect(() => {
@@ -122,14 +117,7 @@ const AppShell: React.FC = () => {
         <div className="flex-1 min-h-0 flex overflow-hidden relative">
           {/* Оригинальный PDF с подсветкой ИЛИ адаптивный текстовый режим (монтируем только активный вид) */}
           <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
-            {currentBook.metadata.paged && <PagedBookBar />}
-            {showPdfOriginal ? (
-              <PdfBookView key={currentBook.metadata.id} />
-            ) : currentBook.metadata.paged ? (
-              <PagedTextView key={currentBook.metadata.id} />
-            ) : (
-              <BookView key={currentBook.metadata.id} />
-            )}
+            <BookScreen />
           </div>
 
           {/* Панель глав: справа на десктопе, drawer на мобильных */}

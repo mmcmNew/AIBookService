@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { FontFamily, PdfRecognitionMode, ReaderTheme, ReplacementRule, UserSettings } from '../types/settings';
 import { AggregatorApiMode, TTSProviderType } from '../types/tts';
-import { normalizeAggregatorVoice } from '../engine/providers/openRouterTts';
+import { normalizeAggregatorVoice } from '../types/voice';
 import { DEFAULT_RULES } from '../engine/tokenizer/dictionaryReplacer';
 
 interface SettingsState extends UserSettings {
