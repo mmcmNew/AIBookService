@@ -37,7 +37,7 @@
         {
           "from": "b_ui_play",
           "to": "b_dom_coord",
-          "label": "play / jump (команда)",
+          "label": "play / pause / предыдущая / следующая / глава",
           "kind": "call"
         },
         {
@@ -150,30 +150,62 @@
           "kind": "call"
         },
         {
-          "from": "b_ui_text",
-          "to": "b_ui_play",
-          "label": "клик по фразе"
-        },
-        {
-          "from": "b_ui_pdf",
-          "to": "b_ui_play",
-          "label": "клик по фразе"
-        },
-        {
           "from": "b_ui_settings",
           "to": "b_dom_fetch",
           "label": "проверка озвучки в окне настроек (разовый синтез)",
           "kind": "call"
+        },
+        {
+          "from": "b_ui_text",
+          "to": "b_dom_coord",
+          "label": "клик по предложению: перейти к нему",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_pdf",
+          "to": "b_dom_coord",
+          "label": "клик по предложению: перейти к нему",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_play",
+          "label": "панель плеера (вставка в оболочку)",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_pos",
+          "to": "b_ui_play",
+          "label": "позиция (глава, фраза)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_ui_play",
+          "label": "статус плеера",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_ui_router",
+          "label": "идёт воспроизведение (горячие клавиши)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_play",
+          "label": "книга, главы",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
-        "z_audio",
-        "z_settings",
-        "z_player",
         "z_text",
-        "z_coord",
         "z_library",
-        "z_shell"
+        "z_coord",
+        "z_shell",
+        "z_player",
+        "z_settings",
+        "z_audio"
       ]
     },
     {
@@ -184,7 +216,6 @@
         "b_ui_router": 0,
         "b_ui_text": 1,
         "b_ui_pdf": 0,
-        "b_ui_play": 0,
         "b_state_pos": 0,
         "b_state_book": 1,
         "b_state_paged": 0,
@@ -212,16 +243,6 @@
           "label": "currentSentenceId"
         },
         {
-          "from": "b_ui_text",
-          "to": "b_ui_play",
-          "label": "клик по фразе"
-        },
-        {
-          "from": "b_ui_pdf",
-          "to": "b_ui_play",
-          "label": "клик по фразе"
-        },
-        {
           "from": "b_state_settings",
           "to": "b_ui_text",
           "label": "автоскролл, шрифт, тема"
@@ -241,6 +262,12 @@
           "from": "b_state_paged",
           "to": "b_ui_pdf",
           "label": "распознанные страницы, баннер",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_pdf",
+          "label": "книга",
           "kind": "data"
         }
       ],
@@ -266,7 +293,8 @@
         "b_data_db": 0,
         "b_state_book": 0,
         "b_ui_router": 1,
-        "b_ui_header": 0
+        "b_ui_header": 0,
+        "b_state_pos": 0
       },
       "edges": [
         {
@@ -340,9 +368,28 @@
           "to": "b_dom_library",
           "label": "открыть книгу, режим PDF",
           "kind": "call"
+        },
+        {
+          "from": "b_state_pos",
+          "to": "b_ui_header",
+          "label": "текущая глава",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_header",
+          "label": "книга, режим PDF",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_router",
+          "label": "книга, сноска, режим PDF",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
+        "z_coord",
         "z_shell",
         "z_library"
       ]
@@ -357,7 +404,8 @@
         "b_ui_header": 1,
         "b_dom_settings": 0,
         "b_state_settings": 0,
-        "b_ui_library": 0
+        "b_ui_library": 0,
+        "b_ui_play": 0
       },
       "edges": [
         {
@@ -395,10 +443,35 @@
           "to": "b_ui_settings",
           "label": "текущие значения",
           "kind": "data"
+        },
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_settings",
+          "label": "скорость, громкость, переключатели",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_play",
+          "label": "настройки плеера",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_router",
+          "label": "тема",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_library",
+          "label": "режим PDF, правила замены",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
         "z_library",
+        "z_coord",
         "z_settings",
         "z_shell"
       ]
@@ -667,20 +740,14 @@
       ]
     },
     "b_ui_play": {
-      "title": "Кнопка Play / клик по фразе",
+      "title": "Панель плеера",
       "layer": "UI",
-      "file": "src/components/reader/Sentence.tsx",
-      "line": 27,
-      "symbol": "Sentence",
-      "summary": "Точка входа: клик по фразе. Обработчик handleJump отдаёт команду воспроизведению. Состояние сам не меняет.",
-      "entry": true,
+      "file": "src/components/player/ControlBar.tsx",
+      "line": 66,
+      "symbol": "ControlBar",
+      "summary": "Кнопки воспроизведения: play, pause, стоп, предыдущая и следующая фраза, глава, скорость, громкость, переключатели. Читает статус плеера, позицию и настройки; команды отдаёт Координатору и командам настроек. Клик по фразе в тексте сюда не относится.",
       "res": [
         "res_bookStore"
-      ],
-      "members": [
-        "Sentence",
-        "Paragraph",
-        "useSentenceJump"
       ],
       "zone": "z_coord"
     },
@@ -3015,7 +3082,7 @@
     "b_ui_pdf": "5fad08fae8",
     "b_dom_pdf": "bd5fbc9055",
     "b_dom_fetch": "3685ca50b4",
-    "b_ui_play": "54bfad0aff",
+    "b_ui_play": "804d17b837",
     "b_dom_source": "9e5e4b651b",
     "b_state_settings": "2c90c99f76",
     "b_state_orch": "305e51b3f2",
@@ -3032,10 +3099,10 @@
     "b_ui_settings": "691a423f94"
   },
   "approvedScenarios": {
-    "sc_tts": "cc1038998f",
-    "sc_read": "d2f65f28c4",
-    "sc_open": "3e6e0bab7c",
-    "sc_settings": "59c7bc1b6f"
+    "sc_tts": "a1d6d164da",
+    "sc_read": "278132462f",
+    "sc_open": "2dcb2f6dac",
+    "sc_settings": "d9a830e984"
   },
   "riskAcks": {
     "11b0ba5a0a": {
