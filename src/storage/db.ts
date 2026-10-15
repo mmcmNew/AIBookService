@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { BookMetadata, Chapter, Footnote } from '../types/book';
-import type { PdfPageRecord } from '../engine/pdf/types';
+import type { PdfPageRecord } from '../types/pdf';
 
 export interface StoredBook {
   id: string;

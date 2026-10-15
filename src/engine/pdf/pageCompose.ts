@@ -1,47 +1,8 @@
 import type { PdfBlock } from '../parsers/pdfSidecar';
 import { isRunningHeaderBlock } from './runningHeaders';
-import type { PdfPageRecord } from './types';
+import type { ComposedPage, ComposedParagraph, PagePart, ParagraphKind, PdfPageRecord } from '../../types/pdf';
 
-/**
- * Сборка страниц в поток абзацев со склейкой на границах страниц.
- *  - header/footer/pagenum и накопленные колонтитулы скрываются (в данных остаются);
- *  - первый блок страницы, продолжающий абзац предыдущей, целиком приклеивается к последнему абзацу
- *    предыдущей страницы (владелец абзаца — предыдущая страница; перетокенизируется только эта граница);
- *  - дефисный перенос склеивается без пробела.
- */
-
-export interface PagePart {
-  page: number;
-  bbox?: [number, number, number, number];
-  fontSize?: number;
-  /** Высота страницы, pt — для пересчёта bbox (начало координат сверху) в координаты PDF */
-  pageHeight?: number;
-  /** Диапазон символов этой части внутри текста абзаца */
-  start: number;
-  end: number;
-}
-
-export type ParagraphKind = 'paragraph' | 'heading' | 'list' | 'caption';
-
-export interface ComposedParagraph {
-  /** Страница-владелец */
-  page: number;
-  /** Индекс блока в записи страницы (стабилен, нужен для id предложений) */
-  block: number;
-  type: ParagraphKind;
-  level?: 1 | 2 | 3;
-  text: string;
-  parts: PagePart[];
-}
-
-export interface ComposedPage {
-  page: number;
-  /** done — есть данные; missing — страница не распознана (ожидает/идёт/ошибка) */
-  state: 'done' | 'missing';
-  skipped: boolean;
-  paragraphs: ComposedParagraph[];
-  hidden: number;
-}
+export type { ComposedPage, ComposedParagraph, PagePart, ParagraphKind };
 
 const HIDDEN_TYPES = new Set(['header', 'footer', 'pagenum']);
 const TERMINAL = /[.!?…»"”)\]:;]\s*$/;

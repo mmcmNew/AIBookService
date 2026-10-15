@@ -1,6 +1,6 @@
 import type { PdfBlock } from '../parsers/pdfSidecar';
 import { headerKey } from '../cleanup/textOps';
-import type { PdfPageRecord } from './types';
+import type { PdfPageRecord } from '../../types/pdf';
 
 /**
  * Накопительная статистика повторяющихся колонтитулов по распознанным страницам.

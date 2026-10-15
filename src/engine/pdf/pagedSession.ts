@@ -10,7 +10,7 @@ import { cleanBlocks, repairBlocksShifted } from './pageClean';
 import { PageScheduler, type BatchOutcome, type SchedulerConfig, type SchedState } from './pageScheduler';
 import { closeSidecarHandle, effectiveEngine, recognizePages, RecognitionError, type RecognizerContext } from './recognizers';
 import { releasePdfjsDocument } from './pdfjsDoc';
-import type { PageState, PdfPageRecord } from './types';
+import type { PageState, PdfPageRecord } from '../../types/pdf';
 
 /**
  * Сессия открытой постраничной PDF-книги: загрузка записей страниц из Dexie, планировщик «скользящего окна»,

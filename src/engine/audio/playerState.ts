@@ -18,24 +18,11 @@
  * Производные флаги: isPlaying = loading|playing; isPaused = paused.
  */
 
-export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
+import type { AnnounceInput, PlayerEvent, PlayerState, PlayerStatus, PlayTrigger } from '../../types/player';
+import { INITIAL_PLAYER_STATE } from '../../types/player';
 
-export interface PlayerState {
-  status: PlayerStatus;
-  error: string | null;
-  /** Номер актуальной команды воспроизведения; любое событие с другим токеном — устаревшее */
-  token: number;
-}
-
-export type PlayerEvent =
-  | { type: 'request' }
-  | { type: 'started'; token: number }
-  | { type: 'pause' }
-  | { type: 'resume' }
-  | { type: 'stop' }
-  | { type: 'failed'; token: number; message: string };
-
-export const INITIAL_PLAYER_STATE: PlayerState = { status: 'idle', error: null, token: 0 };
+export type { PlayerStatus, PlayerState, PlayerEvent, PlayTrigger, AnnounceInput };
+export { INITIAL_PLAYER_STATE };
 
 export function reducePlayer(state: PlayerState, event: PlayerEvent): PlayerState {
   switch (event.type) {
@@ -75,19 +62,6 @@ export function acceptEnded(state: PlayerState, token: number): boolean {
   return state.status === 'playing' && state.token === token;
 }
 
-/** Что вызвало запуск воспроизведения */
-export type PlayTrigger =
-  | 'start' // пользователь запустил озвучку (из idle/error)
-  | 'chapter' // переход на другую главу (автоматический или ручной во время воспроизведения)
-  | 'navigate'; // навигация внутри главы (стрелки, клик по предложению, следующее предложение)
-
-export interface AnnounceInput {
-  enabled: boolean;
-  title: string | null | undefined;
-  /** Индекс предложения, с которого начнётся чтение */
-  sentenceIndex: number;
-  trigger: PlayTrigger;
-}
 
 /**
  * Озвучивать ли название главы перед первым предложением.

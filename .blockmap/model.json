@@ -3544,7 +3544,10 @@
               253
             ]
           ],
-          "bind": []
+          "bind": [
+            "e4919bb5f9#0",
+            "b4d6d42a59#0"
+          ]
         },
         {
           "id": "c1",
@@ -3568,12 +3571,7 @@
               270
             ]
           ],
-          "bind": [
-            "b49d0d6246#0",
-            "3bdbd665bd#0",
-            "e4919bb5f9#0",
-            "b4d6d42a59#0"
-          ]
+          "bind": []
         },
         {
           "id": "p2",
@@ -3587,10 +3585,7 @@
               270
             ]
           ],
-          "bind": [
-            "e4919bb5f9#0",
-            "b4d6d42a59#0"
-          ]
+          "bind": []
         },
         {
           "id": "p3",
@@ -3604,10 +3599,7 @@
               272
             ]
           ],
-          "bind": [
-            "18b79c98ae#0",
-            "692b219f44#0"
-          ]
+          "bind": []
         },
         {
           "id": "p4",
@@ -3621,9 +3613,7 @@
               273
             ]
           ],
-          "bind": [
-            "7c23da041f#0"
-          ]
+          "bind": []
         },
         {
           "id": "p5",
@@ -3637,10 +3627,7 @@
               272
             ]
           ],
-          "bind": [
-            "18b79c98ae#0",
-            "692b219f44#0"
-          ]
+          "bind": []
         },
         {
           "id": "t1",
@@ -3695,7 +3682,9 @@
             ]
           ],
           "bind": [
-            "69067adf89#0"
+            "18b79c98ae#0",
+            "692b219f44#0",
+            "7c23da041f#0"
           ]
         },
         {
@@ -3710,10 +3699,7 @@
               258
             ]
           ],
-          "bind": [
-            "c59c9de61d#0",
-            "74e62be600#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_inc",
@@ -3727,10 +3713,7 @@
               258
             ]
           ],
-          "bind": [
-            "c59c9de61d#0",
-            "74e62be600#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_emp",
@@ -3744,10 +3727,7 @@
               259
             ]
           ],
-          "bind": [
-            "68ab885579#0",
-            "59947da019#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_zero",
@@ -3761,10 +3741,7 @@
               259
             ]
           ],
-          "bind": [
-            "68ab885579#0",
-            "59947da019#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_loc",
@@ -3778,9 +3755,7 @@
               262
             ]
           ],
-          "bind": [
-            "a975f420cd#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_nx",
@@ -3794,9 +3769,7 @@
               267
             ]
           ],
-          "bind": [
-            "c1c3565a9e#0"
-          ]
+          "bind": []
         }
       ],
       "edges": [
@@ -4711,7 +4684,7 @@
     },
     "b_dom_source": {
       "codeHash": "e84dd8f0b2",
-      "schemaHash": "3fbb96e81c",
+      "schemaHash": "e4b3e24e82",
       "at": "2026-10-15"
     },
     "b_dom_pdf": {
@@ -4738,32 +4711,32 @@
   "approvedBlocks": {
     "b_state_pos": "e1c56ee76b",
     "b_dom_tokenize": "8e7a6d65cc",
-    "b_data_cache": "37ea9194ef",
+    "b_data_cache": "05a2ef2e3a",
     "b_infra_audioel": "3511053120",
     "b_infra_router": "736b7d588a",
-    "b_state_player": "844c49386a",
-    "b_dom_audio": "7dc817cbcb",
+    "b_state_player": "591321626b",
+    "b_dom_audio": "fdcfe40555",
     "b_ui_router": "db3f964f7e",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
-    "b_dom_pdf": "efe199234d",
+    "b_dom_pdf": "66b26a8331",
     "b_dom_fetch": "ab039638e5",
     "b_ui_play": "738a0c76f5",
-    "b_dom_source": "2da0fa62d1",
+    "b_dom_source": "17a687b8c0",
     "b_state_settings": "d8a99631a8",
     "b_state_orch": "305e51b3f2",
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
-    "b_state_paged": "27f3464a37",
+    "b_state_paged": "e23269a659",
     "b_dom_coord": "b1b8f4c724",
     "b_ui_library": "f9cb1077c0",
     "b_dom_library": "546a76751d",
     "b_dom_parser": "6fabb3a9ca",
-    "b_data_db": "37ea9194ef",
+    "b_data_db": "05a2ef2e3a",
     "b_ui_header": "06df40c6db",
     "b_dom_settings": "3ab399afb8",
     "b_ui_settings": "d85ade3a69",
-    "b_ui_book": "2e84279a51",
+    "b_ui_book": "d1eb35693d",
     "b_dom_account": "bed97175b0",
     "b_infra_server": "bed97175b0",
     "b_state_user": "75fd6a22bf",
@@ -4773,32 +4746,32 @@
     "b_dom_cleanup": "cd92512afe",
     "b_ui_editor": "3a68b63a8e",
     "b_ui_pdfdialogs": "367db55089",
-    "b_infra_recog": "22afe1c67c",
-    "b_data_pdf": "37ea9194ef",
+    "b_infra_recog": "b3510c873d",
+    "b_data_pdf": "05a2ef2e3a",
     "b_infra_ai": "bed97175b0"
   },
   "approvedScenarios": {
-    "sc_tts": "7fe3bd1637",
-    "sc_read": "99b66c113c",
-    "sc_open": "cb1650ca33",
+    "sc_tts": "b32365b867",
+    "sc_read": "b3df97ad77",
+    "sc_open": "5584b4a599",
     "sc_settings": "f8de984c75",
-    "sc_phrases": "48ba8d35a1",
-    "sc_start": "ceac7c8a16",
-    "sc_transport": "580d5ff942",
-    "sc_navigate": "8e7cc57a80",
-    "sc_wait": "84c8c4cb4e",
-    "sc_failure": "dc541281d4",
-    "sc_announce": "dca476a69f",
-    "sc_live": "9b0a9ea0b8",
-    "sc_pdf": "c572747731",
-    "sc_pdfchoice": "0174aa1054",
-    "sc_edit": "e951f391d9",
-    "sc_quality": "ddfe8f28cc",
-    "sc_dictionary": "9d8c26abca",
-    "sc_voices": "1f8c83fe52",
+    "sc_phrases": "4b21de04af",
+    "sc_start": "1b3e3035f5",
+    "sc_transport": "ecdab81586",
+    "sc_navigate": "a2a17c20a2",
+    "sc_wait": "bb3382c594",
+    "sc_failure": "07e15e4025",
+    "sc_announce": "4e8f76d53c",
+    "sc_live": "8186ae5179",
+    "sc_pdf": "08670e610f",
+    "sc_pdfchoice": "6b835bde6f",
+    "sc_edit": "853835ad6e",
+    "sc_quality": "9bd02541c2",
+    "sc_dictionary": "fc3dbb3577",
+    "sc_voices": "9f7a1478c5",
     "sc_net": "63057c5de7",
     "sc_cloud": "e48309dc84",
-    "sc_delete": "023a8dd591"
+    "sc_delete": "605544f678"
   },
   "riskAcks": {
     "11b0ba5a0a": {

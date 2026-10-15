@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Chapter, ParsedBook, SentenceItem } from '../types/book';
-import type { PageState } from './pdf/types';
-import type { ComposedBook } from './pdf/composer';
+import type { ComposedBook, PageState } from '../types/pdf';
 import { useBookStore } from '../store/bookStore';
 import { usePagedStore } from '../store/pagedStore';
 import { currentPhrase, isPageReady, nextPhrase, previousPhraseId } from './phrases';

@@ -33,6 +33,18 @@ test('производные флаги: isPlaying = loading|playing, isPaused =
   assert.deepEqual(['idle', 'loading', 'playing', 'paused', 'error'].map((x) => isPausedStatus(x as never)), [false, false, false, true, false]);
 });
 
+test('флаги audioStore для каждого статуса совпадают с функциями Домена', async () => {
+  const { useAudioStore } = await import('../../store/audioStore');
+  const statuses = ['idle', 'loading', 'playing', 'paused', 'error'] as const;
+  for (const st of statuses) {
+    useAudioStore.getState().applyPlayerState({ status: st, error: null, token: 1 });
+    const s = useAudioStore.getState();
+    assert.equal(s.isPlaying, isPlayingStatus(st), `isPlaying mismatch for ${st}`);
+    assert.equal(s.isPaused, isPausedStatus(st), `isPaused mismatch for ${st}`);
+    assert.equal(s.isBuffering, st === 'loading', `isBuffering mismatch for ${st}`);
+  }
+});
+
 test('устаревшее started (после новой команды) игнорируется', () => {
   let s = reducePlayer(S0, { type: 'request' }); // token 1
   s = reducePlayer(s, { type: 'request' }); // token 2 (быстрый клик «следующая»)

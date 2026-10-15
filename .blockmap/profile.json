@@ -4,7 +4,7 @@
   "skipDirs": ["node_modules", "dist", "__tests__", "test"],
   "paths": { "@/*": ["src/*"] },
   "allowJs": false,
-  "neutral": ["^src/components/ui/", "^src/types/", "^src/main\\.tsx$", "^src/engine/pdf/types\\.ts$", "^src/engine/tokenizer/dictionaryReplacer\\.ts$", "^src/engine/audio/mime\\.ts$"],
+  "neutral": ["^src/components/ui/", "^src/types/", "^src/main\\.tsx$", "^src/engine/tokenizer/dictionaryReplacer\\.ts$", "^src/engine/audio/mime\\.ts$"],
   "layers": [
     { "match": "^server/|^src/infra/|^src/engine/(providers|proxy)|^src/engine/pdf/(recognizers|pdfjsDoc|pdfjsPages|geminiPages)\\.ts|^src/engine/parsers/pdfSidecar\\.ts", "layer": "Infra" },
     { "match": "^src/(components|App|main)", "layer": "UI" },

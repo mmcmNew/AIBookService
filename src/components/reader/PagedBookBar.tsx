@@ -6,7 +6,7 @@ import { usePagedStore } from '../../store/pagedStore';
 import { useAudioStore } from '../../store/audioStore';
 import { RerecognizeDialog } from './RerecognizeDialog';
 import { isSidecarAvailable } from '../../engine/parsers/pdfSidecar';
-import type { PageState } from '../../engine/pdf/types';
+import type { PageState } from '../../types/pdf';
 
 /** Событие для открытия диалога перераспознавания из других компонентов (текстовый вид, редактор). */
 export const OPEN_RERECOGNIZE_EVENT = 'aibr:rerecognize';

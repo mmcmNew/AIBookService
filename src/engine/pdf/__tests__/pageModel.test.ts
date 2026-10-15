@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PdfBlock } from '../../parsers/pdfSidecar';
-import type { PdfPageRecord, PageState } from '../types';
+import type { PdfPageRecord, PageState } from '../../../types/pdf';
 import { composeBook, createComposeCache, firstSentenceOnPage, locateSentence, nextStep, prevSentenceOf, type ComposeInput } from '../composer';
 import { composePages } from '../pageCompose';
 import { computeRunningKeys } from '../runningHeaders';

@@ -4,7 +4,7 @@ import { composePages, type ComposedPage, type ComposedParagraph } from './pageC
 import { planChapters, type ChapterSpec } from './chapterPlan';
 import { buildParagraphSentences, pageOfSentenceId } from './pageSentences';
 import { computeRunningKeys } from './runningHeaders';
-import type { PageState, PdfPageRecord } from './types';
+import type { ComposedBook, PageState, PdfPageRecord } from '../../types/pdf';
 
 /**
  * Композитор постраничной книги: записи страниц -> абзацы (со склейкой границ) -> предложения -> главы.
@@ -12,24 +12,7 @@ import type { PageState, PdfPageRecord } from './types';
  * Кэши по абзацам и по главам сохраняют идентичность объектов, поэтому React не перерисовывает неизменившееся.
  */
 
-export interface ComposedBook {
-  pageCount: number;
-  pages: ComposedPage[];
-  specs: ChapterSpec[];
-  chapters: Chapter[];
-  /** Все читаемые предложения в порядке чтения (id по возрастанию) */
-  order: SentenceItem[];
-  indexById: Map<number, number>;
-  chapterOfSentence: Map<number, number>;
-  /** Предложения по странице-владельцу */
-  sentencesByPage: Map<number, SentenceItem[]>;
-  /** Абзацы, не читаемые как текст (заголовок главы): ключ `${page}:${block}` */
-  hidden: Set<string>;
-  /** Главы, начинающиеся на странице */
-  specsByPage: Map<number, ChapterSpec[]>;
-  /** Число распознанных страниц и число страниц с текстом */
-  doneCount: number;
-}
+export type { ComposedBook };
 
 export interface ComposeCache {
   sentences: Map<string, SentenceItem[]>;

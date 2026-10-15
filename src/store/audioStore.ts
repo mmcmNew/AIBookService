@@ -3,9 +3,7 @@ import {
   INITIAL_PLAYER_STATE,
   PlayerState,
   PlayerStatus,
-  isPausedStatus,
-  isPlayingStatus,
-} from '../engine/audio/playerState';
+} from '../types/player';
 
 export interface AudioState {
   /** ЕДИНСТВЕННЫЙ источник истины о плеере (см. engine/audio/playerState.ts) */
@@ -32,8 +30,8 @@ export interface AudioState {
 
 function derive(status: PlayerStatus) {
   return {
-    isPlaying: isPlayingStatus(status),
-    isPaused: isPausedStatus(status),
+    isPlaying: status === 'loading' || status === 'playing',
+    isPaused: status === 'paused',
     isBuffering: status === 'loading',
   };
 }

@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import type { BookQuality, ManualChapterStart, PagedMeta, PdfEngine } from '../types/book';
-import type { PdfBlock } from '../engine/parsers/pdfSidecar';
-import type { ComposedBook } from '../engine/pdf/composer';
-import type { PageSource, PageState } from '../engine/pdf/types';
+import type { ComposedBook, PageSource, PageState, PdfBlock } from '../types/pdf';
 
 /**
  * Состояние постраничного распознавания открытой PDF-книги (для UI и плеера).
