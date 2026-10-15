@@ -291,11 +291,11 @@
         "b_dom_fetch": 0,
         "b_data_cache": 0,
         "b_infra_router": 0,
-        "b_state_settings": 0,
         "b_infra_audioel": 0,
         "b_state_player": 0,
         "b_dom_library": 0,
         "b_state_book": 0,
+        "b_state_settings": 0,
         "b_dom_settings": 0
       },
       "edges": [
@@ -308,7 +308,7 @@
         {
           "from": "b_dom_audio",
           "to": "b_dom_fetch",
-          "label": "возьми аудио",
+          "label": "возьми аудио (для Web Speech — текст с применённым словарём)",
           "kind": "call"
         },
         {
@@ -333,12 +333,6 @@
           "from": "b_infra_router",
           "to": "b_dom_fetch",
           "label": "аудио"
-        },
-        {
-          "from": "b_state_settings",
-          "to": "b_dom_audio",
-          "label": "скорость, громкость, замены",
-          "kind": "data"
         },
         {
           "from": "b_dom_audio",
@@ -414,7 +408,7 @@
         {
           "from": "b_state_settings",
           "to": "b_dom_fetch",
-          "label": "голос, провайдер, замены",
+          "label": "голос, провайдер, замены (словарь применяет Поставщик)",
           "kind": "data"
         },
         {
@@ -425,11 +419,11 @@
         }
       ],
       "zoneOrder": [
-        "z_audio",
-        "z_settings",
+        "z_library",
         "z_player",
         "z_coord",
-        "z_library"
+        "z_audio",
+        "z_settings"
       ]
     },
     {
@@ -1362,16 +1356,15 @@
     {
       "id": "sc_dictionary",
       "title": "Словарь замен и произношения",
-      "desc": "Окно словаря меняет правила командами настроек. Озвучка применяет их к тексту при синтезе, и правила входят в ключ кэша; токенизация и открытие книги берут правила из состояния, PDF-сессия пересчитывает предложения, когда правила изменились. Замечание: правила и ключ кэша сейчас считают два блока (Оркестратор и Поставщик) — повод отдать это одному.",
+      "desc": "Окно словаря меняет правила командами настроек. Только Поставщик озвучки применяет правила к тексту и строит по нему ключ кэша (правила входят в ключ); Оркестратор настройки не читает и получает от Поставщика готовое аудио, а для Web Speech — готовый текст. Токенизация и открытие книги берут правила из состояния, PDF-сессия пересчитывает предложения, когда правила изменились.",
       "cols": {
         "b_ui_dictionary": 0,
         "b_dom_settings": 0,
         "b_state_settings": 0,
-        "b_state_book": 0,
-        "b_dom_audio": 0,
+        "b_state_book": 1,
         "b_dom_fetch": 0,
         "b_dom_pdf": 0,
-        "b_dom_library": 0,
+        "b_dom_library": 1,
         "b_ui_router": 0
       },
       "edges": [
@@ -1401,14 +1394,8 @@
         },
         {
           "from": "b_state_settings",
-          "to": "b_dom_audio",
-          "label": "замены при озвучке",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_settings",
           "to": "b_dom_fetch",
-          "label": "замены (входят в ключ кэша)",
+          "label": "замены (применяет Поставщик, входят в ключ кэша)",
           "kind": "data"
         },
         {
@@ -1431,7 +1418,6 @@
         }
       ],
       "zoneOrder": [
-        "z_player",
         "z_library",
         "z_settings",
         "z_shell",
@@ -1531,7 +1517,7 @@
     {
       "id": "sc_voices",
       "title": "Выбор голоса, модели и проверка озвучки",
-      "desc": "Окно настроек просит каталог провайдеров, голосов и моделей (OpenRouter) и кнопку «Тест озвучки». Каталог и пробный синтез идут через Поставщика озвучки, звук пробной фразы играет Оркестратор — единственный вывод звука. Сейчас окно настроек зовёт адаптеры напрямую и проигрывает пробный звук своим Audio.",
+      "desc": "Окно настроек просит каталог провайдеров, голосов и моделей (OpenRouter) и кнопку «Тест озвучки». Каталог идёт через главу Поставщика озвучки, пробный синтез (без кэша) делает Поставщик, а пробный звук играет Оркестратор — единственный вывод звука, поэтому проверка проходит всю цепочку до плеера. Окно настроек получает только результат. Сейчас оно зовёт адаптеры напрямую и проигрывает пробный звук своим Audio.",
       "cols": {
         "b_ui_settings": 0,
         "b_dom_settings": 0,
@@ -1601,7 +1587,7 @@
         {
           "from": "b_dom_settings",
           "to": "b_dom_audio",
-          "label": "сыграть пробный звук",
+          "label": "сыграть пробный звук; остановить его при закрытии окна",
           "kind": "call",
           "planned": true
         },
@@ -1617,6 +1603,12 @@
           "to": "b_dom_fetch",
           "label": "ключи, адрес агрегатора (для каталога и пробы)",
           "kind": "data"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_ui_settings",
+          "label": "результат проверки: играет / ошибка, сколько получено",
+          "kind": "return"
         }
       ],
       "zoneOrder": [
@@ -3205,11 +3197,21 @@
             ]
           ],
           "bind": []
+        },
+        {
+          "id": "n0",
+          "t": "step",
+          "label": "Применить словарь произношения к тексту и построить ключ кэша",
+          "res": "res_settingsStore"
         }
       ],
       "edges": [
         {
           "from": "s",
+          "to": "n0"
+        },
+        {
+          "from": "n0",
           "to": "c1"
         },
         {
@@ -3332,24 +3334,6 @@
           ]
         },
         {
-          "id": "n_dict",
-          "t": "step",
-          "label": "Применить словарь произношения",
-          "col": 0,
-          "row": 2,
-          "res": "res_settingsStore",
-          "rw": "read",
-          "covers": [
-            [
-              173,
-              174
-            ]
-          ],
-          "bind": [
-            "d51d0c566f#0"
-          ]
-        },
-        {
           "id": "c_speech",
           "t": "cond",
           "label": "Режим Web Speech API?",
@@ -3386,7 +3370,7 @@
         {
           "id": "n_fetch",
           "t": "io",
-          "label": "Взять аудио у Поставщика озвучки (запрос ждёт, пока оно готово)",
+          "label": "Взять аудио у Поставщика озвучки (он сам применит словарь, найдёт в кэше или синтезирует; запрос ждёт, пока оно готово)",
           "col": 0,
           "row": 4,
           "block": "b_dom_fetch",
@@ -3475,6 +3459,12 @@
           "bind": [
             "08a4f7cd38#0"
           ]
+        },
+        {
+          "id": "n_text",
+          "t": "io",
+          "label": "Взять у Поставщика готовый текст для озвучки (словарь применён)",
+          "block": "b_dom_fetch"
         }
       ],
       "edges": [
@@ -3484,22 +3474,13 @@
           "label": "Да"
         },
         {
-          "from": "c_intro",
-          "to": "n_dict",
-          "label": "Нет"
-        },
-        {
-          "from": "n_intro",
-          "to": "n_dict"
-        },
-        {
-          "from": "n_dict",
-          "to": "c_speech"
-        },
-        {
           "from": "c_speech",
-          "to": "n_speech",
+          "to": "n_text",
           "label": "Да"
+        },
+        {
+          "from": "n_text",
+          "to": "n_speech"
         },
         {
           "from": "c_speech",
@@ -3531,6 +3512,15 @@
         {
           "from": "n_try",
           "to": "c_intro"
+        },
+        {
+          "from": "c_intro",
+          "to": "c_speech",
+          "label": "Нет"
+        },
+        {
+          "from": "n_intro",
+          "to": "c_speech"
         }
       ],
       "partial": true,
@@ -4706,12 +4696,12 @@
   "approved": {
     "b_dom_fetch": {
       "codeHash": "55651ac571",
-      "schemaHash": "cd2834f199",
+      "schemaHash": "eb04b1a0dd",
       "at": "2026-10-15"
     },
     "b_dom_audio": {
       "codeHash": "cd0a6d6653",
-      "schemaHash": "ff3604fc3e",
+      "schemaHash": "da816438a2",
       "at": "2026-10-15"
     },
     "b_dom_tokenize": {
@@ -4752,12 +4742,12 @@
     "b_infra_audioel": "3511053120",
     "b_infra_router": "736b7d588a",
     "b_state_player": "844c49386a",
-    "b_dom_audio": "a8838e8442",
+    "b_dom_audio": "7dc817cbcb",
     "b_ui_router": "db3f964f7e",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
     "b_dom_pdf": "efe199234d",
-    "b_dom_fetch": "ac2446020c",
+    "b_dom_fetch": "ab039638e5",
     "b_ui_play": "738a0c76f5",
     "b_dom_source": "2da0fa62d1",
     "b_state_settings": "d8a99631a8",
@@ -4788,27 +4778,27 @@
     "b_infra_ai": "bed97175b0"
   },
   "approvedScenarios": {
-    "sc_tts": "2d308a1277",
+    "sc_tts": "7fe3bd1637",
     "sc_read": "99b66c113c",
     "sc_open": "cb1650ca33",
-    "sc_settings": "bf4ca7bde7",
+    "sc_settings": "f8de984c75",
     "sc_phrases": "48ba8d35a1",
     "sc_start": "ceac7c8a16",
-    "sc_transport": "10a9b1a096",
-    "sc_navigate": "ae8f228070",
-    "sc_wait": "1669fca54b",
-    "sc_failure": "36d9488bac",
-    "sc_announce": "45cbec9b9c",
-    "sc_live": "d758811302",
+    "sc_transport": "580d5ff942",
+    "sc_navigate": "8e7cc57a80",
+    "sc_wait": "84c8c4cb4e",
+    "sc_failure": "dc541281d4",
+    "sc_announce": "dca476a69f",
+    "sc_live": "9b0a9ea0b8",
     "sc_pdf": "c572747731",
     "sc_pdfchoice": "0174aa1054",
-    "sc_edit": "16455719c4",
+    "sc_edit": "e951f391d9",
     "sc_quality": "ddfe8f28cc",
-    "sc_dictionary": "689918eee1",
-    "sc_voices": "f4fe17ac0a",
+    "sc_dictionary": "9d8c26abca",
+    "sc_voices": "1f8c83fe52",
     "sc_net": "63057c5de7",
-    "sc_cloud": "36b116d20a",
-    "sc_delete": "d32cea30fd"
+    "sc_cloud": "e48309dc84",
+    "sc_delete": "023a8dd591"
   },
   "riskAcks": {
     "11b0ba5a0a": {
