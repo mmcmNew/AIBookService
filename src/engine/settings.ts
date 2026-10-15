@@ -4,6 +4,36 @@ import type { AggregatorApiMode, SynthesisOptions, TTSProviderType } from '../ty
 import { isVoiceValidForModel, getCatalogModelInfo, getKnownModelVoices } from './providers/openRouterTts';
 import { normalizeAggregatorVoice } from '../types/voice';
 import { synthesizeOnce } from './audio/audioFetch';
+import {
+  isTauriEnvironment,
+  getDesktopProxy,
+  setDesktopProxy,
+  restartDesktopApp,
+  type DesktopProxyConfig,
+} from './proxy/proxyManager';
+
+export function isDesktopApp(): boolean {
+  return isTauriEnvironment();
+}
+
+export async function loadDesktopProxy(): Promise<DesktopProxyConfig | null> {
+  const desktopCfg = await getDesktopProxy();
+  if (desktopCfg) {
+    useSettingsStore.getState().setProxy(desktopCfg);
+  }
+  return desktopCfg;
+}
+
+export async function saveProxy(config: { enabled: boolean; server: string }, restart = false): Promise<void> {
+  useSettingsStore.getState().setProxy(config);
+  if (isTauriEnvironment()) {
+    await setDesktopProxy(config);
+    if (restart) {
+      await restartDesktopApp();
+    }
+  }
+}
+
 
 /**
  * Установка модели OpenRouter с валидацией выбранного голоса.

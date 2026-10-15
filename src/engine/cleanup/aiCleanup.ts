@@ -4,8 +4,9 @@
  * и применяет только подтверждённые.
  */
 
+import { requestGeminiCleanup } from '../../infra/ai/geminiCleanup';
+
 export const AI_CLEANUP_MODEL = 'gemini-2.5-flash';
-const ENDPOINT = (model: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 export const AI_CLEANUP_INSTRUCTION =
   'Ты корректор текста, полученного после распознавания книги (OCR/PDF). Тебе приходит JSON-массив абзацев. ' +
@@ -96,7 +97,6 @@ export function isReasonableEdit(before: string, after: string): boolean {
 export async function aiCleanParagraphs(paragraphs: string[], options: AiCleanupOptions): Promise<AiCleanupResult> {
   const { apiKey, signal } = options;
   const model = options.model || AI_CLEANUP_MODEL;
-  const doFetch = options.fetchImpl ?? fetch;
   const results = paragraphs.slice();
   const errors: string[] = [];
   if (!apiKey) {
@@ -115,29 +115,25 @@ export async function aiCleanParagraphs(paragraphs: string[], options: AiCleanup
     const idxs = batches[b];
     const input = idxs.map((i) => paragraphs[i]);
     try {
-      const response = await doFetch(ENDPOINT(model), {
-        method: 'POST',
+      const cleanupRes = await requestGeminiCleanup({
+        apiKey,
+        model,
+        instruction: AI_CLEANUP_INSTRUCTION,
+        payload: input,
         signal,
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: AI_CLEANUP_INSTRUCTION }] },
-          contents: [{ role: 'user', parts: [{ text: JSON.stringify(input) }] }],
-          generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
-        }),
+        fetchImpl: options.fetchImpl,
       });
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        errors.push(`Пакет ${b + 1}/${batches.length}: ${explainHttpError(response.status, body)}`);
+      if (!cleanupRes.ok) {
+        errors.push(`Пакет ${b + 1}/${batches.length}: ${explainHttpError(cleanupRes.status, cleanupRes.errorBody)}`);
         // Ошибки ключа/лимита не лечатся повтором — прекращаем
-        if ([400, 401, 403, 429].includes(response.status)) break;
+        if ([400, 401, 403, 429].includes(cleanupRes.status)) break;
         continue;
       }
 
-      const data = await response.json();
-      const text: string | undefined = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? '').join('');
+      const text = cleanupRes.text;
       if (!text) {
-        const reason = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason;
+        const reason = cleanupRes.blockReason;
         errors.push(`Пакет ${b + 1}/${batches.length}: модель не вернула текст${reason ? ` (${reason})` : ''}.`);
         continue;
       }

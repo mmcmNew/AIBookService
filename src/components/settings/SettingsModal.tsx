@@ -27,13 +27,7 @@ import {
   resolveAggregatorVoiceOptions,
   isVoiceValidForModel
 } from '../../engine/providers/openRouterTts';
-import { 
-  isTauriEnvironment, 
-  setDesktopProxy, 
-  getDesktopProxy, 
-  restartDesktopApp 
-} from '../../engine/proxy/proxyManager';
-import { setOpenRouterModel as setOpenRouterModelDomain, setTheme, setFontFamily, setFontSize, setLineHeight, setAutoscroll, setActiveProvider, setSelectedVoiceId, setOpenRouterApiMode, setSpeed, setVolume, setApiKey, setGeminiModel, setOpenRouterBaseUrl, setProxy, setPdfRecognitionMode, setAlwaysAskPdfMode, addReplacementRule, removeReplacementRule, toggleReplacementRule, checkVoice } from '../../engine/settings';
+import { isDesktopApp, loadDesktopProxy, saveProxy, setOpenRouterModel as setOpenRouterModelDomain, setTheme, setFontFamily, setFontSize, setLineHeight, setAutoscroll, setActiveProvider, setSelectedVoiceId, setOpenRouterApiMode, setSpeed, setVolume, setApiKey, setGeminiModel, setOpenRouterBaseUrl, setProxy, setPdfRecognitionMode, setAlwaysAskPdfMode, addReplacementRule, removeReplacementRule, toggleReplacementRule, checkVoice } from '../../engine/settings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -126,12 +120,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
       setProxyEnabled(proxy?.enabled || false);
       setProxyServer(proxy?.server || 'http://127.0.0.1:7890');
 
-      if (isTauriEnvironment()) {
-        getDesktopProxy().then((desktopCfg) => {
+      if (isDesktopApp()) {
+        loadDesktopProxy().then((desktopCfg) => {
           if (desktopCfg) {
             setProxyEnabled(desktopCfg.enabled);
             setProxyServer(desktopCfg.server);
-            setProxy(desktopCfg);
           }
         });
       }
@@ -222,23 +215,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
 
   const handleSaveProxy = async (restart = false) => {
     const newCfg = { enabled: proxyEnabled, server: proxyServer.trim() };
-    setProxy(newCfg);
-    if (isTauriEnvironment()) {
-      try {
-        await setDesktopProxy(newCfg);
-        if (restart) {
-          setIsRestarting(true);
-          setTimeout(async () => {
-            await restartDesktopApp();
-          }, 300);
-          return;
-        }
-      } catch (err) {
-        console.error(err);
-      }
+    if (restart) {
+      setIsRestarting(true);
+    }
+    try {
+      await saveProxy(newCfg, restart);
+    } catch (err) {
+      console.error(err);
     }
     setProxyStatusMsg(
-      isTauriEnvironment()
+      isDesktopApp()
         ? 'Настройки сохранены. Перезапустите приложение для применения прокси.'
         : 'Настройки прокси сохранены в профиле.'
     );
@@ -875,17 +861,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
             <div className="space-y-5">
               {/* Информационный баннер среды */}
               <div className={`p-4 rounded-2xl border flex items-start gap-3 ${
-                isTauriEnvironment()
+                isDesktopApp()
                   ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
                   : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
               }`}>
                 <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
                 <div className="text-xs space-y-1">
                   <div className="font-bold">
-                    {isTauriEnvironment() ? 'Локальная версия приложения (Tauri Desktop)' : 'Браузерная версия (Web)'}
+                    {isDesktopApp() ? 'Локальная версия приложения (Tauri Desktop)' : 'Браузерная версия (Web)'}
                   </div>
                   <p className="opacity-90 leading-relaxed">
-                    {isTauriEnvironment()
+                    {isDesktopApp()
                       ? 'Настройки прокси передаются напрямую в сетевой движок WebView2. Все исходящие запросы (Google Gemini, OpenAI, ElevenLabs, Edge TTS WebSocket) пойдут через указанный локальный прокси.'
                       : 'В веб-версии браузер использует системные настройки прокси Windows. Для индивидуальной изоляции трафика используйте десктопное приложение (.exe).'}
                   </p>
@@ -953,7 +939,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
 
               {/* Кнопки сохранения */}
               <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
-                {isTauriEnvironment() && (
+                {isDesktopApp() && (
                   <button
                     type="button"
                     disabled={isRestarting}

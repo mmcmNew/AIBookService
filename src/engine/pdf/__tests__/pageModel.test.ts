@@ -242,3 +242,32 @@ test('заголовок первым на странице 1 (после скр
   const book = composeBook(inputFor(records, 4), createComposeCache());
   assert.deepEqual(book.specs.map((s) => s.title), ['Глава 1', 'Глава 2']);
 });
+
+test('deletePagesForBook: после удаления страниц книги нет, чужие страницы целы', async () => {
+  const { deletePagesForBook } = await import('../pagedSession');
+  const { db } = await import('../../../storage/db');
+  let store = [
+    { bookId: 'b1', page: 1 },
+    { bookId: 'b1', page: 2 },
+    { bookId: 'b2', page: 1 },
+  ];
+  const origWhere = db.pdfPages.where;
+  db.pdfPages.where = ((field: string) => ({
+    equals: (val: any) => ({
+      delete: async () => {
+        store = store.filter((item: any) => item[field] !== val);
+      },
+      toArray: async () => store.filter((item: any) => item[field] === val),
+    }),
+  })) as any;
+
+  try {
+    await deletePagesForBook('b1');
+    const b1Pages = await (db.pdfPages.where('bookId').equals('b1') as any).toArray();
+    const b2Pages = await (db.pdfPages.where('bookId').equals('b2') as any).toArray();
+    assert.equal(b1Pages.length, 0);
+    assert.equal(b2Pages.length, 1);
+  } finally {
+    db.pdfPages.where = origWhere;
+  }
+});

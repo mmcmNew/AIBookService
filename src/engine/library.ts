@@ -6,7 +6,7 @@ import { mapReadingPosition } from './cleanup/bookModel';
 import { useBookStore, type SavedBook } from '../store/bookStore';
 import { usePagedStore } from '../store/pagedStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { bumpNavNonce, closePagedSession, openPagedSession, setFocusPage } from './pdf/pagedSession';
+import { bumpNavNonce, closePagedSession, deletePagesForBook, openPagedSession, setFocusPage } from './pdf/pagedSession';
 import {
   chapterIndexForPage,
   firstSentenceAtOrAfterPage,
@@ -484,11 +484,12 @@ export async function deleteBook(bookId: string): Promise<void> {
   try {
     await progressWriteChain;
     if (useBookStore.getState().currentBook?.metadata.id === bookId) await closePagedSession();
-    await db.transaction('rw', db.books, db.pdfPages, db.pdfFiles, async () => {
+    await db.transaction('rw', db.books, db.pdfFiles, async () => {
       await db.books.delete(bookId);
-      await db.pdfPages.where('bookId').equals(bookId).delete();
       await db.pdfFiles.delete(bookId);
     });
+    // Удаление страниц через владельца ресурса res_pdfPages (b_dom_pdf)
+    await deletePagesForBook(bookId);
     // Удаление аудиокэша через владельца ресурса res_audioCache (b_dom_fetch)
     await deleteAudioCacheForBook(bookId);
 

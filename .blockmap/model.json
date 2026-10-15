@@ -1260,8 +1260,7 @@
           "from": "b_dom_cleanup",
           "to": "b_infra_ai",
           "label": "отправить пачку абзацев на проверку ИИ",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_infra_ai",
@@ -1650,8 +1649,7 @@
           "from": "b_dom_settings",
           "to": "b_infra_proxy",
           "label": "сохранить прокси в оболочке и перезапустить",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         }
       ],
       "zoneOrder": [
@@ -1880,8 +1878,7 @@
           "from": "b_dom_library",
           "to": "b_dom_pdf",
           "label": "удалить сохранённые страницы книги",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_pdf",
@@ -2196,7 +2193,8 @@
         "planChapters",
         "normalizeBlockText",
         "finalizePageBlocks",
-        "createPagedPdfBook"
+        "createPagedPdfBook",
+        "deletePagesForBook"
       ]
     },
     "b_dom_fetch": {
@@ -2373,6 +2371,9 @@
         "setPdfRecognitionMode",
         "setAlwaysAskPdfMode",
         "setProxy",
+        "isDesktopApp",
+        "loadDesktopProxy",
+        "saveProxy",
         "addReplacementRule",
         "removeReplacementRule",
         "toggleReplacementRule",
@@ -2595,9 +2596,8 @@
       "title": "ИИ-корректор текста (адаптер Gemini)",
       "layer": "Infra",
       "file": "src/infra/ai/geminiCleanup.ts",
-      "line": 1,
+      "line": 24,
       "symbol": "requestGeminiCleanup",
-      "planned": true,
       "zone": "z_library",
       "summary": "Адаптер к внешнему ИИ: один запрос к Gemini с пачкой абзацев и ключом пользователя, ответ текстом. Не решает, какие правки принять, и не знает про книги; пачки, проверку разумности правок и разбор ответа делает «Очистка». Сейчас запрос уходит из функции Домена."
     }

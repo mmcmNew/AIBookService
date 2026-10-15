@@ -9,7 +9,6 @@ import { composeBook, createComposeCache } from './composer';
 import { cleanBlocks, repairBlocksShifted } from './pageClean';
 import { PageScheduler, type BatchOutcome, type SchedulerConfig, type SchedState } from './pageScheduler';
 import { closeSidecarHandle, effectiveEngine, recognizePages, RecognitionError, type RecognizerContext } from './recognizers';
-import { releasePdfjsDocument } from './pdfjsDoc';
 import type { PageState, PdfPageRecord } from '../../types/pdf';
 
 /**
@@ -504,9 +503,13 @@ class PagedSession {
       document.removeEventListener('visibilitychange', this.onHidden);
       window.removeEventListener('pagehide', this.onHidden);
     }
-    for (const t of [this.composeTimer, this.publishTimer, this.metaTimer]) if (t) clearTimeout(t);
     await closeSidecarHandle(this.bookId);
-    releasePdfjsDocument(this.bookId);
+    try {
+      const { releasePdfjsDocument } = await import('./pdfjsDoc');
+      releasePdfjsDocument(this.bookId);
+    } catch {
+      // Игнорируем в средах без поддержки ?url (Node.js unit тесты)
+    }
   }
 }
 
@@ -539,3 +542,9 @@ export function setFocusPage(page: number): void {
 export function bumpNavNonce(): void {
   usePagedStore.setState((s) => ({ navNonce: s.navNonce + 1 }));
 }
+
+/** Удаляет сохранённые страницы книги из Dexie (владелец res_pdfPages: b_dom_pdf) */
+export async function deletePagesForBook(bookId: string): Promise<void> {
+  await db.pdfPages.where('bookId').equals(bookId).delete();
+}
+
