@@ -10,296 +10,121 @@
   ],
   "scenarios": [
     {
-      "id": "sc_tts",
-      "title": "Озвучка",
-      "desc": "Команда → Координатор: берёт фразу у Поставщика фраз, аудио у Поставщика озвучки, фиксирует позицию → Оркестратор аудио управляет Плеером и статусом.",
+      "id": "sc_start",
+      "title": "Запуск и каркас приложения",
+      "desc": "Оболочка собирает экран: библиотеку или книгу, шапку, панель плеера; при старте просит у Менеджера список книг, тема берётся из настроек.",
       "cols": {
-        "b_ui_play": 0,
-        "b_dom_coord": 0,
-        "b_dom_audio": 0,
-        "b_state_player": 0,
-        "b_infra_audioel": 0,
-        "b_state_book": 0,
-        "b_dom_fetch": 0,
-        "b_data_cache": 0,
-        "b_infra_router": 0,
-        "b_state_settings": 0,
-        "b_dom_library": 0,
+        "b_ui_router": 0,
+        "b_ui_library": 1,
+        "b_dom_library": 1,
+        "b_ui_header": 1,
         "b_ui_book": 0,
-        "b_dom_settings": 0
+        "b_ui_play": 0,
+        "b_data_db": 1,
+        "b_state_book": 1,
+        "b_state_settings": 0,
+        "b_dom_account": 0,
+        "b_state_user": 0
       },
       "edges": [
         {
-          "from": "b_dom_coord",
-          "to": "b_dom_audio",
-          "label": "играй это",
+          "from": "b_ui_router",
+          "to": "b_ui_library",
+          "label": "показать экран библиотеки, когда книга не открыта",
           "kind": "call"
         },
         {
-          "from": "b_dom_audio",
-          "to": "b_dom_coord",
-          "label": "закончил / не получилось / остановлен / хочу играть",
-          "kind": "event"
-        },
-        {
-          "from": "b_dom_audio",
-          "to": "b_dom_fetch",
-          "label": "возьми аудио",
-          "kind": "call"
-        },
-        {
-          "from": "b_dom_fetch",
-          "to": "b_dom_audio",
-          "label": "аудио",
-          "kind": "return"
-        },
-        {
-          "from": "b_state_settings",
-          "to": "b_dom_fetch",
-          "label": "голос, провайдер, замены",
-          "kind": "data"
-        },
-        {
-          "from": "b_dom_fetch",
-          "to": "b_data_cache",
-          "label": "кэш аудио: прочитать, сохранить",
-          "kind": "write"
-        },
-        {
-          "from": "b_dom_fetch",
-          "to": "b_infra_router",
-          "label": "синтез у провайдера",
-          "kind": "call"
-        },
-        {
-          "from": "b_infra_router",
-          "to": "b_dom_fetch",
-          "label": "аудио"
-        },
-        {
-          "from": "b_state_settings",
-          "to": "b_dom_audio",
-          "label": "скорость, громкость, замены",
-          "kind": "data"
-        },
-        {
-          "from": "b_dom_audio",
-          "to": "b_infra_audioel",
-          "label": "играть",
-          "kind": "call"
-        },
-        {
-          "from": "b_infra_audioel",
-          "to": "b_dom_audio",
-          "label": "started / ended / failed"
-        },
-        {
-          "from": "b_dom_audio",
-          "to": "b_state_player",
-          "label": "статус плеера",
-          "kind": "write"
-        },
-        {
-          "from": "b_dom_coord",
+          "from": "b_ui_router",
           "to": "b_dom_library",
-          "label": "какая фраза сейчас / следующая? (позиция сдвигается)",
+          "label": "загрузить список книг, закрыть книгу (команды)",
           "kind": "call"
         },
         {
-          "from": "b_state_book",
-          "to": "b_ui_play",
-          "label": "позиция (глава, фраза), книга, главы",
-          "kind": "data"
+          "from": "b_ui_router",
+          "to": "b_ui_header",
+          "label": "шапка (вставка в оболочку)",
+          "kind": "call"
         },
         {
-          "from": "b_state_player",
+          "from": "b_ui_router",
+          "to": "b_ui_book",
+          "label": "показать книгу (вставка в оболочку)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_router",
           "to": "b_ui_play",
-          "label": "статус плеера",
-          "kind": "data"
+          "label": "панель плеера (вставка в оболочку)",
+          "kind": "call"
         },
         {
           "from": "b_dom_library",
-          "to": "b_dom_coord",
-          "label": "фраза | ждём страницу | конец",
-          "kind": "return"
-        },
-        {
-          "from": "b_state_book",
-          "to": "b_dom_library",
-          "label": "текст книги и страницы, позиция чтения",
-          "kind": "data"
-        },
-        {
-          "from": "b_dom_coord",
-          "to": "b_dom_fetch",
-          "label": "приготовь озвучку (и отмени)",
-          "kind": "call"
-        },
-        {
-          "from": "b_state_book",
-          "to": "b_ui_book",
-          "label": "что подсветить, книга, главы",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_settings",
-          "to": "b_dom_coord",
-          "label": "параметры синтеза, автопереход",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_settings",
-          "to": "b_ui_book",
-          "label": "шрифт, тема, автоскролл",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_settings",
-          "to": "b_ui_play",
-          "label": "настройки плеера",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_settings",
-          "to": "b_dom_library",
-          "label": "режим PDF",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_player",
-          "to": "b_ui_book",
-          "label": "ждём страницу (баннер)",
-          "kind": "data"
-        },
-        {
-          "from": "b_dom_coord",
-          "to": "b_dom_settings",
-          "label": "параметры синтеза из настроек",
-          "kind": "call"
-        },
-        {
-          "from": "b_state_player",
-          "to": "b_dom_coord",
-          "label": "статус плеера (на паузе? идёт?)",
-          "kind": "data"
-        },
-        {
-          "from": "b_state_book",
-          "to": "b_dom_coord",
-          "label": "есть ли позиция (после ожидания страницы)",
-          "kind": "data"
+          "to": "b_data_db",
+          "label": "прочитать список книг",
+          "kind": "write"
         },
         {
           "from": "b_dom_library",
           "to": "b_state_book",
-          "label": "записать позицию",
+          "label": "записать список книг",
           "kind": "write"
         },
         {
-          "from": "b_dom_library",
-          "to": "b_dom_coord",
-          "label": "мы теперь на этой фразе (переход не от Координатора)",
-          "kind": "event"
-        },
-        {
-          "from": "b_dom_coord",
-          "to": "b_dom_library",
-          "label": "сохранить прогресс (при остановке)",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_book",
-          "to": "b_dom_library",
-          "label": "перейти к предложению, главе, странице",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_play",
-          "to": "b_dom_library",
-          "label": "предыдущая / следующая фраза, глава",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_play",
-          "to": "b_dom_audio",
-          "label": "play / pause / стоп",
-          "kind": "call"
-        }
-      ],
-      "zoneOrder": [
-        "z_library",
-        "z_coord",
-        "z_settings",
-        "z_player",
-        "z_audio"
-      ]
-    },
-    {
-      "id": "sc_read",
-      "title": "Экран чтения (UI)",
-      "desc": "Выбор экрана по типу файла; экран получает предложения или страницы, позицию и режим автоскролла. Команды на озвучку уходят через «Кнопку Play» (сценарий «Озвучка»).",
-      "cols": {
-        "b_ui_router": 0,
-        "b_state_book": 1,
-        "b_state_paged": 0,
-        "b_state_settings": 0,
-        "b_ui_book": 1
-      },
-      "edges": [
-        {
-          "from": "b_ui_router",
-          "to": "b_ui_book",
-          "label": "показать книгу",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_router",
-          "to": "b_ui_book",
-          "label": "PDF"
+          "from": "b_state_book",
+          "to": "b_ui_library",
+          "label": "список книг, статус загрузки",
+          "kind": "data"
         },
         {
           "from": "b_state_book",
-          "to": "b_ui_book",
-          "label": "что подсветить, книга, главы",
+          "to": "b_ui_router",
+          "label": "книга открыта? сноска, режим PDF",
           "kind": "data"
         },
         {
           "from": "b_state_settings",
-          "to": "b_ui_book",
-          "label": "шрифт, тема, автоскролл",
+          "to": "b_ui_router",
+          "label": "тема оформления",
           "kind": "data"
         },
         {
-          "from": "b_state_paged",
-          "to": "b_ui_book",
-          "label": "готовность страниц (PDF)",
+          "from": "b_ui_router",
+          "to": "b_dom_account",
+          "label": "обновить баланс при старте",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_state_user",
+          "to": "b_ui_header",
+          "label": "баланс",
           "kind": "data"
         }
       ],
       "zoneOrder": [
-        "z_settings",
+        "z_player",
         "z_library",
-        "z_shell"
+        "z_shell",
+        "z_settings",
+        "z_account"
       ]
     },
     {
       "id": "sc_open",
       "title": "Библиотека и открытие книги",
-      "desc": "Экран библиотеки: выбор сохранённой книги или загрузка файла → парсинг и токенизация → сохранение в db.books и публикация в st_book.",
+      "desc": "Пользователь выбирает книгу или файл; Менеджер парсит, разбивает на предложения, открывает PDF-сессию для постраничных книг, сохраняет в базу и публикует состояние.",
       "cols": {
         "b_ui_library": 0,
         "b_dom_library": 0,
-        "b_dom_parser": 2,
-        "b_dom_tokenize": 3,
+        "b_dom_parser": 3,
+        "b_dom_tokenize": 2,
         "b_dom_pdf": 1,
         "b_state_paged": 1,
         "b_data_db": 0,
         "b_state_book": 0,
-        "b_ui_router": 1,
         "b_ui_header": 0,
-        "b_ui_book": 0,
-        "b_ui_play": 0,
-        "b_state_settings": 0
+        "b_state_settings": 0,
+        "b_dom_cleanup": 4
       },
       "edges": [
         {
@@ -351,24 +176,6 @@
           "kind": "data"
         },
         {
-          "from": "b_ui_router",
-          "to": "b_ui_library",
-          "label": "показать экран библиотеки, когда книга не открыта",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_router",
-          "to": "b_dom_library",
-          "label": "загрузить список книг, закрыть книгу (команды)",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_router",
-          "to": "b_ui_header",
-          "label": "шапка (вставка в оболочку)",
-          "kind": "call"
-        },
-        {
           "from": "b_ui_header",
           "to": "b_dom_library",
           "label": "открыть книгу, режим PDF",
@@ -381,36 +188,6 @@
           "kind": "data"
         },
         {
-          "from": "b_state_book",
-          "to": "b_ui_router",
-          "label": "книга, сноска, режим PDF",
-          "kind": "data"
-        },
-        {
-          "from": "b_ui_router",
-          "to": "b_ui_book",
-          "label": "показать книгу (вставка в оболочку)",
-          "kind": "call"
-        },
-        {
-          "from": "b_state_book",
-          "to": "b_ui_book",
-          "label": "книга, главы",
-          "kind": "data"
-        },
-        {
-          "from": "b_ui_book",
-          "to": "b_dom_library",
-          "label": "сноски, закрыть книгу",
-          "kind": "call"
-        },
-        {
-          "from": "b_ui_router",
-          "to": "b_ui_play",
-          "label": "панель плеера (вставка в оболочку)",
-          "kind": "call"
-        },
-        {
           "from": "b_state_settings",
           "to": "b_dom_pdf",
           "label": "ключи, правила замен (распознавание)",
@@ -421,13 +198,1208 @@
           "to": "b_dom_parser",
           "label": "ключи (удалённый разбор)",
           "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_library",
+          "label": "режим распознавания PDF",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_parser",
+          "to": "b_dom_cleanup",
+          "label": "найти главы и заголовки, почистить текст",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_shell",
+        "z_library",
+        "z_settings"
+      ]
+    },
+    {
+      "id": "sc_read",
+      "title": "Экран книги: показ и сноски",
+      "desc": "Оболочка показывает экран книги; он берёт из состояния, что подсветить, главы, готовность страниц и вид, и сообщает о ждущей странице. Сноска открывается через Менеджера.",
+      "cols": {
+        "b_ui_router": 0,
+        "b_ui_book": 0,
+        "b_state_book": 0,
+        "b_state_settings": 0,
+        "b_state_paged": 1,
+        "b_state_player": 0,
+        "b_dom_library": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_book",
+          "label": "показать книгу",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_book",
+          "label": "PDF"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_book",
+          "label": "что подсветить, книга, главы",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_book",
+          "label": "шрифт, тема, автоскролл",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_ui_book",
+          "label": "готовность страниц (PDF)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_ui_book",
+          "label": "ждём страницу (баннер)",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_book",
+          "to": "b_dom_library",
+          "label": "сноска: показать и закрыть",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_settings",
+        "z_shell",
+        "z_library",
+        "z_player"
+      ]
+    },
+    {
+      "id": "sc_tts",
+      "title": "Озвучка: цикл фраз",
+      "desc": "Фраза доиграла → Оркестратор сообщает Координатору → тот берёт у Менеджера следующую (позиция сдвигается), собирает задание (параметры у Настроек), даёт Поставщику «приготовь», Оркестратору «играй это»; Оркестратор сам берёт аудио у Поставщика и играет. Остальные поводы — отдельные сценарии.",
+      "cols": {
+        "b_dom_coord": 0,
+        "b_dom_audio": 0,
+        "b_dom_fetch": 0,
+        "b_data_cache": 0,
+        "b_infra_router": 0,
+        "b_state_settings": 0,
+        "b_infra_audioel": 0,
+        "b_state_player": 0,
+        "b_dom_library": 0,
+        "b_state_book": 0,
+        "b_dom_settings": 0
+      },
+      "edges": [
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "играй это",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_dom_fetch",
+          "label": "возьми аудио",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_dom_audio",
+          "label": "аудио",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_data_cache",
+          "label": "кэш аудио: прочитать, сохранить",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_infra_router",
+          "label": "синтез у провайдера",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_router",
+          "to": "b_dom_fetch",
+          "label": "аудио"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_audio",
+          "label": "скорость, громкость, замены",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_infra_audioel",
+          "label": "играть",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_audioel",
+          "to": "b_dom_audio",
+          "label": "started / ended / failed"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_state_player",
+          "label": "статус плеера",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "какая фраза сейчас / следующая? (позиция сдвигается)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_coord",
+          "label": "фраза | ждём страницу | конец",
+          "kind": "return"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_dom_library",
+          "label": "текст книги и страницы, позиция чтения",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_fetch",
+          "label": "приготовь озвучку (и отмени)",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_coord",
+          "label": "параметры синтеза, автопереход",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_settings",
+          "label": "параметры синтеза из настроек",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_dom_coord",
+          "label": "статус плеера (на паузе? идёт?)",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "записать позицию",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "сохранить прогресс (при остановке)",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_fetch",
+          "label": "голос, провайдер, замены",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_dom_coord",
+          "label": "закончил / не получилось / остановлен / хочу играть",
+          "kind": "event"
+        }
+      ],
+      "zoneOrder": [
+        "z_audio",
+        "z_settings",
+        "z_player",
+        "z_coord",
+        "z_library"
+      ]
+    },
+    {
+      "id": "sc_transport",
+      "title": "Play, пауза, стоп",
+      "desc": "Кнопки и клавиши идут прямо Оркестратору: играет — пауза без лишних событий, на паузе — продолжить, загрузка — стоп. Если играть нечего, Оркестратор шлёт Координатору «хочу играть», тот берёт текущую фразу у Менеджера и запускает; при стопе Координатор отменяет подготовку и просит сохранить прогресс.",
+      "cols": {
+        "b_ui_play": 0,
+        "b_dom_audio": 0,
+        "b_state_player": 0,
+        "b_infra_audioel": 0,
+        "b_dom_coord": 0,
+        "b_dom_library": 0,
+        "b_dom_fetch": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_audio",
+          "label": "play / pause / стоп",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_state_player",
+          "label": "статус плеера (играет, пауза, загрузка)",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_ui_play",
+          "label": "статус плеера",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_infra_audioel",
+          "label": "пауза / продолжить / стоп",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_dom_coord",
+          "label": "хочу играть / остановлен",
+          "kind": "event"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "какая фраза сейчас?",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_coord",
+          "label": "фраза | ждём страницу | конец",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "играй это",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_fetch",
+          "label": "приготовь озвучку (и отмени)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "сохранить прогресс (при остановке)",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_dom_coord",
+          "label": "статус плеера (на паузе? идёт?)",
+          "kind": "data"
         }
       ],
       "zoneOrder": [
         "z_player",
+        "z_coord",
+        "z_library",
+        "z_audio"
+      ]
+    },
+    {
+      "id": "sc_navigate",
+      "title": "Навигация по книге",
+      "desc": "Клик по предложению, выбор главы или страницы, кнопки «предыдущая/следующая фраза»: UI просит Менеджера, он сам двигает позицию и сообщает Координатору о внешнем переходе; Координатор перестраивает воспроизведение, если играло.",
+      "cols": {
+        "b_ui_book": 1,
+        "b_dom_library": 1,
+        "b_ui_play": 0,
+        "b_state_book": 1,
+        "b_dom_pdf": 0,
+        "b_dom_coord": 0,
+        "b_dom_audio": 0,
+        "b_dom_fetch": 0,
+        "b_state_player": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_book",
+          "to": "b_dom_library",
+          "label": "перейти к предложению, главе, странице",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_library",
+          "label": "предыдущая / следующая фраза, глава",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "записать позицию",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_book",
+          "label": "что подсветить, книга, главы",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_play",
+          "label": "позиция (глава, фраза), книга, главы",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "показать страницу (приоритет распознавания)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_coord",
+          "label": "мы теперь на этой фразе (переход не от Координатора)",
+          "kind": "event"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "какая фраза сейчас?",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "играй это (или стоп)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_fetch",
+          "label": "приготовь озвучку (и отмени)",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_dom_coord",
+          "label": "статус плеера (на паузе? идёт?)",
+          "kind": "data"
+        }
+      ],
+      "zoneOrder": [
+        "z_library",
+        "z_player",
+        "z_coord",
+        "z_audio"
+      ]
+    },
+    {
+      "id": "sc_wait",
+      "title": "Ожидание страницы PDF",
+      "desc": "Следующая страница ещё не распознана: Менеджер отвечает «ждём страницу», Координатор ставит плеер в ожидание и поднимает приоритет страницы; когда страница готова, Менеджер сообщает событием, и Координатор продолжает.",
+      "cols": {
+        "b_dom_coord": 0,
+        "b_dom_library": 1,
+        "b_dom_audio": 0,
+        "b_state_player": 0,
+        "b_ui_book": 1,
+        "b_dom_pdf": 0,
+        "b_state_paged": 0,
+        "b_state_book": 1,
+        "b_dom_fetch": 0
+      },
+      "edges": [
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "какая следующая фраза?",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_coord",
+          "label": "ждём страницу N",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "жди страницу N (статус «загрузка»)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_state_player",
+          "label": "статус: ждём страницу",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_ui_book",
+          "label": "ждём страницу (баннер)",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_library",
+          "label": "поднять приоритет страницы N",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "распознать страницу сейчас",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_state_paged",
+          "label": "страница распознана (прогресс)",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_dom_library",
+          "label": "готовность страниц",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_coord",
+          "label": "страницы изменились: можно продолжать",
+          "kind": "event"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_dom_coord",
+          "label": "статус плеера (на паузе? идёт?)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_dom_coord",
+          "label": "есть ли позиция (после ожидания страницы)",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "играй это",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_fetch",
+          "label": "приготовь озвучку (и отмени)",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_library",
+        "z_coord",
+        "z_player",
+        "z_audio"
+      ]
+    },
+    {
+      "id": "sc_failure",
+      "title": "Сбой озвучки",
+      "desc": "Провайдер или плеер сообщил ошибку: Поставщик возвращает ошибку Оркестратору, тот одним событием «не получилось» Координатору; Координатор отменяет подготовку и останавливает плеер, статус «ошибка» с текстом виден в панели; повтор — обычный play. Сейчас политика такая: стоп с сообщением, без автоповтора и пропуска.",
+      "cols": {
+        "b_infra_router": 0,
+        "b_dom_fetch": 0,
+        "b_dom_audio": 0,
+        "b_infra_audioel": 0,
+        "b_dom_coord": 0,
+        "b_state_player": 0,
+        "b_ui_play": 0
+      },
+      "edges": [
+        {
+          "from": "b_infra_router",
+          "to": "b_dom_fetch",
+          "label": "ошибка синтеза (ключ, лимит, сеть)",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_dom_audio",
+          "label": "ошибка",
+          "kind": "return"
+        },
+        {
+          "from": "b_infra_audioel",
+          "to": "b_dom_audio",
+          "label": "ошибка воспроизведения",
+          "kind": "event"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_dom_coord",
+          "label": "не получилось",
+          "kind": "event"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "остановить, статус «ошибка»",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_state_player",
+          "label": "статус: ошибка с текстом",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_fetch",
+          "label": "отмени подготовку",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_ui_play",
+          "label": "ошибка (текст) в панели",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_audio",
+          "label": "play (повторить)",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_audio",
+        "z_coord",
+        "z_player"
+      ]
+    },
+    {
+      "id": "sc_announce",
+      "title": "Начало главы: объявление и сигнал",
+      "desc": "При старте главы с первой фразы Координатор по настройкам решает, объявлять ли название; Оркестратор берёт у Поставщика аудио заголовка (ключ кэша отдельный), подаёт сигнал и озвучивает заголовок, затем играет фразу.",
+      "cols": {
+        "b_state_settings": 0,
+        "b_dom_coord": 0,
+        "b_dom_audio": 0,
+        "b_dom_fetch": 0,
+        "b_infra_router": 0,
+        "b_data_cache": 0,
+        "b_infra_audioel": 0
+      },
+      "edges": [
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_coord",
+          "label": "объявлять главу, сигнал",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "играй это (с объявлением главы)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_dom_fetch",
+          "label": "возьми аудио заголовка главы",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_infra_router",
+          "label": "синтез заголовка",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_data_cache",
+          "label": "кэш аудио: прочитать, сохранить",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_infra_audioel",
+          "label": "сигнал главы и озвучка заголовка",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_settings",
+        "z_coord",
+        "z_player",
+        "z_audio"
+      ]
+    },
+    {
+      "id": "sc_live",
+      "title": "Смена настроек во время чтения",
+      "desc": "Скорость и громкость применяются к играющему плееру сразу (Координатор подписан на настройки); тема, шрифт и автоскролл перерисовывают экраны; голос и провайдер подхватываются со следующим заданием.",
+      "cols": {
+        "b_ui_play": 0,
+        "b_dom_settings": 0,
+        "b_ui_settings": 0,
+        "b_state_settings": 0,
+        "b_dom_coord": 0,
+        "b_dom_audio": 0,
+        "b_infra_audioel": 0,
+        "b_ui_book": 0,
+        "b_ui_router": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_play",
+          "to": "b_dom_settings",
+          "label": "скорость, громкость, переключатели",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_settings",
+          "to": "b_dom_settings",
+          "label": "изменить настройку, проверить озвучку",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_state_settings",
+          "label": "записать",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_coord",
+          "label": "скорость, громкость (подписка), параметры синтеза",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "применить скорость и громкость сразу",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_infra_audioel",
+          "label": "скорость, громкость",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_book",
+          "label": "шрифт, тема, автоскролл",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_router",
+          "label": "тема",
+          "kind": "data"
+        }
+      ],
+      "zoneOrder": [
+        "z_player",
+        "z_coord",
+        "z_settings",
+        "z_library",
+        "z_shell"
+      ]
+    },
+    {
+      "id": "sc_pdf",
+      "title": "Распознавание страниц PDF",
+      "desc": "Менеджер просит разобрать файл; для PDF Разбор создаёт постраничную книгу и отдаёт её PDF-координатору. Тот читает сохранённые страницы, планирует распознавание от фокусной «скользящим окном», просит движки (sidecar, pdf.js, Gemini), чистит и собирает страницы в книгу, пишет страницы в базу, а прогресс и качество — в состояние страниц. Менеджер публикует собранную книгу, экран показывает готовность страниц.",
+      "cols": {
+        "b_dom_library": 1,
+        "b_dom_pdf": 2,
+        "b_dom_parser": 0,
+        "b_data_pdf": 2,
+        "b_infra_recog": 1,
+        "b_dom_cleanup": 4,
+        "b_state_paged": 2,
+        "b_state_settings": 0,
+        "b_state_book": 1,
+        "b_ui_book": 2,
+        "b_dom_tokenize": 3
+      },
+      "edges": [
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "открыть сессию PDF (activatePaged)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_parser",
+          "label": "распарсить файл (parseBookFile)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_parser",
+          "to": "b_dom_pdf",
+          "label": "создать постраничную PDF-книгу",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_data_pdf",
+          "label": "прочитать сохранённые страницы, сохранить распознанные",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_infra_recog",
+          "label": "распознать страницы N..M (sidecar, pdf.js, Gemini)",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_recog",
+          "to": "b_dom_pdf",
+          "label": "страницы: блоки текста",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_dom_cleanup",
+          "label": "очистить блоки страницы, оценить качество",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_state_paged",
+          "label": "прогресс, состояние страниц, собранная книга",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_pdf",
+          "label": "ключи, правила замен (распознавание)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_dom_library",
+          "label": "страницы и собранная книга",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "опубликовать книгу",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "фокус на страницу (приоритет распознавания)",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_ui_book",
+          "label": "готовность страниц (PDF)",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_parser",
+          "to": "b_infra_recog",
+          "label": "есть ли встроенный движок (sidecar)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_dom_tokenize",
+          "label": "разбить абзацы страницы на предложения",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_library",
+        "z_settings"
+      ]
+    },
+    {
+      "id": "sc_pdfchoice",
+      "title": "Выбор способа и перераспознавание PDF",
+      "desc": "При загрузке PDF окно предлагает способ распознавания (и «запомнить по умолчанию»); для открытой книги диалог перераспознаёт страницу, диапазон или всю книгу другим движком, не затирая ручные правки без подтверждения. Диалоги вставляют библиотека, шапка и экран книги. Команды перераспознавания должны идти вызовом к PDF-координатору, а не через объект-контроллер в сторе страниц.",
+      "cols": {
+        "b_ui_library": 0,
+        "b_ui_pdfdialogs": 1,
+        "b_ui_header": 0,
+        "b_ui_book": 2,
+        "b_dom_library": 0,
+        "b_dom_settings": 0,
+        "b_state_settings": 0,
+        "b_dom_pdf": 1,
+        "b_state_paged": 1,
+        "b_infra_recog": 1
+      },
+      "edges": [
+        {
+          "from": "b_ui_library",
+          "to": "b_ui_pdfdialogs",
+          "label": "выбор способа при загрузке PDF (вставка лица зоны)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_header",
+          "to": "b_ui_pdfdialogs",
+          "label": "выбор способа и перераспознавание (вставка лица зоны)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_book",
+          "to": "b_ui_pdfdialogs",
+          "label": "перераспознать страницу (вставка лица зоны)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_library",
+          "to": "b_dom_library",
+          "label": "выбрать сохранённую книгу или загрузить файл",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_header",
+          "to": "b_dom_library",
+          "label": "открыть книгу, режим PDF",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_library",
+          "to": "b_dom_settings",
+          "label": "запомнить режим PDF по умолчанию",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_state_settings",
+          "label": "записать",
+          "kind": "write"
+        },
+        {
+          "from": "b_ui_pdfdialogs",
+          "to": "b_dom_pdf",
+          "label": "перераспознать страницы, сменить движок",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_ui_pdfdialogs",
+          "label": "число страниц, движок книги, правленые страницы",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_pdfdialogs",
+          "label": "ключ Gemini, режим PDF по умолчанию",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_infra_recog",
+          "label": "доступные движки, перераспознавание",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_state_paged",
+          "label": "прогресс перераспознавания, движок книги",
+          "kind": "write"
+        }
+      ],
+      "zoneOrder": [
         "z_shell",
         "z_library",
         "z_settings"
+      ]
+    },
+    {
+      "id": "sc_edit",
+      "title": "Правка текста книги",
+      "desc": "Редактор показывает абзацы и главы, просит «Очистку» оценить качество, предложить правки и показать разницу; сохраняет правки через Менеджера книги, который пишет книгу в базу и просит Поставщика озвучки убрать из кэша аудио исчезнувших предложений. На время правки озвучка останавливается.",
+      "cols": {
+        "b_ui_editor": 1,
+        "b_dom_cleanup": 2,
+        "b_dom_library": 0,
+        "b_data_db": 0,
+        "b_state_book": 0,
+        "b_dom_fetch": 0,
+        "b_data_cache": 0,
+        "b_state_paged": 1,
+        "b_state_settings": 0,
+        "b_dom_audio": 0,
+        "b_state_player": 0,
+        "b_dom_pdf": 1,
+        "b_ui_router": 0,
+        "b_dom_tokenize": 3
+      },
+      "edges": [
+        {
+          "from": "b_ui_editor",
+          "to": "b_dom_cleanup",
+          "label": "оценить качество, предложить правки, показать разницу",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_editor",
+          "to": "b_dom_library",
+          "label": "сохранить правки (заменить главы), перейти к странице",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_data_db",
+          "label": "сохранить книгу",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "новые главы и абзацы",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_fetch",
+          "label": "убрать из кэша аудио удалённых предложений",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_data_cache",
+          "label": "удалить записи кэша",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_editor",
+          "label": "главы, абзацы, качество",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_ui_editor",
+          "label": "страницы PDF (для постраничных книг)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_editor",
+          "label": "ключ Gemini (ИИ-очистка)",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_editor",
+          "to": "b_dom_audio",
+          "label": "остановить озвучку на время правки",
+          "kind": "call"
+        },
+        {
+          "from": "b_state_player",
+          "to": "b_ui_editor",
+          "label": "статус плеера",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_editor",
+          "to": "b_dom_pdf",
+          "label": "пересчитать главы и страницы (постраничные книги)",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_editor",
+          "label": "редактор книги (вставка лица зоны)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_cleanup",
+          "to": "b_dom_tokenize",
+          "label": "пересобрать предложения после правок",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_audio",
+        "z_player",
+        "z_library",
+        "z_shell",
+        "z_settings"
+      ]
+    },
+    {
+      "id": "sc_quality",
+      "title": "Оценка качества и уведомление",
+      "desc": "При открытии книги и при распознавании PDF «Очистка» оценивает качество; Менеджер записывает уведомление в состояние книги, экран редактора показывает его, «Исправить» открывает редактор, после показа уведомление снимается.",
+      "cols": {
+        "b_dom_library": 2,
+        "b_dom_cleanup": 0,
+        "b_state_book": 2,
+        "b_ui_editor": 2,
+        "b_dom_pdf": 1,
+        "b_state_paged": 1,
+        "b_ui_router": 0
+      },
+      "edges": [
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_cleanup",
+          "label": "оценить качество книги при открытии",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "записать уведомление о качестве",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_editor",
+          "label": "уведомление о качестве",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_editor",
+          "to": "b_dom_library",
+          "label": "снять уведомление",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "открыть PDF-книгу: запустить распознавание страниц",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_dom_cleanup",
+          "label": "оценить качество распознанных страниц",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_state_paged",
+          "label": "качество распознавания",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_paged",
+          "to": "b_dom_library",
+          "label": "качество, страницы",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_editor",
+          "label": "уведомление о качестве (вставка в оболочку)",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_library",
+        "z_shell"
+      ]
+    },
+    {
+      "id": "sc_dictionary",
+      "title": "Словарь замен и произношения",
+      "desc": "Окно словаря меняет правила командами настроек. Озвучка применяет их к тексту при синтезе, и правила входят в ключ кэша; токенизация и открытие книги берут правила из состояния, PDF-сессия пересчитывает предложения, когда правила изменились. Замечание: правила и ключ кэша сейчас считают два блока (Оркестратор и Поставщик) — повод отдать это одному.",
+      "cols": {
+        "b_ui_dictionary": 0,
+        "b_dom_settings": 0,
+        "b_state_settings": 0,
+        "b_state_book": 0,
+        "b_dom_audio": 0,
+        "b_dom_fetch": 0,
+        "b_dom_pdf": 0,
+        "b_dom_library": 0,
+        "b_ui_router": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_dictionary",
+          "to": "b_dom_settings",
+          "label": "добавить, удалить, переключить правило",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_state_settings",
+          "label": "записать правила",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_dictionary",
+          "label": "правила",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_book",
+          "to": "b_ui_dictionary",
+          "label": "текущая книга (правила книги)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_audio",
+          "label": "замены при озвучке",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_fetch",
+          "label": "замены (входят в ключ кэша)",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_pdf",
+          "label": "правила изменились: пересчитать предложения",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_library",
+          "label": "правила при открытии книги",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_dictionary",
+          "label": "окно словаря (вставка лица зоны)",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_player",
+        "z_library",
+        "z_settings",
+        "z_shell",
+        "z_audio"
       ]
     },
     {
@@ -437,10 +1409,10 @@
       "cols": {
         "b_ui_router": 0,
         "b_ui_settings": 0,
-        "b_ui_header": 1,
         "b_dom_settings": 0,
-        "b_state_settings": 0,
+        "b_ui_header": 1,
         "b_ui_library": 0,
+        "b_state_settings": 0,
         "b_ui_play": 0,
         "b_dom_fetch": 0
       },
@@ -521,11 +1493,258 @@
       ]
     },
     {
+      "id": "sc_voices",
+      "title": "Выбор голоса, модели и проверка озвучки",
+      "desc": "Окно настроек просит каталог провайдеров, голосов и моделей (OpenRouter) и кнопку «Тест озвучки». Каталог и пробный синтез идут через Поставщика озвучки, звук пробной фразы играет Оркестратор — единственный вывод звука. Сейчас окно настроек зовёт адаптеры напрямую и проигрывает пробный звук своим Audio.",
+      "cols": {
+        "b_ui_settings": 0,
+        "b_dom_settings": 0,
+        "b_state_settings": 0,
+        "b_dom_fetch": 0,
+        "b_infra_router": 0,
+        "b_dom_audio": 0,
+        "b_infra_audioel": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_settings",
+          "to": "b_dom_settings",
+          "label": "изменить настройку, проверить озвучку",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_state_settings",
+          "label": "записать",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_settings",
+          "label": "текущие значения",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_dom_fetch",
+          "label": "проверить озвучку (разовый синтез)",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_infra_router",
+          "label": "синтез пробной фразы",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_router",
+          "to": "b_dom_fetch",
+          "label": "аудио пробной фразы",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_dom_settings",
+          "label": "аудио пробной фразы",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_dom_fetch",
+          "label": "каталог: провайдеры, голоса, модели",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_infra_router",
+          "label": "голоса и модели провайдеров",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_dom_audio",
+          "label": "сыграть пробный звук",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_dom_audio",
+          "to": "b_infra_audioel",
+          "label": "пробный звук",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_dom_fetch",
+          "label": "ключи, адрес агрегатора (для каталога и пробы)",
+          "kind": "data"
+        }
+      ],
+      "zoneOrder": [
+        "z_audio",
+        "z_settings",
+        "z_player"
+      ]
+    },
+    {
+      "id": "sc_net",
+      "title": "Прокси и перезапуск (десктоп)",
+      "desc": "Окно настроек отдаёт прокси команде настроек; она записывает значение и просит адаптер сохранить его в оболочке десктопа и перезапустить приложение. Сейчас окно настроек зовёт адаптер напрямую.",
+      "cols": {
+        "b_ui_settings": 0,
+        "b_dom_settings": 0,
+        "b_state_settings": 0,
+        "b_infra_proxy": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_settings",
+          "to": "b_dom_settings",
+          "label": "изменить настройку, проверить озвучку",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_state_settings",
+          "label": "записать",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_settings",
+          "to": "b_ui_settings",
+          "label": "текущие значения",
+          "kind": "data"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_infra_proxy",
+          "label": "сохранить прокси в оболочке и перезапустить",
+          "kind": "call",
+          "planned": true
+        }
+      ],
+      "zoneOrder": [
+        "z_settings"
+      ]
+    },
+    {
+      "id": "sc_cloud",
+      "title": "Облачная озвучка и баланс",
+      "desc": "Платная облачная озвучка: провайдер сообщает остаток баланса или нехватку средств, Поставщик передаёт это Аккаунту, тот единственный меняет баланс и ходит к серверу; шапка и окно пополнения показывают баланс из состояния; оплата создаётся через Аккаунт. Сейчас эта логика живёт внутри userStore и облачного провайдера.",
+      "cols": {
+        "b_dom_fetch": 0,
+        "b_infra_router": 0,
+        "b_dom_account": 0,
+        "b_state_user": 0,
+        "b_ui_header": 0,
+        "b_ui_topup": 0,
+        "b_ui_router": 1,
+        "b_infra_server": 0,
+        "b_ui_settings": 0
+      },
+      "edges": [
+        {
+          "from": "b_dom_fetch",
+          "to": "b_infra_router",
+          "label": "синтез у провайдера",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_router",
+          "to": "b_dom_fetch",
+          "label": "аудио, остаток баланса | нехватка средств (402)",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_dom_account",
+          "label": "остаток баланса / нужно пополнить",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_dom_account",
+          "to": "b_state_user",
+          "label": "записать баланс, признак «нужно пополнить»",
+          "kind": "write",
+          "planned": true
+        },
+        {
+          "from": "b_state_user",
+          "to": "b_ui_header",
+          "label": "баланс",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_user",
+          "to": "b_ui_topup",
+          "label": "баланс, адрес сервера",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_user",
+          "to": "b_ui_router",
+          "label": "нужно пополнить: открыть окно",
+          "kind": "data",
+          "planned": true
+        },
+        {
+          "from": "b_ui_topup",
+          "to": "b_dom_account",
+          "label": "создать платёж (пакет)",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_dom_account",
+          "to": "b_infra_server",
+          "label": "регистрация, баланс, платёж",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_infra_server",
+          "to": "b_dom_account",
+          "label": "ответ сервера",
+          "kind": "return",
+          "planned": true
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_dom_account",
+          "label": "обновить баланс при старте",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_state_user",
+          "to": "b_ui_settings",
+          "label": "баланс",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_ui_topup",
+          "label": "окно пополнения (вставка лица зоны)",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_shell",
+        "z_account",
+        "z_audio",
+        "z_settings"
+      ]
+    },
+    {
       "id": "sc_phrases",
       "title": "Фразы книги (внутри зоны «Библиотека и книги»)",
       "desc": "Менеджер книги по запросу Координатора отдаёт следующую фразу: поставщик фраз берёт текст из книги и готовность страниц из состояния. Снаружи зоны этого не видно: Координатору приходит только «фраза | ждём страницу | конец».",
       "cols": {
-        "b_dom_library": 0,
+        "b_dom_library": 1,
         "b_dom_source": 0,
         "b_state_book": 0,
         "b_state_paged": 1
@@ -564,6 +1783,100 @@
       ],
       "zoneOrder": [
         "z_library"
+      ]
+    },
+    {
+      "id": "sc_delete",
+      "title": "Закрытие и удаление книги",
+      "desc": "Закрытие: Менеджер сообщает Координатору (стоп), сохраняет прогресс, закрывает PDF-сессию, чистит состояние. Удаление: убирает книгу и страницы PDF из базы и просит Поставщика озвучки удалить аудиокэш книги.",
+      "cols": {
+        "b_ui_library": 1,
+        "b_dom_library": 1,
+        "b_dom_coord": 0,
+        "b_dom_audio": 0,
+        "b_dom_pdf": 0,
+        "b_data_pdf": 0,
+        "b_data_db": 1,
+        "b_dom_fetch": 0,
+        "b_data_cache": 0,
+        "b_state_book": 1,
+        "b_ui_router": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_library",
+          "to": "b_dom_library",
+          "label": "удалить книгу",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_coord",
+          "label": "книга закрывается",
+          "kind": "event"
+        },
+        {
+          "from": "b_dom_coord",
+          "to": "b_dom_audio",
+          "label": "стоп",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "закрыть PDF-сессию",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_pdf",
+          "label": "удалить сохранённые страницы книги",
+          "kind": "call",
+          "planned": true
+        },
+        {
+          "from": "b_dom_pdf",
+          "to": "b_data_pdf",
+          "label": "удалить страницы книги",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_data_db",
+          "label": "сохранить прогресс, удалить книгу и страницы PDF",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_dom_fetch",
+          "label": "удалить аудиокэш книги",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_fetch",
+          "to": "b_data_cache",
+          "label": "удалить записи кэша книги",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "сбросить книгу и позицию, обновить список",
+          "kind": "write"
+        },
+        {
+          "from": "b_ui_router",
+          "to": "b_dom_library",
+          "label": "закрыть книгу (кнопка «Назад» в шапке)",
+          "kind": "call"
+        }
+      ],
+      "zoneOrder": [
+        "z_player",
+        "z_coord",
+        "z_library",
+        "z_audio",
+        "z_shell"
       ]
     }
   ],
@@ -613,7 +1926,8 @@
         "selectChapter",
         "goToPage",
         "setViewPage",
-        "stepPhrase"
+        "stepPhrase",
+        "reparsePdfBook"
       ],
       "summary": "Управляет книгами: открытие, сохранение, удаление, сохранение прогресса. Владелец состояния st_book и таблицы db.books. Единственный вход зоны и владелец состояния «книга и позиция»: открывает и сохраняет книги, принимает навигацию (предложение, глава, страница, шаг), сам двигает позицию и сохраняет прогресс. Отдаёт фразу или «ждём страницу / конец» и сообщает Координатору о внешних переходах.",
       "res": [
@@ -640,7 +1954,15 @@
       "res": [
         "res_settingsStore"
       ],
-      "zone": "z_library"
+      "zone": "z_library",
+      "files": [
+        "src/engine/parsers/epubParser.ts",
+        "src/engine/parsers/fb2Parser.ts",
+        "src/engine/parsers/foliateParser.ts",
+        "src/engine/parsers/htmlUtil.ts",
+        "src/engine/parsers/pdfParser.ts",
+        "src/engine/parsers/txtParser.ts"
+      ]
     },
     "b_data_db": {
       "title": "База данных книг (Dexie)",
@@ -671,7 +1993,13 @@
         "res_settingsStore"
       ],
       "flow": "f_dom_audio",
-      "zone": "z_player"
+      "zone": "z_player",
+      "files": [
+        "src/engine/audio/playerState.ts"
+      ],
+      "api": [
+        "*"
+      ]
     },
     "b_dom_tokenize": {
       "title": "Токенизатор предложений",
@@ -705,9 +2033,21 @@
       "file": "src/infra/audio/htmlAudioPlayer.ts",
       "line": 33,
       "symbol": "setupAudioBuffer",
-      "summary": "Низкоуровневый плеер: играет звук, сообщает координатору started / ended.",
+      "summary": "Единственный, кто трогает HTMLAudioElement и WebAudio: грузит буфер, играет, ставит паузу, скорость, громкость, подаёт сигнал главы. Про книги и очередь не знает; о конце и ошибке сообщает событием.",
       "flow": "f_infra_audioel",
-      "zone": "z_player"
+      "zone": "z_player",
+      "files": [
+        "src/infra/audio/chime.ts"
+      ],
+      "api": [
+        "setupAudioBuffer",
+        "play",
+        "pause",
+        "stop",
+        "setSpeed",
+        "setVolume",
+        "playChime"
+      ]
     },
     "b_infra_router": {
       "title": "TTS-провайдеры (адаптеры)",
@@ -722,7 +2062,21 @@
       "res": [
         "res_settingsStore"
       ],
-      "zone": "z_audio"
+      "zone": "z_audio",
+      "files": [
+        "src/engine/providers/geminiTts.ts",
+        "src/engine/providers/edgeTts.ts",
+        "src/engine/providers/elevenLabsTts.ts",
+        "src/engine/providers/cloudTts.ts",
+        "src/engine/providers/webSpeech.ts",
+        "src/engine/providers/openaiTts.ts",
+        "src/engine/providers/index.ts"
+      ],
+      "api": [
+        "synthesize",
+        "getProvider",
+        "getAllVoices"
+      ]
     },
     "b_state_player": {
       "title": "Статус плеера",
@@ -763,13 +2117,37 @@
       "file": "src/engine/pdf/pagedSession.ts",
       "line": 515,
       "symbol": "openPagedSession",
-      "summary": "Открывает постраничную сессию, планирует распознавание окнами, поднимает приоритет нужной страницы, отдаёт готовые страницы PDF-экрану.",
+      "summary": "Сессия постраничного PDF: открывает книгу, читает сохранённые страницы, планирует распознавание «скользящим окном» от фокусной, запускает движки, чистит и собирает страницы в абзацы, предложения и главы, публикует прогресс. Владелец состояния «прогресс распознавания» и таблицы страниц.",
       "flow": "f_dom_pdf",
       "res": [
         "res_settingsStore",
-        "res_booksDb"
+        "res_booksDb",
+        "res_pdfPages"
       ],
-      "zone": "z_library"
+      "zone": "z_library",
+      "files": [
+        "src/engine/pdf/pageScheduler.ts",
+        "src/engine/pdf/pageCompose.ts",
+        "src/engine/pdf/pageClean.ts",
+        "src/engine/pdf/textLayout.ts",
+        "src/engine/pdf/chapterPlan.ts",
+        "src/engine/pdf/runningHeaders.ts",
+        "src/engine/pdf/pageSentences.ts",
+        "src/engine/pdf/createPagedBook.ts",
+        "src/engine/pdf/engineChoice.ts"
+      ],
+      "api": [
+        "openPagedSession",
+        "closePagedSession",
+        "setFocusPage",
+        "bumpNavNonce",
+        "planFromHeadings",
+        "planFromOutline",
+        "planChapters",
+        "normalizeBlockText",
+        "finalizePageBlocks",
+        "createPagedPdfBook"
+      ]
     },
     "b_dom_fetch": {
       "title": "Поставщик озвучки (кэш + синтез)",
@@ -792,7 +2170,12 @@
         "getOrFetchAudio",
         "synthesizeOnce",
         "prepareAudio",
-        "cancelPrepare"
+        "cancelPrepare",
+        "deleteAudioCacheForBook",
+        "purgeOrphanAudioCache"
+      ],
+      "files": [
+        "src/engine/audio/cacheKey.ts"
       ]
     },
     "b_ui_play": {
@@ -884,7 +2267,8 @@
         "onFailed",
         "onWantPlay",
         "onStopped",
-        "onExternalMove"
+        "onExternalMove",
+        "applyLiveSettings"
       ],
       "summary": "Приводит плеер в соответствие с тем, где мы читаем. Узнаёт у Менеджера книги фразу, собирает задание (параметры у Настроек), даёт Поставщику «приготовь/отмени», Оркестратору «играй это». Позицию не хранит и не меняет. Реагирует на события: Оркестратор (закончил, не получилось, остановлен, хочу играть) и Менеджер (переход, страница готова).",
       "flow": "f_dom_coord",
@@ -969,7 +2353,9 @@
         "src/components/reader/PdfBookView.tsx",
         "src/components/reader/Sentence.tsx",
         "src/components/reader/ChapterSidebar.tsx",
-        "src/components/reader/PagedBookBar.tsx"
+        "src/components/reader/PagedBookBar.tsx",
+        "src/components/reader/readerScroll.tsx",
+        "src/components/reader/FootnoteModal.tsx"
       ],
       "summary": "Показывает книгу (текст или PDF, ему всё равно) и главы. Из состояния берёт, какое предложение подсветить. Свои события (клик по предложению, выбор главы или страницы) отдаёт Менеджеру книги. Состояние не меняет.",
       "res": [
@@ -979,18 +2365,172 @@
       "zone": "z_library",
       "api": [
         "BookScreen",
-        "ChapterSidebar"
+        "ChapterSidebar",
+        "FootnoteModal"
       ]
+    },
+    "b_dom_account": {
+      "title": "Аккаунт и баланс",
+      "layer": "Domain",
+      "file": "src/engine/account.ts",
+      "line": 1,
+      "symbol": "ensureRegistered",
+      "planned": true,
+      "zone": "z_account",
+      "summary": "Единственный, кто ходит к серверу AIBookReader и меняет состояние «пользователь и баланс»: регистрация, токен, баланс, создание платежа, авторизованные запросы. Остальные просят его. Сейчас эта логика живёт внутри userStore."
+    },
+    "b_infra_server": {
+      "title": "Сервер AIBookReader (адаптер)",
+      "layer": "Infra",
+      "file": "src/infra/serverApi.ts",
+      "line": 1,
+      "symbol": "serverFetch",
+      "planned": true,
+      "zone": "z_account",
+      "summary": "Адаптер к серверу: регистрация, баланс, платежи (ЮKassa), облачная озвучка, удалённый разбор PDF. Ответственный — Аккаунт; другие блоки к нему не ходят напрямую."
+    },
+    "b_state_user": {
+      "title": "Пользователь и баланс",
+      "layer": "State",
+      "file": "src/store/userStore.ts",
+      "line": 23,
+      "symbol": "useUserStore",
+      "slice": "st_user",
+      "zone": "z_account",
+      "summary": "Идентификатор, токен, баланс, адрес сервера. Хранит и не решает; владелец — Аккаунт."
+    },
+    "b_ui_topup": {
+      "title": "Окно пополнения баланса",
+      "layer": "UI",
+      "file": "src/components/billing/TopUpModal.tsx",
+      "line": 37,
+      "symbol": "TopUpModal",
+      "zone": "z_account",
+      "summary": "Лицо зоны «Аккаунт»: показывает баланс и пакеты, просит создать платёж и ведёт на оплату в ЮKassa."
+    },
+    "b_ui_dictionary": {
+      "title": "Окно словаря замен и произношения",
+      "layer": "UI",
+      "file": "src/components/dictionary/DictionaryModal.tsx",
+      "line": 14,
+      "symbol": "DictionaryModal",
+      "zone": "z_settings",
+      "summary": "Лицо зоны «Настройки»: правила замен и произношения (общие и для книги). Правила меняются командами настроек; озвучка, токенизация и PDF-сессия подхватывают их из состояния."
+    },
+    "b_infra_proxy": {
+      "title": "Прокси (мост к оболочке десктопа)",
+      "layer": "Infra",
+      "file": "src/engine/proxy/proxyManager.ts",
+      "line": 22,
+      "symbol": "setDesktopProxy",
+      "zone": "z_settings",
+      "summary": "Сохраняет прокси и перезапускает приложение через Tauri. Про настройки не знает; зовёт его команда настроек."
+    },
+    "b_dom_cleanup": {
+      "title": "Очистка и качество текста",
+      "layer": "Domain",
+      "file": "src/engine/cleanup/pipeline.ts",
+      "line": 111,
+      "symbol": "planCleanup",
+      "files": [
+        "src/engine/cleanup/index.ts",
+        "src/engine/cleanup/quality.ts",
+        "src/engine/cleanup/chapters.ts",
+        "src/engine/cleanup/shiftedCyrillic.ts",
+        "src/engine/cleanup/textOps.ts",
+        "src/engine/cleanup/draftOps.ts",
+        "src/engine/cleanup/bookModel.ts",
+        "src/engine/cleanup/aiCleanup.ts",
+        "src/engine/cleanup/markdown.ts",
+        "src/engine/cleanup/types.ts",
+        "src/engine/cleanup/draftChapters.ts",
+        "src/engine/cleanup/diff.ts",
+        "src/engine/cleanup/bookQuality.ts"
+      ],
+      "zone": "z_library",
+      "summary": "Оценивает качество текста книги, находит проблемные абзацы и главы, чинит разметку и «сдвинутую кириллицу», строит план очистки и применяет его к черновику. Про экраны и базу не знает.",
+      "api": [
+        "*"
+      ]
+    },
+    "b_ui_editor": {
+      "title": "Редактор книги",
+      "layer": "UI",
+      "file": "src/components/editor/BookEditor.tsx",
+      "line": 82,
+      "symbol": "BookEditor",
+      "files": [
+        "src/components/editor/PagedBookEditor.tsx",
+        "src/components/editor/ChaptersPanel.tsx",
+        "src/components/editor/CleanupPanel.tsx",
+        "src/components/editor/DiffView.tsx",
+        "src/components/editor/ParagraphRow.tsx",
+        "src/components/editor/QualityPanel.tsx",
+        "src/components/editor/SearchPanel.tsx",
+        "src/components/editor/QualityWatcher.tsx"
+      ],
+      "api": [
+        "BookEditor",
+        "QualityWatcher"
+      ],
+      "zone": "z_library",
+      "summary": "Лицо зоны книги для правки: абзацы, главы, поиск и замена, очистка с разницей, оценка качества; уведомление о низком качестве. Сохраняет правки через Менеджера книги, состояние сам не меняет."
+    },
+    "b_ui_pdfdialogs": {
+      "title": "Диалоги выбора и перераспознавания PDF",
+      "layer": "UI",
+      "file": "src/components/reader/PdfRecognitionModal.tsx",
+      "line": 25,
+      "symbol": "PdfRecognitionModal",
+      "files": [
+        "src/components/reader/RerecognizeDialog.tsx"
+      ],
+      "api": [
+        "PdfRecognitionModal",
+        "RerecognizeDialog"
+      ],
+      "zone": "z_library",
+      "summary": "Выбор способа распознавания при загрузке PDF и перераспознавание страниц другим движком. Команды отдаёт Менеджеру книги."
+    },
+    "b_infra_recog": {
+      "title": "Движки распознавания PDF",
+      "layer": "Infra",
+      "file": "src/engine/pdf/recognizers.ts",
+      "line": 126,
+      "symbol": "recognizePages",
+      "files": [
+        "src/engine/parsers/pdfSidecar.ts",
+        "src/engine/pdf/pdfjsDoc.ts",
+        "src/engine/pdf/pdfjsPages.ts",
+        "src/engine/pdf/geminiPages.ts"
+      ],
+      "api": [
+        "*"
+      ],
+      "zone": "z_library",
+      "summary": "Адаптеры к движкам: встроенный sidecar (Tauri, PyMuPDF), текстовый слой pdf.js, Gemini OCR. Отвечают результатом страницы, про книги и состояние не знают."
+    },
+    "b_data_pdf": {
+      "title": "Страницы PDF (Dexie)",
+      "layer": "Data",
+      "file": "src/storage/db.ts",
+      "line": 33,
+      "symbol": "pdfPages",
+      "res": [
+        "res_pdfPages"
+      ],
+      "zone": "z_library",
+      "summary": "Таблица распознанных страниц. Читает и пишет PDF-координатор."
     }
   },
   "resources": {
     "res_booksDb": {
-      "title": "db.books (IndexedDB)",
+      "title": "db.books и db.pdfFiles (IndexedDB)",
       "kind": "db",
-      "nodePattern": "\\.books\\b",
+      "nodePattern": "\\.(books|pdfFiles)\\b",
       "file": "src/storage/db.ts",
       "line": 31,
-      "pattern": "\\.books\\b",
+      "pattern": "\\.(books|pdfFiles)\\b",
       "note": "Таблица сохранённых книг и их глав в IndexedDB.",
       "owner": "b_dom_library"
     },
@@ -1019,6 +2559,16 @@
       "file": "src/store/settingsStore.ts",
       "line": 40,
       "note": "Провайдер, голос, ключи, словарь замен."
+    },
+    "res_pdfPages": {
+      "title": "db.pdfPages (IndexedDB)",
+      "kind": "db",
+      "file": "src/storage/db.ts",
+      "line": 33,
+      "pattern": "\\.pdfPages\\b",
+      "nodePattern": "\\.pdfPages\\b",
+      "owner": "b_dom_pdf",
+      "note": "Распознанные страницы PDF. Пишет и читает PDF-координатор."
     }
   },
   "functions": {
@@ -1112,7 +2662,9 @@
               330
             ]
           ],
-          "bind": []
+          "bind": [
+            "2af12666db#0"
+          ]
         },
         {
           "id": "c_key",
@@ -1127,7 +2679,7 @@
             ]
           ],
           "bind": [
-            "0f67c0cd20#0"
+            "2af12666db#0"
           ]
         },
         {
@@ -1143,7 +2695,7 @@
             ]
           ],
           "bind": [
-            "d8f5a557d1#0"
+            "2af12666db#0"
           ]
         },
         {
@@ -1160,7 +2712,12 @@
           ],
           "bind": [
             "2af12666db#0",
-            "d2a09e65bf#0"
+            "d2a09e65bf#0",
+            "08a4f7cd38#0",
+            "b476bfdaf9#0",
+            "39e43bc8e8#0",
+            "c9d0403581#0",
+            "82e45e922c#0"
           ]
         },
         {
@@ -1177,11 +2734,9 @@
             ]
           ],
           "bind": [
-            "08a4f7cd38#0",
-            "b476bfdaf9#0",
-            "39e43bc8e8#0",
-            "c9d0403581#0",
-            "82e45e922c#0"
+            "d69d140ad3#0",
+            "08a4f7cd38#1",
+            "4fac579169#0"
           ]
         },
         {
@@ -1198,10 +2753,11 @@
             ]
           ],
           "bind": [
-            "d69d140ad3#0",
-            "08a4f7cd38#1",
-            "4fac579169#0",
-            "7ba203b23e#0"
+            "d8f593fd5d#0",
+            "9040317a66#0",
+            "3978a4146c#0",
+            "08a4f7cd38#2",
+            "7b982bacf6#0"
           ]
         },
         {
@@ -1217,8 +2773,7 @@
             ]
           ],
           "bind": [
-            "d8f593fd5d#0",
-            "9040317a66#0"
+            "7ba203b23e#1"
           ]
         },
         {
@@ -1235,10 +2790,9 @@
             ]
           ],
           "bind": [
-            "3978a4146c#0",
-            "08a4f7cd38#2",
-            "7b982bacf6#0",
-            "7ba203b23e#1"
+            "f3e23a10ef#0",
+            "e4cb99264b#0",
+            "1af438b76f#0"
           ]
         },
         {
@@ -1253,11 +2807,7 @@
               384
             ]
           ],
-          "bind": [
-            "f3e23a10ef#0",
-            "e4cb99264b#0",
-            "1af438b76f#0"
-          ]
+          "bind": []
         },
         {
           "id": "e_ok",
@@ -1276,8 +2826,8 @@
             ]
           ],
           "bind": [
-            "7ba203b23e#0",
-            "7ba203b23e#1"
+            "7b982bacf6#0",
+            "1af438b76f#0"
           ]
         }
       ],
@@ -1340,6 +2890,9 @@
           "to": "e_fail",
           "label": "Сбой"
         }
+      ],
+      "scenarios": [
+        "sc_tts"
       ]
     },
     "f_audio_intent": {
@@ -1358,7 +2911,12 @@
               69
             ]
           ],
-          "bind": []
+          "bind": [
+            "783182f916#1",
+            "067712da07#0",
+            "08a4f7cd38#2",
+            "ebae2bfa67#0"
+          ]
         },
         {
           "id": "c1",
@@ -1373,9 +2931,8 @@
             ]
           ],
           "bind": [
-            "fd39643fbe#0",
-            "25e4bef4a9#0",
-            "d6cb400a92#0"
+            "633b991218#0",
+            "6422d9de66#0"
           ]
         },
         {
@@ -1390,10 +2947,7 @@
               71
             ]
           ],
-          "bind": [
-            "25e4bef4a9#0",
-            "d6cb400a92#0"
-          ]
+          "bind": []
         },
         {
           "id": "c2",
@@ -1408,8 +2962,7 @@
             ]
           ],
           "bind": [
-            "6f131455af#0",
-            "e428b27438#0"
+            "d370bb7285#0"
           ]
         },
         {
@@ -1425,9 +2978,7 @@
             ]
           ],
           "bind": [
-            "08a4f7cd38#0",
-            "e5ef59c3c9#0",
-            "783182f916#0"
+            "d370bb7285#0"
           ]
         },
         {
@@ -1445,11 +2996,8 @@
             ]
           ],
           "bind": [
-            "08a4f7cd38#1",
-            "8eb3ac5d73#0",
-            "65398891a7#0",
-            "54ac59bf1b#0",
-            "ba66106480#0"
+            "d370bb7285#0",
+            "e62f344a0b#0"
           ]
         },
         {
@@ -1465,19 +3013,8 @@
             ]
           ],
           "bind": [
-            "54ac59bf1b#0",
-            "ba66106480#0"
+            "d370bb7285#0"
           ]
-        },
-        {
-          "id": "n0",
-          "t": "step",
-          "label": "Проверить баланс (платный TTS)",
-          "col": 0,
-          "row": 4,
-          "covers": [],
-          "bind": [],
-          "impl": "src/engine/providers/cloudTts.ts#CloudTTSProvider.synthesize"
         },
         {
           "id": "n1",
@@ -1493,13 +3030,7 @@
               103
             ]
           ],
-          "bind": [
-            "067712da07#0",
-            "08a4f7cd38#2",
-            "ebae2bfa67#0",
-            "633b991218#0",
-            "6422d9de66#0"
-          ],
+          "bind": [],
           "block": "b_infra_router"
         },
         {
@@ -1514,9 +3045,7 @@
               104
             ]
           ],
-          "bind": [
-            "8679c29c03#0"
-          ]
+          "bind": []
         },
         {
           "id": "e4",
@@ -1530,9 +3059,7 @@
               105
             ]
           ],
-          "bind": [
-            "f444a6ac70#0"
-          ]
+          "bind": []
         },
         {
           "id": "n3",
@@ -1548,9 +3075,7 @@
               120
             ]
           ],
-          "bind": [
-            "d370bb7285#0"
-          ]
+          "bind": []
         },
         {
           "id": "e",
@@ -1564,9 +3089,7 @@
               122
             ]
           ],
-          "bind": [
-            "e62f344a0b#0"
-          ]
+          "bind": []
         },
         {
           "id": "c4",
@@ -1580,9 +3103,7 @@
               94
             ]
           ],
-          "bind": [
-            "783182f916#1"
-          ]
+          "bind": []
         },
         {
           "id": "e5",
@@ -1596,9 +3117,7 @@
               94
             ]
           ],
-          "bind": [
-            "783182f916#1"
-          ]
+          "bind": []
         }
       ],
       "edges": [
@@ -1632,10 +3151,6 @@
           "label": "Да"
         },
         {
-          "from": "n0",
-          "to": "n1"
-        },
-        {
           "from": "n1",
           "to": "n2"
         },
@@ -1665,9 +3180,13 @@
         },
         {
           "from": "c4",
-          "to": "n0",
+          "to": "n1",
           "label": "Нет"
         }
+      ],
+      "partial": true,
+      "scenarios": [
+        "sc_tts"
       ]
     },
     "f_dom_audio": {
@@ -1857,7 +3376,7 @@
         {
           "id": "n_try",
           "t": "step",
-          "label": "Войти в защищённый блок: сбой уйдёт в onFailed",
+          "label": "Начать озвучку (любой сбой уйдёт в событие «не получилось»)",
           "col": 0,
           "row": 0.5,
           "covers": [
@@ -1926,6 +3445,10 @@
           "from": "n_try",
           "to": "c_intro"
         }
+      ],
+      "partial": true,
+      "scenarios": [
+        "sc_tts"
       ]
     },
     "f_dom_source": {
@@ -2286,6 +3809,9 @@
           "from": "n_nx",
           "to": "p1"
         }
+      ],
+      "scenarios": [
+        "sc_phrases"
       ]
     },
     "f_dom_pdf": {
@@ -2465,7 +3991,10 @@
           "to": "n_start"
         }
       ],
-      "partial": true
+      "partial": true,
+      "scenarios": [
+        "sc_open"
+      ]
     },
     "f_dom_tokenize": {
       "title": "Токенизация текста на предложения",
@@ -2688,6 +4217,9 @@
           "from": "n_init",
           "to": "c_intl"
         }
+      ],
+      "scenarios": [
+        "sc_open"
       ]
     },
     "f_infra_audioel": {
@@ -2706,9 +4238,7 @@
               42
             ]
           ],
-          "bind": [
-            "bdc62fc61f#0"
-          ]
+          "bind": []
         },
         {
           "id": "c_el",
@@ -2722,10 +4252,7 @@
               43
             ]
           ],
-          "bind": [
-            "772e273af5#0",
-            "042a136cd3#0"
-          ]
+          "bind": []
         },
         {
           "id": "e_noel",
@@ -2739,10 +4266,7 @@
               43
             ]
           ],
-          "bind": [
-            "772e273af5#0",
-            "042a136cd3#0"
-          ]
+          "bind": []
         },
         {
           "id": "c_old",
@@ -2756,10 +4280,7 @@
               44
             ]
           ],
-          "bind": [
-            "66014cd2da#0",
-            "7c1dca5e22#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_revoke",
@@ -2773,10 +4294,7 @@
               44
             ]
           ],
-          "bind": [
-            "66014cd2da#0",
-            "7c1dca5e22#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_blob",
@@ -2791,9 +4309,7 @@
               45
             ]
           ],
-          "bind": [
-            "05f625ef82#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_apply",
@@ -2807,9 +4323,7 @@
               48
             ]
           ],
-          "bind": [
-            "05f625ef82#0"
-          ]
+          "bind": []
         }
       ],
       "edges": [
@@ -2845,6 +4359,10 @@
           "from": "n_blob",
           "to": "n_apply"
         }
+      ],
+      "partial": true,
+      "scenarios": [
+        "sc_tts"
       ]
     },
     "f_dom_coord": {
@@ -3085,66 +4603,74 @@
         {
           "from": "n_opts",
           "to": "n2"
+        },
+        {
+          "from": "c1",
+          "to": "n_req",
+          "label": "Да"
         }
       ],
-      "partial": true
+      "partial": true,
+      "scenarios": [
+        "sc_tts"
+      ]
     }
   },
   "approved": {
     "b_dom_fetch": {
       "codeHash": "55651ac571",
-      "schemaHash": "637b3b9111",
-      "at": "2026-10-14"
+      "schemaHash": "cd2834f199",
+      "at": "2026-10-15"
     },
     "b_dom_audio": {
       "codeHash": "cd0a6d6653",
-      "schemaHash": "67b17e85d6",
-      "at": "2026-10-14"
+      "schemaHash": "ff3604fc3e",
+      "at": "2026-10-15"
     },
     "b_dom_tokenize": {
       "codeHash": "67dea76532",
       "schemaHash": "1707c775dd",
-      "at": "2026-10-14"
+      "at": "2026-10-15"
     },
     "b_dom_source": {
       "codeHash": "e84dd8f0b2",
       "schemaHash": "3fbb96e81c",
-      "at": "2026-10-14"
+      "at": "2026-10-15"
     },
     "b_dom_pdf": {
       "codeHash": "ca1c56c39d",
       "schemaHash": "11c80c9f11",
-      "at": "2026-10-14"
+      "at": "2026-10-15"
     },
     "b_infra_router": {
       "codeHash": "04ea0cb757",
-      "schemaHash": "7ca362a8ea",
-      "at": "2026-10-13"
+      "schemaHash": "e3c4346ccd",
+      "at": "2026-10-15"
     },
     "b_infra_audioel": {
       "codeHash": "e49c65f48f",
-      "schemaHash": "f3074ea38f",
-      "at": "2026-10-14"
+      "schemaHash": "e9fc4eaa86",
+      "at": "2026-10-15"
     },
     "b_dom_coord": {
       "codeHash": "05b7c00f5b",
-      "schemaHash": "89423df3cb",
-      "at": "2026-10-14"
+      "schemaHash": "0d8048de78",
+      "at": "2026-10-15"
     }
   },
   "approvedBlocks": {
     "b_state_pos": "e1c56ee76b",
     "b_dom_tokenize": "8e7a6d65cc",
     "b_data_cache": "37ea9194ef",
-    "b_infra_audioel": "21ef53b7fe",
-    "b_infra_router": "a1115c2829",
+    "b_infra_audioel": "3511053120",
+    "b_infra_router": "736b7d588a",
     "b_state_player": "844c49386a",
-    "b_dom_audio": "c4e7291d64",
+    "b_dom_audio": "a8838e8442",
     "b_ui_router": "db3f964f7e",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
-    "b_dom_pdf": "bd5fbc9055",
-    "b_dom_fetch": "01c0566d00",
+    "b_dom_pdf": "efe199234d",
+    "b_dom_fetch": "ac2446020c",
     "b_ui_play": "738a0c76f5",
     "b_dom_source": "2da0fa62d1",
     "b_state_settings": "d8a99631a8",
@@ -3152,22 +4678,49 @@
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
     "b_state_paged": "27f3464a37",
-    "b_dom_coord": "cbe35a2613",
+    "b_dom_coord": "b1b8f4c724",
     "b_ui_library": "f9cb1077c0",
-    "b_dom_library": "493ff80697",
+    "b_dom_library": "546a76751d",
     "b_dom_parser": "6fabb3a9ca",
     "b_data_db": "37ea9194ef",
     "b_ui_header": "06df40c6db",
     "b_dom_settings": "3ab399afb8",
     "b_ui_settings": "d85ade3a69",
-    "b_ui_book": "b83e02bc99"
+    "b_ui_book": "2e84279a51",
+    "b_dom_account": "bed97175b0",
+    "b_infra_server": "bed97175b0",
+    "b_state_user": "75fd6a22bf",
+    "b_ui_topup": "b27d8c32e8",
+    "b_ui_dictionary": "dfef81b150",
+    "b_infra_proxy": "c1ae5ac416",
+    "b_dom_cleanup": "cd92512afe",
+    "b_ui_editor": "3a68b63a8e",
+    "b_ui_pdfdialogs": "367db55089",
+    "b_infra_recog": "22afe1c67c",
+    "b_data_pdf": "37ea9194ef"
   },
   "approvedScenarios": {
-    "sc_tts": "807d85ff91",
-    "sc_read": "e0f132e88f",
-    "sc_open": "965800cbf2",
-    "sc_settings": "43e6917adf",
-    "sc_phrases": "9d3621051a"
+    "sc_tts": "2d308a1277",
+    "sc_read": "99b66c113c",
+    "sc_open": "cb1650ca33",
+    "sc_settings": "bf4ca7bde7",
+    "sc_phrases": "48ba8d35a1",
+    "sc_start": "ceac7c8a16",
+    "sc_transport": "10a9b1a096",
+    "sc_navigate": "ae8f228070",
+    "sc_wait": "1669fca54b",
+    "sc_failure": "36d9488bac",
+    "sc_announce": "45cbec9b9c",
+    "sc_live": "d758811302",
+    "sc_pdf": "9babf8b7f7",
+    "sc_pdfchoice": "0174aa1054",
+    "sc_edit": "ec5286f9f0",
+    "sc_quality": "ddfe8f28cc",
+    "sc_dictionary": "689918eee1",
+    "sc_voices": "f4fe17ac0a",
+    "sc_net": "63057c5de7",
+    "sc_cloud": "49d7823b53",
+    "sc_delete": "d32cea30fd"
   },
   "riskAcks": {
     "11b0ba5a0a": {
@@ -3243,7 +4796,7 @@
       "title": "Пользователь и баланс",
       "store": "useUserStore",
       "all": true,
-      "owner": null,
+      "owner": "b_dom_account",
       "note": null
     }
   },
@@ -3277,6 +4830,11 @@
       "title": "Настройки",
       "head": "b_dom_settings",
       "note": "настройки читалки: значения, ключи, словарь замен"
+    },
+    "z_account": {
+      "title": "Аккаунт и облако",
+      "head": "b_dom_account",
+      "note": "регистрация, баланс, платёж; единственный ходит к серверу AIBookReader"
     }
   },
   "version": {
