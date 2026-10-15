@@ -225,8 +225,10 @@ observeBook({
   onBookClosing: () => stopAll(),
 });
 
-// Скорость и громкость применяются сразу
-useSettingsStore.subscribe((state, prev) => {
+/** Скорость и громкость применяются к играющему плееру сразу, остальные настройки подхватываются со следующим заданием */
+export function applyLiveSettings(state: ReturnType<typeof useSettingsStore.getState>, prev: typeof state): void {
   if (state.speed !== prev.speed) audioManager.setSpeed(state.speed);
   if (state.volume !== prev.volume) audioManager.setVolume(state.volume);
-});
+}
+
+useSettingsStore.subscribe(applyLiveSettings);

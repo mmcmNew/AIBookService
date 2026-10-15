@@ -4,7 +4,7 @@ import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAudioStore } from '../../store/audioStore';
 import { PlayerEvent, PlayerState, reducePlayer } from './playerState';
-import { playChime } from './chime';
+import { playChime } from '../../infra/audio/chime';
 import { htmlAudioPlayer } from '../../infra/audio/htmlAudioPlayer';
 import { buildCacheKey, buildChapterCacheKey } from './cacheKey';
 import {
