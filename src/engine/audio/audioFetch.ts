@@ -6,6 +6,9 @@ import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
 import { useSettingsStore } from '../../store/settingsStore';
 import { sniffAudioMime } from './mime';
 import { buildCacheKey } from './cacheKey';
+import { ensureRegistered, reRegister, reportBalance, requestTopUp } from '../account';
+import { useUserStore } from '../../store/userStore';
+import { AuthExpiredError, InsufficientFundsError } from '../providers/cloudTts';
 
 const MEMORY_CACHE_LIMIT = 40;
 
@@ -61,7 +64,7 @@ export async function getOrFetchAudio(
   }
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-  const request = getProvider(providerType).synthesize(speechText, { ...options, signal });
+  const request = executeSynthesis(providerType, speechText, options, signal);
   inflight.set(cacheKey, request);
   let audioBuffer: ArrayBuffer;
   try {
@@ -90,13 +93,62 @@ export async function getOrFetchAudio(
   return audioBuffer;
 }
 
+async function executeSynthesis(
+  providerType: TTSProviderType,
+  text: string,
+  options: SynthesisOptions,
+  signal?: AbortSignal
+): Promise<ArrayBuffer> {
+  if (providerType === 'cloud') {
+    await ensureRegistered();
+    const { serverUrl, token } = useUserStore.getState();
+    const cloudOptions: SynthesisOptions = {
+      ...options,
+      serverUrl,
+      token,
+      signal,
+    };
+    try {
+      const buffer = await getProvider('cloud').synthesize(text, cloudOptions);
+      const remaining = (buffer as any).remainingBalance;
+      if (typeof remaining === 'number') {
+        reportBalance(remaining);
+      }
+      return buffer;
+    } catch (err) {
+      if (err instanceof AuthExpiredError) {
+        const newAuth = await reRegister();
+        const retryOptions: SynthesisOptions = {
+          ...options,
+          serverUrl: useUserStore.getState().serverUrl,
+          token: newAuth.token,
+          signal,
+        };
+        const buffer = await getProvider('cloud').synthesize(text, retryOptions);
+        const remaining = (buffer as any).remainingBalance;
+        if (typeof remaining === 'number') {
+          reportBalance(remaining);
+        }
+        return buffer;
+      }
+      if (err instanceof InsufficientFundsError) {
+        requestTopUp();
+        throw err;
+      }
+      throw err;
+    }
+  }
+
+  return getProvider(providerType).synthesize(text, { ...options, signal });
+}
+
 /** Разовый синтез без кэша и очереди (проверка подключения в окне настроек). */
 export async function synthesizeOnce(
   providerType: TTSProviderType,
   text: string,
   options: SynthesisOptions
 ): Promise<ArrayBuffer> {
-  return getProvider(providerType).synthesize(text, options);
+  return executeSynthesis(providerType, text, options);
 }
 
 let prepareAbort: AbortController | null = null;

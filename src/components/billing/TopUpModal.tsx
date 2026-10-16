@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Check, CreditCard, ShieldCheck, Zap, Loader2 } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
+import { createPayment, confirmMockPayment } from '../../engine/account';
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { balance, createPayment, fetchBalance, authFetch } = useUserStore();
+  const balance = useUserStore((state) => state.balance);
 
   if (!isOpen) return null;
 
@@ -50,21 +51,12 @@ export const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose }) => {
       const confirmationUrl = await createPayment(selectedPack);
 
       // Если в dev-режиме вернулась ссылка с mock_payment_id
-      if (confirmationUrl.includes('mock_payment_id=')) {
+      if (typeof confirmationUrl === 'string' && confirmationUrl.includes('mock_payment_id=')) {
         const urlParams = new URL(confirmationUrl).searchParams;
         const mockId = urlParams.get('mock_payment_id');
         if (mockId) {
           // Симулируем подтверждение оплаты в локальной среде
-          const confirmRes = await authFetch('/api/payments/confirm-mock', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mockPaymentId: mockId }),
-          });
-          if (!confirmRes.ok) {
-            const err = await confirmRes.json().catch(() => null);
-            throw new Error(err?.error || `Не удалось подтвердить тестовый платёж (${confirmRes.status}).`);
-          }
-          await fetchBalance();
+          await confirmMockPayment(mockId);
           setIsLoading(false);
           onClose();
           return;

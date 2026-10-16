@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "npx tsx --test \"src/engine/cleanup/__tests__/*.test.ts\" \"src/engine/pdf/__tests__/*.test.ts\" \"src/engine/audio/*.test.ts\" \"src/engine/*.test.ts\" \"src/engine/providers/*.test.ts\"",
+    "test": "npx tsx --test \"src/engine/cleanup/__tests__/*.test.ts\" \"src/engine/pdf/__tests__/*.test.ts\" \"src/engine/audio/*.test.ts\" \"src/engine/*.test.ts\" \"src/engine/__tests__/*.test.ts\" \"src/engine/providers/*.test.ts\"",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",

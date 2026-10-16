@@ -1,5 +1,20 @@
 import { ITTSProvider, SynthesisOptions, VoiceOption } from '../../types/tts';
-import { useUserStore } from '../../store/userStore';
+
+export class InsufficientFundsError extends Error {
+  constructor(
+    message = 'Недостаточно символов на балансе. Пожалуйста, пополните баланс в настройках или переключитесь на другой движок озвучки.'
+  ) {
+    super(message);
+    this.name = 'InsufficientFundsError';
+  }
+}
+
+export class AuthExpiredError extends Error {
+  constructor(message = 'Сессия пользователя истекла (401).') {
+    super(message);
+    this.name = 'AuthExpiredError';
+  }
+}
 
 export const CLOUD_VOICES: VoiceOption[] = [
   { id: 'Aoede', name: 'Премиум: Aoede (Женский рассказчик)', lang: 'ru-RU', gender: 'female', provider: 'cloud' },
@@ -22,15 +37,19 @@ export class CloudTTSProvider implements ITTSProvider {
   }
 
   async synthesize(text: string, options: SynthesisOptions): Promise<ArrayBuffer> {
-    const { authFetch, updateBalance } = useUserStore.getState();
+    const serverUrl = options.serverUrl || 'http://localhost:4000';
     const voiceId = options.voiceId || 'Aoede';
 
-    // authFetch добавляет Authorization и при 401 один раз перерегистрируется.
-    const response = await authFetch('/api/tts/stream', {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (options.token) {
+      headers['Authorization'] = `Bearer ${options.token}`;
+    }
+
+    const response = await fetch(`${serverUrl}/api/tts/stream`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         text,
         voiceId,
@@ -38,12 +57,12 @@ export class CloudTTSProvider implements ITTSProvider {
       signal: options.signal,
     });
 
+    if (response.status === 401) {
+      throw new AuthExpiredError();
+    }
+
     if (response.status === 402) {
-      const data = await response.json().catch(() => null);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('open-topup-modal', { detail: data }));
-      }
-      throw new Error(`Недостаточно символов на балансе (нужно: ${text.length}). Пополните счет через ЮKassa.`);
+      throw new InsufficientFundsError();
     }
 
     if (!response.ok) {
@@ -51,13 +70,16 @@ export class CloudTTSProvider implements ITTSProvider {
       throw new Error(err?.error || `Ошибка Cloud сервера (${response.status})`);
     }
 
-    // Обновляем баланс из заголовков ответа
+    const buffer = await response.arrayBuffer();
     const remainingBalance = response.headers.get('X-Remaining-Balance');
-    if (remainingBalance) {
-      updateBalance(parseInt(remainingBalance, 10)); // NaN игнорируется стором
+    if (remainingBalance !== null) {
+      const parsed = parseInt(remainingBalance, 10);
+      if (!Number.isNaN(parsed)) {
+        (buffer as any).remainingBalance = parsed;
+      }
     }
 
-    return response.arrayBuffer();
+    return buffer;
   }
 }
 

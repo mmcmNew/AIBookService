@@ -13,6 +13,7 @@ import { BookEditor } from './components/editor/BookEditor';
 import { QualityWatcher } from './components/editor/QualityWatcher';
 import { useBookStore } from './store/bookStore';
 import { closeBook, loadSavedBooksList, setActiveFootnote } from './engine/library';
+import { fetchBalance, clearTopUpRequest } from './engine/account';
 import { useSettingsStore } from './store/settingsStore';
 import { useUserStore } from './store/userStore';
 
@@ -42,7 +43,7 @@ const AppShell: React.FC = () => {
   const currentBook = useBookStore((state) => state.currentBook);
   const activeFootnote = useBookStore((state) => state.activeFootnote);
   const theme = useSettingsStore((state) => state.theme);
-  const fetchBalance = useUserStore((state) => state.fetchBalance);
+  const topUpRequest = useUserStore((state) => state.topUpRequest);
 
   const hasBook = currentBook !== null;
 
@@ -59,13 +60,14 @@ const AppShell: React.FC = () => {
   useEffect(() => {
     void loadSavedBooksList();
     void fetchBalance();
-  }, [loadSavedBooksList, fetchBalance]);
-
-  useEffect(() => {
-    const handleOpenTopup = () => setIsTopUpOpen(true);
-    window.addEventListener('open-topup-modal', handleOpenTopup);
-    return () => window.removeEventListener('open-topup-modal', handleOpenTopup);
   }, []);
+
+  // Открытие окна пополнения по запросу из стора (через Аккаунт)
+  useEffect(() => {
+    if (topUpRequest) {
+      setIsTopUpOpen(true);
+    }
+  }, [topUpRequest]);
 
   // Закрываем оглавление при выходе из книги
   useEffect(() => {
@@ -86,6 +88,7 @@ const AppShell: React.FC = () => {
         setIsChaptersOpen(false);
         setIsDictionaryOpen(false);
         setIsTopUpOpen(false);
+        clearTopUpRequest();
         setActiveFootnote(null);
       }
     };
@@ -153,7 +156,13 @@ const AppShell: React.FC = () => {
       <QualityWatcher onOpenEditor={openEditor} />
 
       {/* Модальное окно пополнения баланса ЮKassa */}
-      <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
+      <TopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => {
+          setIsTopUpOpen(false);
+          clearTopUpRequest();
+        }}
+      />
     </div>
   );
 };

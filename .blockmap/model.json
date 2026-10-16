@@ -91,8 +91,7 @@
           "from": "b_ui_router",
           "to": "b_dom_account",
           "label": "обновить баланс при старте",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_state_user",
@@ -1684,15 +1683,13 @@
           "from": "b_dom_fetch",
           "to": "b_dom_account",
           "label": "остаток баланса / нужно пополнить",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_account",
           "to": "b_state_user",
           "label": "записать баланс, признак «нужно пополнить»",
-          "kind": "write",
-          "planned": true
+          "kind": "write"
         },
         {
           "from": "b_state_user",
@@ -1710,36 +1707,31 @@
           "from": "b_state_user",
           "to": "b_ui_router",
           "label": "нужно пополнить: открыть окно",
-          "kind": "data",
-          "planned": true
+          "kind": "data"
         },
         {
           "from": "b_ui_topup",
           "to": "b_dom_account",
           "label": "создать платёж (пакет), подтвердить тестовый платёж",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_account",
           "to": "b_infra_server",
           "label": "регистрация, баланс, платёж",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_infra_server",
           "to": "b_dom_account",
           "label": "ответ сервера",
-          "kind": "return",
-          "planned": true
+          "kind": "return"
         },
         {
           "from": "b_ui_router",
           "to": "b_dom_account",
           "label": "обновить баланс при старте",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_state_user",
@@ -1757,22 +1749,19 @@
           "from": "b_ui_settings",
           "to": "b_dom_account",
           "label": "попросить открыть пополнение",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_fetch",
           "to": "b_dom_account",
           "label": "убедиться, что пользователь зарегистрирован (облако)",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_state_user",
           "to": "b_dom_fetch",
           "label": "токен и адрес сервера для облачного синтеза",
-          "kind": "data",
-          "planned": true
+          "kind": "data"
         }
       ],
       "zoneOrder": [
@@ -2160,7 +2149,7 @@
       "title": "PDF-координатор",
       "layer": "Domain",
       "file": "src/engine/pdf/pagedSession.ts",
-      "line": 515,
+      "line": 527,
       "symbol": "openPagedSession",
       "summary": "Сессия постраничного PDF: открывает книгу, читает сохранённые страницы, планирует распознавание «скользящим окном» от фокусной, запускает движки, чистит и собирает страницы в абзацы, предложения и главы, публикует прогресс. Владелец состояния «прогресс распознавания» и таблицы страниц.",
       "flow": "f_dom_pdf",
@@ -2363,7 +2352,7 @@
       "title": "Настройки: команды",
       "layer": "Domain",
       "file": "src/engine/settings.ts",
-      "line": 12,
+      "line": 42,
       "symbol": "setOpenRouterModel",
       "members": [
         "setOpenRouterModel",
@@ -2448,9 +2437,30 @@
       "title": "Аккаунт и баланс",
       "layer": "Domain",
       "file": "src/engine/account.ts",
-      "line": 1,
+      "line": 19,
       "symbol": "ensureRegistered",
-      "planned": true,
+      "members": [
+        "ensureRegistered",
+        "reRegister",
+        "fetchBalance",
+        "createPayment",
+        "confirmMockPayment",
+        "reportBalance",
+        "requestTopUp",
+        "clearTopUpRequest",
+        "setServerUrl"
+      ],
+      "api": [
+        "ensureRegistered",
+        "reRegister",
+        "fetchBalance",
+        "createPayment",
+        "confirmMockPayment",
+        "reportBalance",
+        "requestTopUp",
+        "clearTopUpRequest",
+        "setServerUrl"
+      ],
       "zone": "z_account",
       "summary": "Единственный, кто ходит к серверу AIBookReader и меняет состояние «пользователь и баланс»: регистрация, токен, баланс, создание платежа, авторизованные запросы. Остальные просят его. Сейчас эта логика живёт внутри userStore."
     },
@@ -2458,9 +2468,22 @@
       "title": "Сервер AIBookReader (адаптер)",
       "layer": "Infra",
       "file": "src/infra/serverApi.ts",
-      "line": 1,
-      "symbol": "serverFetch",
-      "planned": true,
+      "line": 13,
+      "symbol": "registerUser",
+      "members": [
+        "ServerError",
+        "registerUser",
+        "getBalance",
+        "createPayment",
+        "confirmMockPayment"
+      ],
+      "api": [
+        "ServerError",
+        "registerUser",
+        "getBalance",
+        "createPayment",
+        "confirmMockPayment"
+      ],
       "zone": "z_account",
       "summary": "Адаптер к серверу AIBookReader: регистрация, баланс, создание платежа (ЮKassa). Решений не принимает и состояния не знает; ответственный — Аккаунт, другие блоки к нему не ходят. Облачный синтез остаётся в провайдере озвучки и получает токен параметром."
     },
@@ -2468,7 +2491,7 @@
       "title": "Пользователь и баланс",
       "layer": "State",
       "file": "src/store/userStore.ts",
-      "line": 23,
+      "line": 19,
       "symbol": "useUserStore",
       "slice": "st_user",
       "zone": "z_account",
@@ -3007,10 +3030,9 @@
             ]
           ],
           "bind": [
+            "ba66106480#0",
             "783182f916#1",
-            "067712da07#0",
-            "08a4f7cd38#2",
-            "ebae2bfa67#0"
+            "4317cfe686#0"
           ]
         },
         {
@@ -3026,8 +3048,8 @@
             ]
           ],
           "bind": [
-            "633b991218#0",
-            "6422d9de66#0"
+            "08a4f7cd38#2",
+            "ebae2bfa67#0"
           ]
         },
         {
@@ -3042,7 +3064,9 @@
               71
             ]
           ],
-          "bind": []
+          "bind": [
+            "ebae2bfa67#0"
+          ]
         },
         {
           "id": "c2",
@@ -3057,7 +3081,7 @@
             ]
           ],
           "bind": [
-            "d370bb7285#0"
+            "8679c29c03#0"
           ]
         },
         {
@@ -3073,6 +3097,7 @@
             ]
           ],
           "bind": [
+            "f444a6ac70#0",
             "d370bb7285#0"
           ]
         },
@@ -3911,9 +3936,7 @@
               516
             ]
           ],
-          "bind": [
-            "52c0ef248d#0"
-          ]
+          "bind": []
         },
         {
           "id": "c_paged",
@@ -3927,10 +3950,7 @@
               517
             ]
           ],
-          "bind": [
-            "c16bf32128#0",
-            "02f1cdb7b3#0"
-          ]
+          "bind": []
         },
         {
           "id": "e_err",
@@ -3944,10 +3964,7 @@
               517
             ]
           ],
-          "bind": [
-            "c16bf32128#0",
-            "02f1cdb7b3#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_init",
@@ -3961,9 +3978,7 @@
               519
             ]
           ],
-          "bind": [
-            "762d0e6e01#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_db",
@@ -4000,9 +4015,7 @@
               520
             ]
           ],
-          "bind": [
-            "762d0e6e01#0"
-          ]
+          "bind": []
         },
         {
           "id": "n_start",
@@ -4016,9 +4029,7 @@
               521
             ]
           ],
-          "bind": [
-            "762d0e6e01#0"
-          ]
+          "bind": []
         }
       ],
       "edges": [
@@ -4684,44 +4695,44 @@
   },
   "approved": {
     "b_dom_fetch": {
-      "codeHash": "55651ac571",
-      "schemaHash": "eb04b1a0dd",
-      "at": "2026-10-15"
+      "codeHash": "b1d93cc958",
+      "schemaHash": "62743c10e8",
+      "at": "2026-10-16"
     },
     "b_dom_audio": {
       "codeHash": "cd0a6d6653",
       "schemaHash": "da816438a2",
-      "at": "2026-10-15"
+      "at": "2026-10-16"
     },
     "b_dom_tokenize": {
       "codeHash": "67dea76532",
       "schemaHash": "1707c775dd",
-      "at": "2026-10-15"
+      "at": "2026-10-16"
     },
     "b_dom_source": {
       "codeHash": "e84dd8f0b2",
       "schemaHash": "e4b3e24e82",
-      "at": "2026-10-15"
+      "at": "2026-10-16"
     },
     "b_dom_pdf": {
       "codeHash": "ca1c56c39d",
-      "schemaHash": "11c80c9f11",
-      "at": "2026-10-15"
+      "schemaHash": "84d2c52c94",
+      "at": "2026-10-16"
     },
     "b_infra_router": {
       "codeHash": "04ea0cb757",
       "schemaHash": "e3c4346ccd",
-      "at": "2026-10-15"
+      "at": "2026-10-16"
     },
     "b_infra_audioel": {
       "codeHash": "e49c65f48f",
       "schemaHash": "e9fc4eaa86",
-      "at": "2026-10-15"
+      "at": "2026-10-16"
     },
     "b_dom_coord": {
       "codeHash": "05b7c00f5b",
       "schemaHash": "0d8048de78",
-      "at": "2026-10-15"
+      "at": "2026-10-16"
     }
   },
   "approvedBlocks": {
@@ -4729,65 +4740,65 @@
     "b_dom_tokenize": "8e7a6d65cc",
     "b_data_cache": "05a2ef2e3a",
     "b_infra_audioel": "3511053120",
-    "b_infra_router": "736b7d588a",
+    "b_infra_router": "a99fc4b999",
     "b_state_player": "591321626b",
     "b_dom_audio": "fdcfe40555",
-    "b_ui_router": "db3f964f7e",
+    "b_ui_router": "b66d7d218c",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
-    "b_dom_pdf": "66b26a8331",
-    "b_dom_fetch": "ab039638e5",
+    "b_dom_pdf": "fe83156cfe",
+    "b_dom_fetch": "cdaf27019b",
     "b_ui_play": "738a0c76f5",
     "b_dom_source": "17a687b8c0",
     "b_state_settings": "d8a99631a8",
     "b_state_orch": "305e51b3f2",
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
-    "b_state_paged": "e23269a659",
+    "b_state_paged": "a6eb5056b4",
     "b_dom_coord": "b1b8f4c724",
     "b_ui_library": "f9cb1077c0",
-    "b_dom_library": "546a76751d",
+    "b_dom_library": "70787391fd",
     "b_dom_parser": "6fabb3a9ca",
     "b_data_db": "05a2ef2e3a",
     "b_ui_header": "06df40c6db",
-    "b_dom_settings": "3ab399afb8",
-    "b_ui_settings": "d85ade3a69",
-    "b_ui_book": "d1eb35693d",
-    "b_dom_account": "bed97175b0",
-    "b_infra_server": "bed97175b0",
-    "b_state_user": "75fd6a22bf",
-    "b_ui_topup": "b27d8c32e8",
+    "b_dom_settings": "a3a8364ecb",
+    "b_ui_settings": "64d1f4582b",
+    "b_ui_book": "62a542a7e9",
+    "b_dom_account": "8ce56bfe22",
+    "b_infra_server": "e32289e624",
+    "b_state_user": "c2d58bc400",
+    "b_ui_topup": "452a25556d",
     "b_ui_dictionary": "dfef81b150",
     "b_infra_proxy": "c1ae5ac416",
-    "b_dom_cleanup": "cd92512afe",
-    "b_ui_editor": "3a68b63a8e",
-    "b_ui_pdfdialogs": "367db55089",
-    "b_infra_recog": "b3510c873d",
+    "b_dom_cleanup": "277546199b",
+    "b_ui_editor": "c081003fdc",
+    "b_ui_pdfdialogs": "eb1a75b23c",
+    "b_infra_recog": "a2f053a5c5",
     "b_data_pdf": "05a2ef2e3a",
-    "b_infra_ai": "bed97175b0"
+    "b_infra_ai": "07888fbe1f"
   },
   "approvedScenarios": {
-    "sc_tts": "b32365b867",
-    "sc_read": "b3df97ad77",
-    "sc_open": "5584b4a599",
-    "sc_settings": "f8de984c75",
-    "sc_phrases": "4b21de04af",
-    "sc_start": "1b3e3035f5",
-    "sc_transport": "ecdab81586",
-    "sc_navigate": "a2a17c20a2",
-    "sc_wait": "bb3382c594",
-    "sc_failure": "07e15e4025",
-    "sc_announce": "4e8f76d53c",
-    "sc_live": "8186ae5179",
-    "sc_pdf": "08670e610f",
-    "sc_pdfchoice": "6b835bde6f",
-    "sc_edit": "853835ad6e",
-    "sc_quality": "9bd02541c2",
-    "sc_dictionary": "fc3dbb3577",
-    "sc_voices": "9f7a1478c5",
-    "sc_net": "63057c5de7",
-    "sc_cloud": "e48309dc84",
-    "sc_delete": "605544f678"
+    "sc_tts": "fa6b6dc013",
+    "sc_read": "1ca452f55b",
+    "sc_open": "0d40304923",
+    "sc_settings": "a4953bbb56",
+    "sc_phrases": "7fc72b32e4",
+    "sc_start": "4552827dfe",
+    "sc_transport": "c4ee564eb6",
+    "sc_navigate": "da54326f01",
+    "sc_wait": "3747e9dfa5",
+    "sc_failure": "a0473b0165",
+    "sc_announce": "77f5043d56",
+    "sc_live": "71fac1ff26",
+    "sc_pdf": "cd8c8778c2",
+    "sc_pdfchoice": "3523d232cd",
+    "sc_edit": "88875c75ec",
+    "sc_quality": "3be11c7b3a",
+    "sc_dictionary": "7cb47a8537",
+    "sc_voices": "a122cb9e2d",
+    "sc_net": "cef565e4c6",
+    "sc_cloud": "e8410a196e",
+    "sc_delete": "12eb67168d"
   },
   "riskAcks": {
     "11b0ba5a0a": {

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
+import { requestTopUp } from '../../engine/account';
 import { AggregatorApiMode, TTSProviderType, VoiceOption } from '../../types/tts';
 import { getAllVoices, PROVIDERS_MAP } from '../../engine/providers';
 import { 
@@ -733,7 +734,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                       type="button"
                       onClick={() => {
                         onClose();
-                        window.dispatchEvent(new CustomEvent('open-topup-modal'));
+                        requestTopUp();
                       }}
                       className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs shadow-sm transition-all"
                     >

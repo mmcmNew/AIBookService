@@ -7,7 +7,6 @@ import { ElevenLabsTTSProvider, DEFAULT_ELEVENLABS_VOICES } from './elevenLabsTt
 import { CloudTTSProvider, CLOUD_VOICES } from './cloudTts';
 import { WebSpeechProvider } from './webSpeech';
 import { EdgeTTSProvider, POPULAR_EDGE_VOICES } from './edgeTts';
-import { useUserStore } from '../../store/userStore';
 
 // ---------------------------------------------------------------------------
 // 1. Provider Map & Resolution
@@ -243,58 +242,60 @@ test('CloudTTSProvider: getVoices возвращает фиксированны�
   assert.deepEqual(voices, CLOUD_VOICES);
 });
 
-test('CloudTTSProvider: synthesize обновляет баланс и возвращает буфер', async () => {
+test('CloudTTSProvider: synthesize возвращает буфер и остаток баланса', async () => {
   const p = new CloudTTSProvider();
   const originalFetch = globalThis.fetch;
 
-  // Мокаем authFetch в Zustand userStore
-  const originalState = useUserStore.getState();
-  useUserStore.setState({
-    authFetch: async (_url: string, _init?: RequestInit) => {
-      const headers = new Headers();
-      headers.set('X-Remaining-Balance', '4950');
-      return new Response(new Uint8Array([9, 8, 7]).buffer, {
-        status: 200,
-        headers,
-      });
-    },
-  });
+  globalThis.fetch = (async (_url: string | URL | Request, _init?: RequestInit) => {
+    const headers = new Headers();
+    headers.set('X-Remaining-Balance', '4950');
+    return new Response(new Uint8Array([9, 8, 7]).buffer, {
+      status: 200,
+      headers,
+    });
+  }) as any;
 
   try {
     const res = await p.synthesize('Облачный текст', {
       voiceId: 'Aoede',
       speed: 1,
       pitch: 0,
+      serverUrl: 'http://localhost:4000',
+      token: 'test-token',
     } as any);
 
     assert.equal(res.byteLength, 3);
-    assert.equal(useUserStore.getState().balance, 4950);
+    assert.equal((res as any).remainingBalance, 4950);
   } finally {
-    useUserStore.setState(originalState);
     globalThis.fetch = originalFetch;
   }
 });
 
 test('CloudTTSProvider: synthesize выбрасывает ошибку при 402 Payment Required', async () => {
   const p = new CloudTTSProvider();
-  const originalState = useUserStore.getState();
+  const originalFetch = globalThis.fetch;
 
-  useUserStore.setState({
-    authFetch: async () => {
-      return new Response(JSON.stringify({ required: 100 }), {
-        status: 402,
-        headers: { 'content-type': 'application/json' },
-      });
-    },
-  });
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({ error: 'Payment Required' }), {
+      status: 402,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as any;
 
   try {
     await assert.rejects(
-      () => p.synthesize('Недостаточно средств', { voiceId: 'Aoede', speed: 1, pitch: 0 } as any),
+      () =>
+        p.synthesize('Недостаточно средств', {
+          voiceId: 'Aoede',
+          speed: 1,
+          pitch: 0,
+          serverUrl: 'http://localhost:4000',
+          token: 'test-token',
+        } as any),
       /Недостаточно символов на балансе/
     );
   } finally {
-    useUserStore.setState(originalState);
+    globalThis.fetch = originalFetch;
   }
 });
 

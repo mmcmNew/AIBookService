@@ -31,6 +31,8 @@ export interface SynthesisOptions {
   /** Только для openrouter/агрегаторов */
   apiMode?: AggregatorApiMode;
   signal?: AbortSignal;
+  serverUrl?: string;
+  token?: string;
 }
 
 export interface ITTSProvider {
