@@ -4613,7 +4613,7 @@
             ]
           ],
           "bind": [
-            "779434af8a#0"
+            "ae0a09e5a8#0"
           ]
         },
         {
@@ -4629,7 +4629,7 @@
             ]
           ],
           "bind": [
-            "779434af8a#0"
+            "ae0a09e5a8#0"
           ]
         },
         {
@@ -4647,7 +4647,7 @@
             ]
           ],
           "bind": [
-            "779434af8a#0"
+            "ae0a09e5a8#0"
           ],
           "block": "b_dom_settings"
         },
@@ -4661,11 +4661,11 @@
           "covers": [
             [
               98,
-              108
+              114
             ]
           ],
           "bind": [
-            "779434af8a#0"
+            "ae0a09e5a8#0"
           ]
         },
         {
@@ -4677,12 +4677,12 @@
           "block": "b_dom_audio",
           "covers": [
             [
-              109,
-              117
+              115,
+              123
             ]
           ],
           "bind": [
-            "779434af8a#0"
+            "ae0a09e5a8#0"
           ]
         }
       ],
@@ -4775,8 +4775,8 @@
       "at": "2026-10-16"
     },
     "b_dom_coord": {
-      "codeHash": "05b7c00f5b",
-      "schemaHash": "0d8048de78",
+      "codeHash": "baef0b015e",
+      "schemaHash": "5f02536ec6",
       "at": "2026-10-16"
     }
   },
@@ -4792,7 +4792,7 @@
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
     "b_dom_pdf": "fe83156cfe",
-    "b_dom_fetch": "9326242637",
+    "b_dom_fetch": "07a3dc37d3",
     "b_ui_play": "738a0c76f5",
     "b_dom_source": "17a687b8c0",
     "b_state_settings": "d8a99631a8",
@@ -4800,7 +4800,7 @@
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
     "b_state_paged": "a6eb5056b4",
-    "b_dom_coord": "b1b8f4c724",
+    "b_dom_coord": "7551406938",
     "b_ui_library": "f9cb1077c0",
     "b_dom_library": "70787391fd",
     "b_dom_parser": "6fabb3a9ca",
@@ -4823,27 +4823,27 @@
     "b_infra_ai": "07888fbe1f"
   },
   "approvedScenarios": {
-    "sc_tts": "10a61efe17",
+    "sc_tts": "da454b50de",
     "sc_read": "1ca452f55b",
     "sc_open": "0d40304923",
-    "sc_settings": "ab86649437",
+    "sc_settings": "0b2edf99ff",
     "sc_phrases": "7fc72b32e4",
     "sc_start": "4552827dfe",
-    "sc_transport": "e6ff6c723b",
-    "sc_navigate": "5f18bdd6d8",
-    "sc_wait": "a9d6f730bb",
-    "sc_failure": "b477ef6f0d",
-    "sc_announce": "39030620b6",
-    "sc_live": "35feedcd65",
+    "sc_transport": "75c71bf292",
+    "sc_navigate": "ade8c0761f",
+    "sc_wait": "11b6218e58",
+    "sc_failure": "00c49cb3fe",
+    "sc_announce": "9c135c878f",
+    "sc_live": "c2e8486085",
     "sc_pdf": "cd8c8778c2",
     "sc_pdfchoice": "3523d232cd",
-    "sc_edit": "9deaa0a80b",
+    "sc_edit": "3156c4a98b",
     "sc_quality": "3be11c7b3a",
-    "sc_dictionary": "68177cee5c",
-    "sc_voices": "22b3801d43",
+    "sc_dictionary": "92f2c943a6",
+    "sc_voices": "328ae19034",
     "sc_net": "cef565e4c6",
-    "sc_cloud": "93a8d07b37",
-    "sc_delete": "58bf9f3bdd"
+    "sc_cloud": "6af6341388",
+    "sc_delete": "523cb46c26"
   },
   "riskAcks": {
     "11b0ba5a0a": {

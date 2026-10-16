@@ -1,6 +1,6 @@
 import { audioManager } from './audioManager';
 import { acceptEnded, PlayTrigger, shouldAnnounceChapter } from './playerState';
-import { cancelPrepare, prepareAudio } from './audioFetch';
+import { cancelPrepare, prepareAudio, type PrepareKeepTarget } from './audioFetch';
 import { useBookStore } from '../../store/bookStore';
 import { useAudioStore } from '../../store/audioStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -28,9 +28,9 @@ let pendingPrepare: {
 } | null = null;
 
 /** «Отмени»: Поставщик озвучки бросает подготовку следующей фразы */
-function cancelPreparation(): void {
+function cancelPreparation(keep?: PrepareKeepTarget): void {
   pendingPrepare = null;
-  cancelPrepare();
+  cancelPrepare(keep);
 }
 
 function stopAll(notice: string | null = null): void {
@@ -95,7 +95,13 @@ function startPlayback(trigger: PlayTrigger): void {
   });
 
   const options = buildSynthesisOptions(settings);
-  cancelPreparation();
+  cancelPreparation({
+    bookId: phrase.bookId,
+    chapterId: phrase.chapterKey,
+    sentence: phrase.sentence,
+    providerType: settings.activeProvider,
+    options,
+  });
   pendingPrepare = phrase.next
     ? {
         token: state.token,

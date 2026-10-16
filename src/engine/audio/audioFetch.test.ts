@@ -211,6 +211,64 @@ test('getOrFetchChapterAudio: озвучивает заголовок главы
   }
 });
 
+test('дефект B4: подготовка фразы N+1 не отменяется при вызове cancelPrepare с той же фразой (startPlayback)', async () => {
+  const { fake, restore } = installFakeProvider();
+  try {
+    const s2 = sentence(202, 'Вторая фраза.');
+    prepareAudio('b1', 'c1', s2, 'openai', options);
+    await tick();
+    assert.equal(fake.calls.length, 1, 'подготовка фразы N+1 запущена');
+    assert.equal(fake.calls[0].signal?.aborted, false);
+
+    // Имитируем startPlayback следующей фразы
+    cancelPrepare({ bookId: 'b1', chapterId: 'c1', sentence: s2, providerType: 'openai', options });
+    assert.equal(fake.calls[0].signal?.aborted, false, 'сигнал подготовки НЕ должен прерываться для той же фразы');
+
+    // Оркестратор запрашивает ту же фразу
+    const taking = getOrFetchAudio({ bookId: 'b1', chapterId: 'c1', sentence: s2, providerType: 'openai', options });
+    assert.equal(fake.calls.length, 1, 'второго вызова synthesize нет: подключился к идущей подготовке');
+
+    fake.calls[0].resolve();
+    const buffer = await taking;
+    assert.equal(buffer.byteLength, 8);
+  } finally {
+    restore();
+  }
+});
+
+test('cancelPrepare: подготовка ДРУГОЙ фразы отменяется даже при передаче keep', async () => {
+  const { fake, restore } = installFakeProvider();
+  try {
+    const s1 = sentence(301, 'Первая фраза.');
+    const s2 = sentence(302, 'Вторая фраза.');
+    prepareAudio('b1', 'c1', s1, 'openai', options);
+    await tick();
+    assert.equal(fake.calls.length, 1);
+
+    // Передаём keep для s2, хотя готовилась s1
+    cancelPrepare({ bookId: 'b1', chapterId: 'c1', sentence: s2, providerType: 'openai', options });
+    assert.equal(fake.calls[0].signal?.aborted, true, 'подготовка чужой фразы s1 должна быть отменена');
+  } finally {
+    restore();
+  }
+});
+
+test('cancelPrepare: подготовка с ДРУГИМИ параметрами синтеза отменяется', async () => {
+  const { fake, restore } = installFakeProvider();
+  try {
+    const s = sentence(401, 'Фраза.');
+    prepareAudio('b1', 'c1', s, 'openai', options);
+    await tick();
+    assert.equal(fake.calls.length, 1);
+
+    const changedOptions: SynthesisOptions = { ...options, voiceId: 'echo' };
+    cancelPrepare({ bookId: 'b1', chapterId: 'c1', sentence: s, providerType: 'openai', options: changedOptions });
+    assert.equal(fake.calls[0].signal?.aborted, true, 'подготовка с другими опциями должна быть отменена');
+  } finally {
+    restore();
+  }
+});
+
 test('«проверить озвучку» (synthesizeOnce): разовый синтез мимо кэша и очереди, ошибка уходит вызывающему', async () => {
   const { fake, restore } = installFakeProvider();
   try {

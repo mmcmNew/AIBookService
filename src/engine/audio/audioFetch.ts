@@ -261,7 +261,16 @@ export async function synthesizeOnce(
   return executeSynthesis(providerType, text, options);
 }
 
+export interface PrepareKeepTarget {
+  bookId: string;
+  chapterId: string;
+  sentence: SentenceItem;
+  providerType: TTSProviderType;
+  options: SynthesisOptions;
+}
+
 let prepareAbort: AbortController | null = null;
+let currentPrepareKey: string | null = null;
 
 /**
  * Команда «приготовь»: готовит аудио фразы заранее (в кэш), пока играет предыдущая.
@@ -279,20 +288,43 @@ export function prepareAudio(
   prepareAbort?.abort();
   prepareAbort = new AbortController();
 
+  const { key } = resolveSentenceJob(bookId, chapterId, sentence, providerType, options);
+  currentPrepareKey = key;
+  const signal = prepareAbort.signal;
+
   getOrFetchAudio({
     bookId,
     chapterId,
     sentence,
     providerType,
     options,
-    signal: prepareAbort.signal,
-  }).catch(() => undefined);
+    signal,
+  })
+    .catch(() => undefined)
+    .finally(() => {
+      if (prepareAbort?.signal === signal) {
+        currentPrepareKey = null;
+      }
+    });
 }
 
-/** Команда «отмени»: бросает подготовку (при прыжке, остановке, ошибке) */
-export function cancelPrepare(): void {
+/** Команда «отмени»: бросает подготовку (при прыжке, остановке, ошибке). Если передан keep и его ключ совпадает — не отменяет. */
+export function cancelPrepare(keep?: PrepareKeepTarget): void {
+  if (keep && currentPrepareKey) {
+    const { key } = resolveSentenceJob(
+      keep.bookId,
+      keep.chapterId,
+      keep.sentence,
+      keep.providerType,
+      keep.options
+    );
+    if (key === currentPrepareKey) {
+      return;
+    }
+  }
   prepareAbort?.abort();
   prepareAbort = null;
+  currentPrepareKey = null;
 }
 
 /** Удаляет записи кэша для предложений, которых больше нет в книге (владелец res_audioCache: b_dom_fetch) */
