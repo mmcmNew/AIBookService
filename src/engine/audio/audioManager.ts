@@ -1,25 +1,14 @@
 import { SentenceItem } from '../../types/book';
 import { SynthesisOptions, TTSProviderType } from '../../types/tts';
-import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
-import { useSettingsStore } from '../../store/settingsStore';
 import { useAudioStore } from '../../store/audioStore';
 import { PlayerEvent, PlayerState, reducePlayer } from './playerState';
 import { playChime } from '../../infra/audio/chime';
 import { htmlAudioPlayer } from '../../infra/audio/htmlAudioPlayer';
-import { buildCacheKey, buildChapterCacheKey } from './cacheKey';
 import {
   getOrFetchAudio,
-  purgeOrphanAudioCache,
-  deleteAudioCacheForBook,
+  getOrFetchChapterAudio,
+  getSpeechText,
 } from './audioFetch';
-
-export {
-  buildCacheKey,
-  buildChapterCacheKey,
-  getOrFetchAudio,
-  purgeOrphanAudioCache,
-  deleteAudioCacheForBook,
-};
 
 /**
  * AudioManager — «исполнитель»: проигрывает одну фразу (при необходимости с объявлением главы)
@@ -170,18 +159,22 @@ export class AudioManager {
         if (!this.isCurrent(token)) return;
       }
 
-      const rules = useSettingsStore.getState().replacementRules;
-      const text = applyPronunciationDictionary(job.sentence.rawText, rules, job.bookId);
-
       if (providerType === 'webspeech') {
+        const text = getSpeechText(job.bookId, job.sentence);
         this.mainToken = token;
         this.startUtterance(text, options, token, 'main');
         this.handlers.onStarted(token);
         return;
       }
 
-      const key = buildCacheKey(job.bookId, job.chapterId, job.sentence.id, providerType, options, text);
-      const buffer = await getOrFetchAudio(key, job.bookId, job.chapterId, job.sentence.id, text, providerType, options, signal);
+      const buffer = await getOrFetchAudio({
+        bookId: job.bookId,
+        chapterId: job.chapterId,
+        sentence: job.sentence,
+        providerType,
+        options,
+        signal,
+      });
       if (!this.isCurrent(token)) return;
 
       htmlAudioPlayer.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
@@ -221,8 +214,14 @@ export class AudioManager {
           return () => clearTimeout(timer);
         }, undefined);
       } else {
-        const key = buildChapterCacheKey(job.bookId, job.chapterId, providerType, options, title);
-        const buffer = await getOrFetchAudio(key, job.bookId, job.chapterId, -1, title, providerType, options, signal);
+        const buffer = await getOrFetchChapterAudio({
+          bookId: job.bookId,
+          chapterId: job.chapterId,
+          title,
+          providerType,
+          options,
+          signal,
+        });
         if (!this.isCurrent(token)) return;
         htmlAudioPlayer.setupAudioBuffer(buffer, options.speed, options.volume ?? 1);
         const finished = this.wait<void>((resolve) => {

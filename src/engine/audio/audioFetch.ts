@@ -5,10 +5,28 @@ import { getProvider } from '../providers';
 import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
 import { useSettingsStore } from '../../store/settingsStore';
 import { sniffAudioMime } from './mime';
-import { buildCacheKey } from './cacheKey';
+import { buildCacheKey, buildChapterCacheKey } from './cacheKey';
 import { ensureRegistered, reRegister, reportBalance, requestTopUp } from '../account';
 import { useUserStore } from '../../store/userStore';
 import { AuthExpiredError, InsufficientFundsError } from '../providers/cloudTts';
+
+export interface FetchAudioJob {
+  bookId: string;
+  chapterId: string;
+  sentence: SentenceItem;
+  providerType: TTSProviderType;
+  options: SynthesisOptions;
+  signal?: AbortSignal;
+}
+
+export interface FetchChapterAudioJob {
+  bookId: string;
+  chapterId: string;
+  title: string;
+  providerType: TTSProviderType;
+  options: SynthesisOptions;
+  signal?: AbortSignal;
+}
 
 const MEMORY_CACHE_LIMIT = 40;
 
@@ -25,19 +43,40 @@ function rememberInMemory(key: string, buffer: ArrayBuffer): void {
 }
 
 /**
+ * Текст с применённым словарём произношения (для Web Speech и синтеза).
+ * Владелец правил и словаря: b_dom_fetch.
+ */
+export function getSpeechText(bookId: string, sentence: SentenceItem): string {
+  const rules = useSettingsStore.getState().replacementRules;
+  return applyPronunciationDictionary(sentence.rawText, rules, bookId);
+}
+
+function resolveSentenceJob(
+  bookId: string,
+  chapterId: string,
+  sentence: SentenceItem,
+  providerType: TTSProviderType,
+  options: SynthesisOptions
+): { key: string; text: string } {
+  const text = getSpeechText(bookId, sentence);
+  const key = buildCacheKey(bookId, chapterId, sentence.id, providerType, options, text);
+  return { key, text };
+}
+
+/**
  * Команда «возьми аудио»: аудио из памяти, IndexedDB или сети (с сохранением в кэш). Запрос ЖДЁТ внутри, пока аудио не готово.
  * Блок b_dom_fetch (Поставщик озвучки), ответственный за res_audioCache.
  */
-export async function getOrFetchAudio(
-  cacheKey: string,
-  bookId: string,
-  chapterId: string,
-  sentenceId: number,
-  speechText: string,
-  providerType: TTSProviderType,
-  options: SynthesisOptions,
-  signal?: AbortSignal
-): Promise<ArrayBuffer> {
+export async function getOrFetchAudio(job: FetchAudioJob): Promise<ArrayBuffer> {
+  const { bookId, chapterId, sentence, providerType, options, signal } = job;
+  const { key: cacheKey, text: speechText } = resolveSentenceJob(
+    bookId,
+    chapterId,
+    sentence,
+    providerType,
+    options
+  );
+
   const mem = memoryAudioCache.get(cacheKey);
   if (mem) return mem;
 
@@ -83,6 +122,71 @@ export async function getOrFetchAudio(
       cacheKey,
       bookId,
       chapterId,
+      sentenceId: sentence.id,
+      voiceId: options.voiceId,
+      audioBlob: new Blob([audioBuffer], { type: sniffAudioMime(audioBuffer) }),
+      createdAt: Date.now(),
+    })
+    .catch((e) => console.warn('Ошибка записи аудио в IndexedDB:', e));
+
+  return audioBuffer;
+}
+
+/**
+ * Внутреннее получение аудио заголовка главы по уже построенному ключу (память, IndexedDB, inflight или синтез).
+ */
+async function fetchAudioByKey(
+  cacheKey: string,
+  bookId: string,
+  chapterId: string,
+  sentenceId: number,
+  speechText: string,
+  providerType: TTSProviderType,
+  options: SynthesisOptions,
+  signal?: AbortSignal
+): Promise<ArrayBuffer> {
+  const mem = memoryAudioCache.get(cacheKey);
+  if (mem) return mem;
+
+  const pending = inflight.get(cacheKey);
+  if (pending) {
+    try {
+      return await pending;
+    } catch {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    }
+  }
+
+  try {
+    const cached = await db.audioCache.get(cacheKey);
+    if (cached && cached.audioBlob) {
+      const buffer = await cached.audioBlob.arrayBuffer();
+      rememberInMemory(cacheKey, buffer);
+      return buffer;
+    }
+  } catch (e) {
+    console.warn('Ошибка чтения из IndexedDB:', e);
+  }
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+  const request = executeSynthesis(providerType, speechText, options, signal);
+  inflight.set(cacheKey, request);
+  let audioBuffer: ArrayBuffer;
+  try {
+    audioBuffer = await request;
+  } finally {
+    if (inflight.get(cacheKey) === request) inflight.delete(cacheKey);
+  }
+  if (!audioBuffer || audioBuffer.byteLength === 0) {
+    throw new Error('Провайдер вернул пустое аудио.');
+  }
+  rememberInMemory(cacheKey, audioBuffer);
+
+  db.audioCache
+    .put({
+      cacheKey,
+      bookId,
+      chapterId,
       sentenceId,
       voiceId: options.voiceId,
       audioBlob: new Blob([audioBuffer], { type: sniffAudioMime(audioBuffer) }),
@@ -91,6 +195,12 @@ export async function getOrFetchAudio(
     .catch((e) => console.warn('Ошибка записи аудио в IndexedDB:', e));
 
   return audioBuffer;
+}
+
+export async function getOrFetchChapterAudio(job: FetchChapterAudioJob): Promise<ArrayBuffer> {
+  const { bookId, chapterId, title, providerType, options, signal } = job;
+  const key = buildChapterCacheKey(bookId, chapterId, providerType, options, title);
+  return fetchAudioByKey(key, bookId, chapterId, -1, title, providerType, options, signal);
 }
 
 async function executeSynthesis(
@@ -169,12 +279,14 @@ export function prepareAudio(
   prepareAbort?.abort();
   prepareAbort = new AbortController();
 
-  const rules = useSettingsStore.getState().replacementRules;
-  const text = applyPronunciationDictionary(sentence.rawText, rules, bookId);
-  const key = buildCacheKey(bookId, chapterId, sentence.id, providerType, options, text);
-  getOrFetchAudio(key, bookId, chapterId, sentence.id, text, providerType, options, prepareAbort.signal).catch(
-    () => undefined
-  );
+  getOrFetchAudio({
+    bookId,
+    chapterId,
+    sentence,
+    providerType,
+    options,
+    signal: prepareAbort.signal,
+  }).catch(() => undefined);
 }
 
 /** Команда «отмени»: бросает подготовку (при прыжке, остановке, ошибке) */

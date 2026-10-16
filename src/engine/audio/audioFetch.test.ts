@@ -6,7 +6,14 @@ import type { SentenceItem } from '../../types/book';
 import { useSettingsStore } from '../../store/settingsStore';
 import { applyPronunciationDictionary } from '../tokenizer/dictionaryReplacer';
 import { buildCacheKey } from './cacheKey';
-import { cancelPrepare, getOrFetchAudio, prepareAudio, synthesizeOnce } from './audioFetch';
+import {
+  cancelPrepare,
+  getOrFetchAudio,
+  getOrFetchChapterAudio,
+  getSpeechText,
+  prepareAudio,
+  synthesizeOnce,
+} from './audioFetch';
 import { AudioManager, type AudioEngineHandlers } from './audioManager';
 
 /** Поддельный провайдер: считает вызовы, ждёт ручного «готово», уважает signal */
@@ -51,8 +58,13 @@ test('«приготовь»: подготовленное аудио берёт
     await tick();
     assert.equal(fake.calls.length, 1, 'подготовка запросила синтез');
 
-    const key = buildCacheKey('book-prepare', 'ch1', s.id, 'openai', options, textOf(s, 'book-prepare'));
-    const taking = getOrFetchAudio(key, 'book-prepare', 'ch1', s.id, textOf(s, 'book-prepare'), 'openai', options);
+    const taking = getOrFetchAudio({
+      bookId: 'book-prepare',
+      chapterId: 'ch1',
+      sentence: s,
+      providerType: 'openai',
+      options,
+    });
     fake.calls[0].resolve();
     const buffer = await taking;
     assert.equal(buffer.byteLength, 8);
@@ -75,8 +87,13 @@ test('«отмени»: подготовка прерывается сигнал
     assert.equal(fake.calls[0].signal?.aborted, true, 'подготовка отменена');
     await tick();
 
-    const key = buildCacheKey('book-cancel', 'ch1', s.id, 'openai', options, textOf(s, 'book-cancel'));
-    const taking = getOrFetchAudio(key, 'book-cancel', 'ch1', s.id, textOf(s, 'book-cancel'), 'openai', options);
+    const taking = getOrFetchAudio({
+      bookId: 'book-cancel',
+      chapterId: 'ch1',
+      sentence: s,
+      providerType: 'openai',
+      options,
+    });
     await tick();
     assert.equal(fake.calls.length, 2, 'после отмены аудио синтезируется заново');
     fake.calls[1].resolve();
@@ -119,12 +136,76 @@ test('«возьми аудио» с отменённым сигналом: Abor
     const controller = new AbortController();
     controller.abort();
     const s = sentence(51, 'Отменённая.');
-    const text = textOf(s, 'book-abort');
-    const key = buildCacheKey('book-abort', 'ch1', s.id, 'openai', options, text);
     await assert.rejects(
-      getOrFetchAudio(key, 'book-abort', 'ch1', s.id, text, 'openai', options, controller.signal),
+      getOrFetchAudio({
+        bookId: 'book-abort',
+        chapterId: 'ch1',
+        sentence: s,
+        providerType: 'openai',
+        options,
+        signal: controller.signal,
+      }),
       (e: { name?: string }) => e.name === 'AbortError'
     );
+  } finally {
+    restore();
+  }
+});
+
+test('getSpeechText: применяет правила словаря произношения из настроек', () => {
+  const originalRules = useSettingsStore.getState().replacementRules;
+  try {
+    useSettingsStore.setState({
+      replacementRules: [
+        { id: '1', pattern: 'тест', replacement: 'проверка', isRegex: false, enabled: true },
+      ],
+    });
+    const s = sentence(101, 'Это тест произношения.');
+    const result = getSpeechText('any-book', s);
+    assert.equal(result, 'Это проверка произношения.');
+  } finally {
+    useSettingsStore.setState({ replacementRules: originalRules });
+  }
+});
+
+test('смена правил словаря произношения меняет генерируемый ключ кэша', () => {
+  const originalRules = useSettingsStore.getState().replacementRules;
+  try {
+    const s = sentence(102, 'Слово');
+    useSettingsStore.setState({ replacementRules: [] });
+    const text1 = getSpeechText('b1', s);
+    const key1 = buildCacheKey('b1', 'c1', s.id, 'openai', options, text1);
+
+    useSettingsStore.setState({
+      replacementRules: [
+        { id: '2', pattern: 'Слово', replacement: 'Замена', isRegex: false, enabled: true },
+      ],
+    });
+    const text2 = getSpeechText('b1', s);
+    const key2 = buildCacheKey('b1', 'c1', s.id, 'openai', options, text2);
+
+    assert.notEqual(key1, key2, 'ключи кэша должны отличаться при разном тексте после словаря');
+  } finally {
+    useSettingsStore.setState({ replacementRules: originalRules });
+  }
+});
+
+test('getOrFetchChapterAudio: озвучивает заголовок главы с sentenceId = -1', async () => {
+  const { fake, restore } = installFakeProvider();
+  try {
+    const taking = getOrFetchChapterAudio({
+      bookId: 'book-ch',
+      chapterId: 'ch1',
+      title: 'Глава 1',
+      providerType: 'openai',
+      options,
+    });
+    await tick();
+    assert.equal(fake.calls.length, 1);
+    assert.equal(fake.calls[0].text, 'Глава 1');
+    fake.calls[0].resolve();
+    const buffer = await taking;
+    assert.equal(buffer.byteLength, 8);
   } finally {
     restore();
   }
