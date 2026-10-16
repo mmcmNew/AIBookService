@@ -12,6 +12,7 @@ import {
   type ProviderMetadata,
 } from './audio/audioCatalog';
 import { synthesizeOnce } from './audio/audioFetch';
+import { audioManager } from './audio/audioManager';
 import {
   isTauriEnvironment,
   getDesktopProxy,
@@ -163,12 +164,25 @@ export function toggleReplacementRule(id: string): void {
 }
 
 /**
- * «Проверить озвучку»: разовый синтез фразы активным провайдером с текущими настройками голоса,
- * без кэша и очереди (идёт через Поставщика озвучки). Ошибку синтеза отдаёт вызывающему.
+ * «Проверить озвучку»: разовый синтез фразы активным провайдером с текущими настройками голоса
+ * через Поставщика озвучки, затем воспроизведение через Оркестратор.
+ * Возвращает размер полученного аудио в байтах. Ошибку синтеза отдаёт вызывающему.
  */
-export async function checkVoice(text: string): Promise<ArrayBuffer> {
-  const { activeProvider } = useSettingsStore.getState();
-  return synthesizeOnce(activeProvider, text, buildSynthesisOptions());
+export async function checkVoice(text: string): Promise<{ bytes: number }> {
+  const { activeProvider, volume } = useSettingsStore.getState();
+  const options = buildSynthesisOptions();
+  const buffer = await synthesizeOnce(activeProvider, text, options);
+  if (!buffer || buffer.byteLength === 0) {
+    throw new Error('Получен пустой аудио-ответ.');
+  }
+  const vol = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1;
+  await audioManager.playPreview(buffer, vol);
+  return { bytes: buffer.byteLength };
+}
+
+/** Остановка пробного звука при закрытии окна настроек */
+export function stopVoiceCheck(): void {
+  audioManager.stopPreview();
 }
 
 /**

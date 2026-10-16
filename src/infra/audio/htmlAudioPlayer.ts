@@ -16,6 +16,8 @@ export interface HtmlAudioCallbacks {
 export class HtmlAudioPlayer {
   private audioElement: HTMLAudioElement | null = null;
   private currentObjectUrl: string | null = null;
+  private previewAudioElement: HTMLAudioElement | null = null;
+  private previewObjectUrl: string | null = null;
   private callbacks: HtmlAudioCallbacks = {};
 
   constructor() {
@@ -75,6 +77,32 @@ export class HtmlAudioPlayer {
       audio.addEventListener('ended', done, { once: true });
       audio.addEventListener('error', done, { once: true });
     });
+  }
+
+  public async playPreview(buffer: ArrayBuffer, volume: number): Promise<void> {
+    if (typeof window === 'undefined') return;
+    if (!this.previewAudioElement) {
+      this.previewAudioElement = new Audio();
+    }
+    if (this.previewObjectUrl) {
+      URL.revokeObjectURL(this.previewObjectUrl);
+      this.previewObjectUrl = null;
+    }
+    this.previewObjectUrl = URL.createObjectURL(new Blob([buffer], { type: sniffAudioMime(buffer) }));
+    this.previewAudioElement.src = this.previewObjectUrl;
+    this.previewAudioElement.volume = sanitizeVolume(volume);
+    await this.previewAudioElement.play();
+  }
+
+  public stopPreview(): void {
+    if (this.previewAudioElement) {
+      this.previewAudioElement.pause();
+      this.previewAudioElement.currentTime = 0;
+    }
+    if (this.previewObjectUrl) {
+      URL.revokeObjectURL(this.previewObjectUrl);
+      this.previewObjectUrl = null;
+    }
   }
 }
 

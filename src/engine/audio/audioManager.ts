@@ -427,6 +427,23 @@ export class AudioManager {
     this.dispatch({ type: 'resume' });
     this.resume();
   }
+
+  /**
+   * Проигрывание пробного звука через отдельный канал Infra-плеера.
+   * Если плеер читает (loading или playing), ставит его на паузу перед пробой и не возобновляет.
+   * В остальном статус чтения и токен не меняются.
+   */
+  public async playPreview(buffer: ArrayBuffer, volume: number): Promise<void> {
+    const { status } = useAudioStore.getState();
+    if (status === 'playing' || status === 'loading') {
+      this.pausePlayer();
+    }
+    await htmlAudioPlayer.playPreview(buffer, volume);
+  }
+
+  public stopPreview(): void {
+    htmlAudioPlayer.stopPreview();
+  }
 }
 
 export const audioManager = new AudioManager();

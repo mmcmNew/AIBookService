@@ -46,6 +46,7 @@ import {
   removeReplacementRule,
   toggleReplacementRule,
   checkVoice,
+  stopVoiceCheck,
   listProviders,
   loadCatalogVoices,
   fetchAggregatorModels,
@@ -89,8 +90,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   const [onlyAudioModels, setOnlyAudioModels] = useState(true);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [testState, setTestState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; message?: string }>({ status: 'idle' });
-  const testAudioRef = useRef<HTMLAudioElement | null>(null);
-  const testUrlRef = useRef<string | null>(null);
 
   const { theme, fontFamily, fontSize, lineHeight, autoscroll, activeProvider, selectedVoiceIds, openRouterApiMode, speed, volume, apiKeys, geminiModel, openRouterModel, openRouterBaseUrl, proxy, pdfRecognitionMode, alwaysAskPdfMode, replacementRules } = useSettingsStore();
 
@@ -159,17 +158,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   }, [isOpen, initialTab, apiKeys, openRouterBaseUrl]);
 
   // Остановка тестового звука при закрытии окна / размонтировании
-  const stopTestAudio = () => {
-    testAudioRef.current?.pause();
-    testAudioRef.current = null;
-    if (testUrlRef.current) {
-      URL.revokeObjectURL(testUrlRef.current);
-      testUrlRef.current = null;
-    }
-  };
   useEffect(() => {
-    if (!isOpen) stopTestAudio();
-    return () => stopTestAudio();
+    if (!isOpen) stopVoiceCheck();
+    return () => stopVoiceCheck();
   }, [isOpen]);
 
   // Сброс результата проверки при смене провайдера/модели/шлюза
@@ -209,20 +200,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   const canTestSynthesis = activeProvider !== 'webspeech' && activeProvider !== 'cloud';
 
   const handleTestSynthesis = async () => {
-    stopTestAudio();
+    stopVoiceCheck();
     setTestState({ status: 'loading' });
     try {
-      const buffer = await checkVoice('Проверка озвучки. Если вы слышите эту фразу, подключение работает.');
-      if (!buffer || buffer.byteLength === 0) throw new Error('Получен пустой аудио-ответ.');
-      const head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
-      const isWav = String.fromCharCode(...Array.from(head)) === 'RIFF';
-      const url = URL.createObjectURL(new Blob([buffer], { type: isWav ? 'audio/wav' : 'audio/mpeg' }));
-      testUrlRef.current = url;
-      const audio = new Audio(url);
-      audio.volume = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1;
-      testAudioRef.current = audio;
-      await audio.play();
-      setTestState({ status: 'ok', message: `Успешно: получено ${(buffer.byteLength / 1024).toFixed(0)} КБ аудио, воспроизводится.` });
+      const res = await checkVoice('Проверка озвучки. Если вы слышите эту фразу, подключение работает.');
+      setTestState({
+        status: 'ok',
+        message: `Успешно: получено ${(res.bytes / 1024).toFixed(0)} КБ аудио, воспроизводится.`,
+      });
     } catch (err: any) {
       setTestState({ status: 'error', message: err?.message || 'Неизвестная ошибка синтеза' });
     }

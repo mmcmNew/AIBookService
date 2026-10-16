@@ -1580,15 +1580,13 @@
           "from": "b_dom_settings",
           "to": "b_dom_audio",
           "label": "сыграть пробный звук; остановить его при закрытии окна",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_audio",
           "to": "b_infra_audioel",
           "label": "пробный звук",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_state_settings",
@@ -2075,7 +2073,9 @@
         "stop",
         "setSpeed",
         "setVolume",
-        "playChime"
+        "playChime",
+        "playPreview",
+        "stopPreview"
       ]
     },
     "b_infra_router": {
@@ -2399,7 +2399,8 @@
         "loadCatalogVoices",
         "fetchAggregatorModels",
         "getAggregatorVoiceOptions",
-        "isAggregatorVoiceValid"
+        "isAggregatorVoiceValid",
+        "stopVoiceCheck"
       ],
       "summary": "Единственный писатель настроек читалки: по команде из окна настроек, шапки, панели плеера и словаря записывает значение в стор настроек; по команде «проверить озвучку» делает разовый синтез через Поставщика озвучки. Валидация и ограничения остаются в сеттерах стора.",
       "risk": "Команда должна лишь передавать значение сеттеру стора: смена темы и ограничения скорости и громкости живут в сторе.",
@@ -2412,7 +2413,7 @@
       "title": "Окно настроек",
       "layer": "UI",
       "file": "src/components/settings/SettingsModal.tsx",
-      "line": 55,
+      "line": 74,
       "symbol": "SettingsModal",
       "summary": "Окно настроек: озвучка, ключи, словарь, вид, сеть. Читает текущие значения и отправляет команды в «Настройки: команды» (изменить значение, проверить озвучку).",
       "res": [
@@ -4373,7 +4374,9 @@
               42
             ]
           ],
-          "bind": []
+          "bind": [
+            "05f625ef82#0"
+          ]
         },
         {
           "id": "c_el",
@@ -4784,7 +4787,7 @@
     },
     "b_infra_audioel": {
       "codeHash": "e49c65f48f",
-      "schemaHash": "e9fc4eaa86",
+      "schemaHash": "9ab3116973",
       "at": "2026-10-16"
     },
     "b_dom_coord": {
@@ -4797,10 +4800,10 @@
     "b_state_pos": "e1c56ee76b",
     "b_dom_tokenize": "8e7a6d65cc",
     "b_data_cache": "05a2ef2e3a",
-    "b_infra_audioel": "3511053120",
+    "b_infra_audioel": "df5dc21010",
     "b_infra_router": "b6b5e2574a",
     "b_state_player": "591321626b",
-    "b_dom_audio": "f55ab36e5c",
+    "b_dom_audio": "aac0e32764",
     "b_ui_router": "b66d7d218c",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
@@ -4819,8 +4822,8 @@
     "b_dom_parser": "6fabb3a9ca",
     "b_data_db": "05a2ef2e3a",
     "b_ui_header": "06df40c6db",
-    "b_dom_settings": "6f561e88b2",
-    "b_ui_settings": "2ef3a7cc3f",
+    "b_dom_settings": "ed6246afa2",
+    "b_ui_settings": "9143de721f",
     "b_ui_book": "62a542a7e9",
     "b_dom_account": "8ce56bfe22",
     "b_infra_server": "e32289e624",
@@ -4836,27 +4839,27 @@
     "b_infra_ai": "07888fbe1f"
   },
   "approvedScenarios": {
-    "sc_tts": "437770d67a",
+    "sc_tts": "8bf08b30a2",
     "sc_read": "1ca452f55b",
     "sc_open": "0d40304923",
-    "sc_settings": "15e90cf991",
+    "sc_settings": "c4eec6cafd",
     "sc_phrases": "7fc72b32e4",
     "sc_start": "4552827dfe",
-    "sc_transport": "fbeea7cc25",
-    "sc_navigate": "ffc01c9aa5",
-    "sc_wait": "2be9a5840f",
-    "sc_failure": "2aab245c4b",
-    "sc_announce": "52817f160d",
-    "sc_live": "b67b85370c",
+    "sc_transport": "c950126e4f",
+    "sc_navigate": "f4d1270c03",
+    "sc_wait": "5db8729168",
+    "sc_failure": "ca1b225223",
+    "sc_announce": "dcda6c943d",
+    "sc_live": "2620af12ae",
     "sc_pdf": "cd8c8778c2",
-    "sc_pdfchoice": "269ba6bff8",
-    "sc_edit": "59a3381865",
+    "sc_pdfchoice": "0b8b4c0c4b",
+    "sc_edit": "c1345a5743",
     "sc_quality": "3be11c7b3a",
-    "sc_dictionary": "f778ca733d",
-    "sc_voices": "2e49024172",
-    "sc_net": "1108f6d41e",
-    "sc_cloud": "b1f6ed7dc3",
-    "sc_delete": "427fb2048e"
+    "sc_dictionary": "6b158e84a3",
+    "sc_voices": "ee1c69e679",
+    "sc_net": "72384f438e",
+    "sc_cloud": "f8ddab8ff9",
+    "sc_delete": "63d17a68e0"
   },
   "riskAcks": {
     "11b0ba5a0a": {
