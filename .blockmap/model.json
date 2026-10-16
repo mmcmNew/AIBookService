@@ -1568,15 +1568,13 @@
           "from": "b_dom_settings",
           "to": "b_dom_fetch",
           "label": "каталог: провайдеры, голоса, модели",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_fetch",
           "to": "b_infra_router",
           "label": "голоса и модели провайдеров",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_settings",
@@ -2084,7 +2082,7 @@
       "title": "TTS-провайдеры (адаптеры)",
       "layer": "Infra",
       "file": "src/engine/providers/openRouterTts.ts",
-      "line": 330,
+      "line": 315,
       "symbol": "synthesize",
       "summary": "WebSpeech, Edge, Gemini, OpenAI, ElevenLabs, OpenRouter. OpenRouter сам выбирает эндпоинт speech или chat и повторяет один раз через другой. Про кэш и состояние не знает.",
       "risk": "Сторонние шлюзы часто без /audio/speech.",
@@ -2106,7 +2104,13 @@
       "api": [
         "synthesize",
         "getProvider",
-        "getAllVoices"
+        "getAllVoices",
+        "PROVIDERS_MAP",
+        "openRouterTTSProvider",
+        "resolveAggregatorVoiceOptions",
+        "isVoiceValidForModel",
+        "getCatalogModelInfo",
+        "getKnownModelVoices"
       ]
     },
     "b_state_player": {
@@ -2224,10 +2228,18 @@
         "prepareAudio",
         "cancelPrepare",
         "deleteAudioCacheForBook",
-        "purgeOrphanAudioCache"
+        "purgeOrphanAudioCache",
+        "listProviders",
+        "listVoices",
+        "listModels",
+        "voiceOptionsForModel",
+        "isVoiceValidForModel",
+        "getModelCatalogVoices",
+        "normalizeVoiceForModel"
       ],
       "files": [
-        "src/engine/audio/cacheKey.ts"
+        "src/engine/audio/cacheKey.ts",
+        "src/engine/audio/audioCatalog.ts"
       ]
     },
     "b_ui_play": {
@@ -2351,7 +2363,7 @@
       "title": "Настройки: команды",
       "layer": "Domain",
       "file": "src/engine/settings.ts",
-      "line": 42,
+      "line": 50,
       "symbol": "setOpenRouterModel",
       "members": [
         "setOpenRouterModel",
@@ -2382,7 +2394,12 @@
         "removeReplacementRule",
         "toggleReplacementRule",
         "checkVoice",
-        "buildSynthesisOptions"
+        "buildSynthesisOptions",
+        "listProviders",
+        "loadCatalogVoices",
+        "fetchAggregatorModels",
+        "getAggregatorVoiceOptions",
+        "isAggregatorVoiceValid"
       ],
       "summary": "Единственный писатель настроек читалки: по команде из окна настроек, шапки, панели плеера и словаря записывает значение в стор настроек; по команде «проверить озвучку» делает разовый синтез через Поставщика озвучки. Валидация и ограничения остаются в сеттерах стора.",
       "risk": "Команда должна лишь передавать значение сеттеру стора: смена темы и ограничения скорости и громкости живут в сторе.",
@@ -2834,7 +2851,13 @@
             "b476bfdaf9#0",
             "39e43bc8e8#0",
             "c9d0403581#0",
-            "82e45e922c#0"
+            "82e45e922c#0",
+            "d69d140ad3#0",
+            "08a4f7cd38#1",
+            "4fac579169#0",
+            "7ba203b23e#0",
+            "d8f593fd5d#0",
+            "9040317a66#0"
           ]
         },
         {
@@ -2851,9 +2874,12 @@
             ]
           ],
           "bind": [
-            "d69d140ad3#0",
-            "08a4f7cd38#1",
-            "4fac579169#0"
+            "3978a4146c#0",
+            "08a4f7cd38#2",
+            "7b982bacf6#0",
+            "7ba203b23e#1",
+            "f3e23a10ef#0",
+            "e4cb99264b#0"
           ]
         },
         {
@@ -2870,11 +2896,7 @@
             ]
           ],
           "bind": [
-            "d8f593fd5d#0",
-            "9040317a66#0",
-            "3978a4146c#0",
-            "08a4f7cd38#2",
-            "7b982bacf6#0"
+            "1af438b76f#0"
           ]
         },
         {
@@ -2889,9 +2911,7 @@
               373
             ]
           ],
-          "bind": [
-            "7ba203b23e#1"
-          ]
+          "bind": []
         },
         {
           "id": "n_retry",
@@ -2906,11 +2926,7 @@
               378
             ]
           ],
-          "bind": [
-            "f3e23a10ef#0",
-            "e4cb99264b#0",
-            "1af438b76f#0"
-          ]
+          "bind": []
         },
         {
           "id": "e_fail",
@@ -2942,10 +2958,7 @@
               378
             ]
           ],
-          "bind": [
-            "7b982bacf6#0",
-            "1af438b76f#0"
-          ]
+          "bind": []
         }
       ],
       "edges": [
@@ -4766,7 +4779,7 @@
     },
     "b_infra_router": {
       "codeHash": "04ea0cb757",
-      "schemaHash": "e3c4346ccd",
+      "schemaHash": "7073b4c4f0",
       "at": "2026-10-16"
     },
     "b_infra_audioel": {
@@ -4785,14 +4798,14 @@
     "b_dom_tokenize": "8e7a6d65cc",
     "b_data_cache": "05a2ef2e3a",
     "b_infra_audioel": "3511053120",
-    "b_infra_router": "a99fc4b999",
+    "b_infra_router": "b6b5e2574a",
     "b_state_player": "591321626b",
     "b_dom_audio": "f55ab36e5c",
     "b_ui_router": "b66d7d218c",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
     "b_dom_pdf": "fe83156cfe",
-    "b_dom_fetch": "07a3dc37d3",
+    "b_dom_fetch": "95d493d48d",
     "b_ui_play": "738a0c76f5",
     "b_dom_source": "17a687b8c0",
     "b_state_settings": "d8a99631a8",
@@ -4806,8 +4819,8 @@
     "b_dom_parser": "6fabb3a9ca",
     "b_data_db": "05a2ef2e3a",
     "b_ui_header": "06df40c6db",
-    "b_dom_settings": "a3a8364ecb",
-    "b_ui_settings": "64d1f4582b",
+    "b_dom_settings": "6f561e88b2",
+    "b_ui_settings": "2ef3a7cc3f",
     "b_ui_book": "62a542a7e9",
     "b_dom_account": "8ce56bfe22",
     "b_infra_server": "e32289e624",
@@ -4823,27 +4836,27 @@
     "b_infra_ai": "07888fbe1f"
   },
   "approvedScenarios": {
-    "sc_tts": "da454b50de",
+    "sc_tts": "437770d67a",
     "sc_read": "1ca452f55b",
     "sc_open": "0d40304923",
-    "sc_settings": "0b2edf99ff",
+    "sc_settings": "15e90cf991",
     "sc_phrases": "7fc72b32e4",
     "sc_start": "4552827dfe",
-    "sc_transport": "75c71bf292",
-    "sc_navigate": "ade8c0761f",
-    "sc_wait": "11b6218e58",
-    "sc_failure": "00c49cb3fe",
-    "sc_announce": "9c135c878f",
-    "sc_live": "c2e8486085",
+    "sc_transport": "fbeea7cc25",
+    "sc_navigate": "ffc01c9aa5",
+    "sc_wait": "2be9a5840f",
+    "sc_failure": "2aab245c4b",
+    "sc_announce": "52817f160d",
+    "sc_live": "b67b85370c",
     "sc_pdf": "cd8c8778c2",
-    "sc_pdfchoice": "3523d232cd",
-    "sc_edit": "3156c4a98b",
+    "sc_pdfchoice": "269ba6bff8",
+    "sc_edit": "59a3381865",
     "sc_quality": "3be11c7b3a",
-    "sc_dictionary": "92f2c943a6",
-    "sc_voices": "328ae19034",
-    "sc_net": "cef565e4c6",
-    "sc_cloud": "6af6341388",
-    "sc_delete": "523cb46c26"
+    "sc_dictionary": "f778ca733d",
+    "sc_voices": "2e49024172",
+    "sc_net": "1108f6d41e",
+    "sc_cloud": "b1f6ed7dc3",
+    "sc_delete": "427fb2048e"
   },
   "riskAcks": {
     "11b0ba5a0a": {

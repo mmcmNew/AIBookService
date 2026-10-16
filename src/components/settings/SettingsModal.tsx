@@ -20,15 +20,38 @@ import {
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
 import { requestTopUp } from '../../engine/account';
-import { AggregatorApiMode, TTSProviderType, VoiceOption } from '../../types/tts';
-import { getAllVoices, PROVIDERS_MAP } from '../../engine/providers';
-import { 
-  openRouterTTSProvider, 
-  AggregatorModelInfo,
-  resolveAggregatorVoiceOptions,
-  isVoiceValidForModel
-} from '../../engine/providers/openRouterTts';
-import { isDesktopApp, loadDesktopProxy, saveProxy, setOpenRouterModel as setOpenRouterModelDomain, setTheme, setFontFamily, setFontSize, setLineHeight, setAutoscroll, setActiveProvider, setSelectedVoiceId, setOpenRouterApiMode, setSpeed, setVolume, setApiKey, setGeminiModel, setOpenRouterBaseUrl, setProxy, setPdfRecognitionMode, setAlwaysAskPdfMode, addReplacementRule, removeReplacementRule, toggleReplacementRule, checkVoice } from '../../engine/settings';
+import { AggregatorApiMode, AggregatorModelInfo, TTSProviderType, VoiceOption } from '../../types/tts';
+import {
+  isDesktopApp,
+  loadDesktopProxy,
+  saveProxy,
+  setOpenRouterModel as setOpenRouterModelDomain,
+  setTheme,
+  setFontFamily,
+  setFontSize,
+  setLineHeight,
+  setAutoscroll,
+  setActiveProvider,
+  setSelectedVoiceId,
+  setOpenRouterApiMode,
+  setSpeed,
+  setVolume,
+  setApiKey,
+  setGeminiModel,
+  setOpenRouterBaseUrl,
+  setProxy,
+  setPdfRecognitionMode,
+  setAlwaysAskPdfMode,
+  addReplacementRule,
+  removeReplacementRule,
+  toggleReplacementRule,
+  checkVoice,
+  listProviders,
+  loadCatalogVoices,
+  fetchAggregatorModels,
+  getAggregatorVoiceOptions,
+  isAggregatorVoiceValid,
+} from '../../engine/settings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -78,7 +101,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     setModelsError(null);
     setModelsStatus('loading');
     try {
-      const models = await openRouterTTSProvider.fetchModels(
+      const models = await fetchAggregatorModels(
         apiKeys.openrouter,
         openRouterBaseUrl || 'https://openrouter.ai/api/v1',
         force
@@ -114,7 +137,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
       }
       let cancelled = false;
       setVoicesLoading(true);
-      getAllVoices(apiKeys, openRouterBaseUrl)
+      loadCatalogVoices(apiKeys, openRouterBaseUrl)
         .then((v) => { if (!cancelled) setAvailableVoices(v); })
         .catch(() => {})
         .finally(() => { if (!cancelled) setVoicesLoading(false); });
@@ -160,7 +183,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   const gatewayVoices = availableVoices.filter((v: VoiceOption) => v.provider === 'openrouter' && v.id);
   const currentProviderVoices: VoiceOption[] =
     activeProvider === 'openrouter'
-      ? resolveAggregatorVoiceOptions(openRouterModel, gatewayVoices, catalogVoices)
+      ? getAggregatorVoiceOptions(openRouterModel, gatewayVoices, catalogVoices)
       : availableVoices.filter((v: VoiceOption) => v.provider === activeProvider);
   const selectedVoiceId = selectedVoiceIds?.[activeProvider] ?? '';
 
@@ -168,7 +191,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   useEffect(() => {
     if (!isOpen || voicesLoading) return;
     if (activeProvider === 'openrouter') {
-      if (selectedVoiceId && !isVoiceValidForModel(selectedVoiceId, openRouterModel, gatewayVoices, catalogVoices)) {
+      if (selectedVoiceId && !isAggregatorVoiceValid(selectedVoiceId, openRouterModel, gatewayVoices, catalogVoices)) {
         setSelectedVoiceId('');
       }
     } else if (currentProviderVoices.length > 0 && !currentProviderVoices.some((v) => v.id === selectedVoiceId)) {
@@ -311,8 +334,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                   Движок синтеза речи
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {(Object.keys(PROVIDERS_MAP) as TTSProviderType[]).map((pKey) => {
-                    const provider = PROVIDERS_MAP[pKey];
+                  {(Object.keys(listProviders()) as TTSProviderType[]).map((pKey) => {
+                    const provider = listProviders()[pKey];
                     const isSelected = activeProvider === pKey;
                     return (
                       <div
@@ -648,7 +671,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                 <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>
-                    <strong>{PROVIDERS_MAP[activeProvider]?.name}:</strong> Бесплатный движок, не требует API-ключей.
+                    <strong>{listProviders()[activeProvider]?.name}:</strong> Бесплатный движок, не требует API-ключей.
                   </span>
                 </div>
               )}
@@ -685,7 +708,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                     )}
                     {isAggregator && (
                       <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5">
-                        {resolveAggregatorVoiceOptions(openRouterModel, gatewayVoices, catalogVoices).length > 1
+                        {getAggregatorVoiceOptions(openRouterModel, gatewayVoices, catalogVoices).length > 1
                           ? 'Показаны голоса, поддерживаемые выбранной моделью. «По умолчанию» — голос не передаётся, модель выберет свой.'
                           : 'Для этой модели список голосов неизвестен: оставьте «По умолчанию» или введите ID голоса вручную.'}
                       </p>

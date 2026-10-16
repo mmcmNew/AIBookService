@@ -1,24 +1,14 @@
-import { AggregatorApiMode, ITTSProvider, SynthesisOptions, VoiceOption } from '../../types/tts';
+import {
+  AggregatorApiMode,
+  AggregatorModelInfo,
+  AggregatorModelKind,
+  ITTSProvider,
+  SynthesisOptions,
+  VoiceOption,
+} from '../../types/tts';
 import { normalizeAggregatorVoice } from '../../types/voice';
 
-/**
- * Тип модели с точки зрения озвучки:
- * - speech     — TTS-модель (architecture.output_modalities содержит "speech"), только POST /audio/speech
- * - chat-audio — чат-модель с аудио-выходом (output_modalities содержит "audio"), POST /chat/completions + modalities
- * - other      — всё остальное (текст, изображения, STT/transcription, embeddings...)
- */
-export type AggregatorModelKind = 'speech' | 'chat-audio' | 'other';
-
-export interface AggregatorModelInfo {
-  id: string;
-  name: string;
-  description?: string;
-  /** true для speech и chat-audio */
-  isAudio: boolean;
-  kind: AggregatorModelKind;
-  /** Голоса из каталога (поле supported_voices), если есть */
-  voices?: string[];
-}
+export type { AggregatorModelKind, AggregatorModelInfo };
 
 /** Эвристика по id — только когда в каталоге нет architecture */
 function kindFromId(id: string): AggregatorModelKind {

@@ -1,8 +1,16 @@
 import { useSettingsStore } from '../store/settingsStore';
 import type { FontFamily, PdfRecognitionMode, ReaderTheme } from '../types/settings';
-import type { AggregatorApiMode, SynthesisOptions, TTSProviderType } from '../types/tts';
-import { isVoiceValidForModel, getCatalogModelInfo, getKnownModelVoices } from './providers/openRouterTts';
-import { normalizeAggregatorVoice } from '../types/voice';
+import type { AggregatorApiMode, AggregatorModelInfo, SynthesisOptions, TTSProviderType, VoiceOption } from '../types/tts';
+import {
+  listProviders,
+  listVoices,
+  listModels,
+  voiceOptionsForModel,
+  isVoiceValidForModel,
+  getModelCatalogVoices,
+  normalizeVoiceForModel,
+  type ProviderMetadata,
+} from './audio/audioCatalog';
 import { synthesizeOnce } from './audio/audioFetch';
 import {
   isTauriEnvironment,
@@ -46,7 +54,7 @@ export function setOpenRouterModel(openRouterModel: string): void {
     cur,
     openRouterModel,
     [],
-    getCatalogModelInfo(state.openRouterBaseUrl, openRouterModel)?.voices
+    getModelCatalogVoices(state.openRouterBaseUrl, openRouterModel)
   );
   useSettingsStore.setState({
     openRouterModel,
@@ -181,15 +189,7 @@ export function buildSynthesisOptions(settings = useSettingsStore.getState()): S
 
   let voiceId = settings.selectedVoiceIds?.[provider] ?? '';
   if (provider === 'openrouter') {
-    voiceId = normalizeAggregatorVoice(voiceId);
-    // Если модель известна и голос ей не подходит — не отправляем его вовсе
-    const catalogVoices = getCatalogModelInfo(settings.openRouterBaseUrl, model)?.voices;
-    if (voiceId && catalogVoices && catalogVoices.length > 0) {
-      if (!catalogVoices.includes(voiceId)) voiceId = '';
-    } else {
-      const known = getKnownModelVoices(model);
-      if (voiceId && known && !known.some((v) => v.id === voiceId)) voiceId = '';
-    }
+    voiceId = normalizeVoiceForModel(voiceId, model, settings.openRouterBaseUrl);
   }
 
   const speed = Number.isFinite(settings.speed) ? Math.max(0.5, Math.min(2.5, settings.speed)) : 1;
@@ -205,4 +205,43 @@ export function buildSynthesisOptions(settings = useSettingsStore.getState()): S
     baseUrl: provider === 'openrouter' ? (settings.openRouterBaseUrl || 'https://openrouter.ai/api/v1') : undefined,
     apiMode: provider === 'openrouter' ? (settings.openRouterApiMode || 'auto') : undefined,
   };
+}
+
+export { listProviders };
+export type { ProviderMetadata };
+
+/** Загружает каталог голосов через Поставщика озвучки */
+export async function loadCatalogVoices(
+  apiKeys: { gemini?: string; openai?: string; elevenlabs?: string; openrouter?: string },
+  openRouterBaseUrl?: string
+): Promise<VoiceOption[]> {
+  return listVoices(apiKeys, openRouterBaseUrl);
+}
+
+/** Запрашивает каталог моделей агрегатора (OpenRouter) через Поставщика озвучки */
+export async function fetchAggregatorModels(
+  apiKey?: string,
+  baseUrl?: string,
+  force?: boolean
+): Promise<AggregatorModelInfo[]> {
+  return listModels(apiKey, baseUrl, force);
+}
+
+/** Получает список доступных голосов для модели агрегатора */
+export function getAggregatorVoiceOptions(
+  model: string | undefined,
+  gatewayVoices: VoiceOption[] = [],
+  catalogVoices?: string[]
+): VoiceOption[] {
+  return voiceOptionsForModel(model, gatewayVoices, catalogVoices);
+}
+
+/** Проверяет валидность голоса для модели агрегатора */
+export function isAggregatorVoiceValid(
+  voiceId: string,
+  model: string | undefined,
+  gatewayVoices: VoiceOption[] = [],
+  catalogVoices?: string[]
+): boolean {
+  return isVoiceValidForModel(voiceId, model, gatewayVoices, catalogVoices);
 }
