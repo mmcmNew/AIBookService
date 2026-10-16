@@ -1,6 +1,6 @@
 import type { Chapter, ManualChapterStart, PagedOutlineItem, PdfEngine, SentenceItem } from './book';
 
-export type { PdfEngine };
+export type { ManualChapterStart, PdfEngine };
 
 export type PageState = 'pending' | 'running' | 'done' | 'error';
 export type PageSource = 'text' | 'ocr' | 'gemini' | 'manual';

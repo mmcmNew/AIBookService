@@ -4,8 +4,8 @@ import { Modal } from '../ui/Modal';
 import { useToast } from '../ui/Toast';
 import { usePagedStore } from '../../store/pagedStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { availableEngines, ENGINE_LABELS } from '../../engine/pdf/engineChoice';
-import { isSidecarAvailable } from '../../engine/parsers/pdfSidecar';
+import { ENGINE_LABELS, getAvailableEngines } from '../../engine/pdf/engineChoice';
+import { isEdited, rerecognize, switchEngine } from '../../engine/pdf/pagedSession';
 import type { PdfEngine } from '../../types/book';
 
 interface Props {
@@ -24,10 +24,9 @@ export const RerecognizeDialog: React.FC<Props> = ({ isOpen, onClose, initialFro
   const pageCount = usePagedStore((s) => s.pageCount);
   const bookEngine = usePagedStore((s) => s.engine);
   const focusPage = usePagedStore((s) => s.focusPage);
-  const controller = usePagedStore((s) => s.controller);
   const geminiKey = useSettingsStore((s) => s.apiKeys.gemini);
 
-  const engines = useMemo(() => availableEngines({ sidecar: isSidecarAvailable(), geminiKey }), [geminiKey]);
+  const engines = useMemo(() => getAvailableEngines(), [geminiKey]);
   const [engine, setEngine] = useState<PdfEngine>(bookEngine);
   const [scope, setScope] = useState<Scope>('page');
   const [from, setFrom] = useState(1);
@@ -54,27 +53,25 @@ export const RerecognizeDialog: React.FC<Props> = ({ isOpen, onClose, initialFro
   }, [scope, from, to, pageCount]);
 
   const editedCount = useMemo(() => {
-    if (!controller) return 0;
     let n = 0;
-    for (let p = range[0]; p <= range[1]; p++) if (controller.isEdited(p)) n++;
+    for (let p = range[0]; p <= range[1]; p++) if (isEdited(p)) n++;
     return n;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, range, isOpen]);
+  }, [range, isOpen]);
 
   const noKey = engine === 'gemini' && !geminiKey?.trim();
   const pagesInRange = range[1] - range[0] + 1;
 
   const submit = async () => {
-    if (!controller || busy || noKey) return;
+    if (busy || noKey) return;
     setBusy(true);
     try {
       if (scope === 'rest') {
-        const n = await controller.switchEngine(engine, from);
+        const n = await switchEngine(engine, from);
         toast.success(`Дальше распознаём движком «${ENGINE_LABELS[engine]}». В очереди страниц: ${n}. Готовые страницы не изменены.`);
         onClose();
         return;
       }
-      const res = await controller.rerecognize({ from: range[0], to: range[1], engine, overwriteEdited: overwrite });
+      const res = await rerecognize({ from: range[0], to: range[1], engine, overwriteEdited: overwrite });
       toast.success(
         res.queued > 0
           ? `Поставлено в очередь страниц: ${res.queued}${res.skippedEdited ? `. Пропущено страниц с вашими правками: ${res.skippedEdited}` : ''}`

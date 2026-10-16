@@ -1,4 +1,5 @@
 import type { UpdateSpec } from 'dexie';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { db, loadPdfBuffer, type StoredBook } from '../storage/db';
 import { BookMetadata, Chapter, Footnote, ParsedBook } from '../types/book';
 import { computeBookQuality, needsAttention } from './cleanup/bookQuality';
@@ -6,6 +7,7 @@ import { mapReadingPosition } from './cleanup/bookModel';
 import { useBookStore, type SavedBook } from '../store/bookStore';
 import { usePagedStore } from '../store/pagedStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { loadPdfjsDocument } from './pdf/pdfjsDoc';
 import { bumpNavNonce, closePagedSession, deletePagesForBook, openPagedSession, setFocusPage } from './pdf/pagedSession';
 import {
   chapterIndexForPage,
@@ -659,4 +661,28 @@ export function setPdfViewMode(mode: 'original' | 'reflow'): void {
 
 export function clearBookError(): void {
   useBookStore.setState({ error: null });
+}
+
+/** Исходный PDF книги из базы данных (db.pdfFiles / db.books) */
+export async function getPdfBuffer(bookId: string): Promise<ArrayBuffer | undefined> {
+  return loadPdfBuffer(bookId);
+}
+
+/** Загружает и кэширует документ pdf.js для оригинального просмотра страниц */
+export async function getPdfDocument(bookId: string): Promise<PDFDocumentProxy> {
+  const getBuffer = async () => {
+    const inMemory = useBookStore.getState().currentBook?.rawPdfBuffer;
+    if (inMemory && inMemory.byteLength > 0) return inMemory;
+    const file = await db.pdfFiles.get(bookId);
+    const restored = file?.buffer && file.buffer.byteLength > 0 ? file.buffer : await loadPdfBuffer(bookId);
+    if (restored) {
+      useBookStore.setState((state) =>
+        state.currentBook && state.currentBook.metadata.id === bookId
+          ? { currentBook: { ...state.currentBook, rawPdfBuffer: restored } }
+          : {}
+      );
+    }
+    return restored;
+  };
+  return loadPdfjsDocument(bookId, getBuffer);
 }

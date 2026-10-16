@@ -10,7 +10,18 @@ import { assessBook } from '../../engine/cleanup/bookQuality';
 import { planFromHeadings, planFromOutline, type ChapterSpec } from '../../engine/pdf/chapterPlan';
 import { finalizePageBlocks } from '../../engine/pdf/pageClean';
 import { normalizeBlockText } from '../../engine/pdf/pageCompose';
-import type { PdfBlock } from '../../engine/parsers/pdfSidecar';
+import {
+  cleanRecognizedPages,
+  countShiftedPages,
+  getPageBlocks,
+  getPageMeta,
+  repairShiftedPages,
+  rerecognize,
+  savePageBlocks,
+  setAutoClean as setSessionAutoClean,
+  setManualChapters,
+} from '../../engine/pdf/pagedSession';
+import type { PdfBlock } from '../../types/pdf';
 import type { ManualChapterStart } from '../../types/book';
 import { openRerecognizeDialog } from '../reader/PagedBookBar';
 
@@ -81,7 +92,6 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
   const toast = useToast();
   const book = useBookStore((s) => s.currentBook)!;
   const currentPage = useBookStore((s) => s.currentPage);
-  const controller = usePagedStore((s) => s.controller);
   const composed = usePagedStore((s) => s.composed);
   const states = usePagedStore((s) => s.states);
   const pageCount = usePagedStore((s) => s.pageCount);
@@ -97,18 +107,18 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
   const [bump, setBump] = useState(0);
 
   const state = states[page - 1] ?? 'pending';
-  const meta = state === 'done' ? controller?.getPageMeta(page) : null;
+  const meta = state === 'done' ? getPageMeta(page) : null;
 
   // Загрузка текста страницы в редактор (при смене страницы и после перераспознавания)
   useEffect(() => {
-    const blocks = state === 'done' ? controller?.getPageBlocks(page) : null;
+    const blocks = state === 'done' ? getPageBlocks(page) : null;
     setText(blocks ? blocksToEditText(blocks) : '');
     setDirty(false);
-  }, [page, state, controller, bump, composed?.pages[page - 1]]);
+  }, [page, state, bump, composed?.pages[page - 1]]);
 
   useEffect(() => {
-    if (tab === 'quality') setShiftedPages(controller?.countShiftedPages() ?? 0);
-  }, [tab, controller, composed]);
+    if (tab === 'quality') setShiftedPages(countShiftedPages());
+  }, [tab, composed]);
 
   const report = useMemo(() => {
     if (!composed) return null;
@@ -123,11 +133,11 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
   };
 
   const save = async () => {
-    if (!controller || state !== 'done') return;
+    if (state !== 'done') return;
     setSaving(true);
     try {
-      const blocks = controller.getPageBlocks(page) ?? [];
-      await controller.savePageBlocks(page, applyEditedText(blocks, text));
+      const blocks = getPageBlocks(page) ?? [];
+      await savePageBlocks(page, applyEditedText(blocks, text));
       setDirty(false);
       toast.success(`Страница ${page} сохранена (помечена как изменённая вручную).`);
     } catch (e) {
@@ -138,7 +148,7 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
   };
 
   const detect = async (source: 'headings' | 'outline') => {
-    if (!composed || !controller) return;
+    if (!composed) return;
     const specs =
       source === 'outline'
         ? planFromOutline(book.metadata.paged?.outline ?? [], pageCount, composed.pages)
@@ -147,7 +157,7 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
       toast.info(source === 'outline' ? 'В PDF нет пригодного оглавления.' : 'Заголовки глав в распознанном тексте не найдены. Распознайте больше страниц.');
       return;
     }
-    await controller.setManualChapters(specsToManual(specs));
+    await setManualChapters(specsToManual(specs));
     toast.success(`Глав определено: ${specs.filter((s) => s.source !== 'ranges').length}. Содержание обновлено.`);
   };
 
@@ -306,7 +316,7 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
                   checked={autoClean}
                   onChange={(e) => {
                     setAutoClean(e.target.checked);
-                    controller?.setAutoClean(e.target.checked);
+                    setSessionAutoClean(e.target.checked);
                   }}
                   className="mt-1 accent-amber-500"
                 />
@@ -319,7 +329,7 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
               <button
                 className={btn}
                 onClick={async () => {
-                  const n = (await controller?.cleanRecognizedPages()) ?? 0;
+                  const n = (await cleanRecognizedPages()) ?? 0;
                   toast.success(n > 0 ? `Очищено фрагментов текста: ${n}.` : 'Распознанные страницы уже чистые.');
                 }}
               >
@@ -365,7 +375,7 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
                   </button>
                 )}
                 {book.metadata.paged?.chapterStarts && (
-                  <button className={btn} onClick={() => void controller?.setManualChapters(undefined)}>
+                  <button className={btn} onClick={() => void setManualChapters(undefined)}>
                     Сбросить на автоматические
                   </button>
                 )}
@@ -408,7 +418,7 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
         onConfirm={() => {
           setConfirm(null);
           const engine = usePagedStore.getState().engine;
-          void controller?.rerecognize({ from: page, to: page, engine, overwriteEdited: true });
+          void rerecognize({ from: page, to: page, engine, overwriteEdited: true });
         }}
         onCancel={() => setConfirm(null)}
       />
@@ -419,9 +429,9 @@ export const PagedBookEditor: React.FC<{ onClose: () => void; initialTab?: 'qual
         confirmLabel="Исправить"
         onConfirm={async () => {
           setConfirm(null);
-          const n = (await controller?.repairShiftedPages()) ?? 0;
+          const n = (await repairShiftedPages()) ?? 0;
           toast.success(n > 0 ? `Исправлено фрагментов: ${n}.` : 'Нечего исправлять.');
-          setShiftedPages(controller?.countShiftedPages() ?? 0);
+          setShiftedPages(countShiftedPages());
         }}
         onCancel={() => setConfirm(null)}
       />

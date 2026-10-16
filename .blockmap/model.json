@@ -1030,15 +1030,13 @@
           "from": "b_ui_book",
           "to": "b_dom_pdf",
           "label": "пауза, повтор, пропуск страницы, смена движка",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_ui_book",
           "to": "b_dom_library",
           "label": "документ оригинального PDF для показа страницы",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         }
       ],
       "zoneOrder": [
@@ -1109,8 +1107,7 @@
           "from": "b_ui_pdfdialogs",
           "to": "b_dom_pdf",
           "label": "перераспознать страницы, сменить движок",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_state_paged",
@@ -1253,8 +1250,7 @@
           "from": "b_ui_editor",
           "to": "b_dom_pdf",
           "label": "править страницы, ручные главы, чистка и починка страниц (вызовы API)",
-          "kind": "call",
-          "planned": true
+          "kind": "call"
         },
         {
           "from": "b_dom_cleanup",
@@ -1973,7 +1969,9 @@
         "goToPage",
         "setViewPage",
         "stepPhrase",
-        "reparsePdfBook"
+        "reparsePdfBook",
+        "getPdfDocument",
+        "getPdfBuffer"
       ],
       "summary": "Управляет книгами: открытие, сохранение, удаление, сохранение прогресса. Владелец состояния st_book и таблицы db.books. Единственный вход зоны и владелец состояния «книга и позиция»: открывает и сохраняет книги, принимает навигацию (предложение, глава, страница, шаг), сам двигает позицию и сохраняет прогресс. Отдаёт фразу или «ждём страницу / конец» и сообщает Координатору о внешних переходах.",
       "res": [
@@ -2194,7 +2192,25 @@
         "normalizeBlockText",
         "finalizePageBlocks",
         "createPagedPdfBook",
-        "deletePagesForBook"
+        "deletePagesForBook",
+        "setCenter",
+        "retryPage",
+        "skipPage",
+        "rerecognize",
+        "savePageBlocks",
+        "setEngine",
+        "setPaused",
+        "switchEngine",
+        "setAutoClean",
+        "cleanRecognizedPages",
+        "repairShiftedPages",
+        "setManualChapters",
+        "getPageBlocks",
+        "isEdited",
+        "getPageMeta",
+        "countShiftedPages",
+        "getAvailableEngines",
+        "isSidecarEngineAvailable"
       ]
     },
     "b_dom_fetch": {

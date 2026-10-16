@@ -1,6 +1,7 @@
 import type { ParsedBook, PdfEngine } from '../../types/book';
-import { ScannedPdfError } from '../parsers/pdfParser';
-import { isSidecarAvailable } from '../parsers/pdfSidecar';
+import { checkCorruptedTextLayer, ScannedPdfError } from '../parsers/pdfParser';
+import { detectShiftedCyrillic } from '../cleanup/shiftedCyrillic';
+import { isSidecarEngineAvailable } from './engineChoice';
 import { closeSidecarHandle, openAndInspect } from './recognizers';
 import { releasePdfjsDocument } from './pdfjsDoc';
 
@@ -32,18 +33,24 @@ export async function createPagedPdfBook(file: File, requested: PdfEngine): Prom
     throw new Error(`Не удалось открыть PDF: ${msg}`);
   }
   const { info, engine } = opened;
+  const sample = info.textSample ?? '';
+  const isCorrupted = info.hasTextLayer && (
+    checkCorruptedTextLayer(sample).isCorrupted ||
+    detectShiftedCyrillic(sample).isShifted
+  );
+  const corruptedLayerSuspected = info.corruptedLayerSuspected || isCorrupted;
+  const recommendedMode = (!info.hasTextLayer || corruptedLayerSuspected) ? 'ocr' : info.recommendedMode;
 
   // Текстовый слой pdf.js бесполезен для скана/битого слоя: предлагаем OCR (как раньше — через ScannedPdfError)
-  if (engine === 'pdfjs' && (!info.hasTextLayer || info.corruptedLayerSuspected)) {
+  if (engine === 'pdfjs' && (!info.hasTextLayer || corruptedLayerSuspected)) {
     releasePdfjsDocument(bookId);
-    const corrupted = info.corruptedLayerSuspected;
     throw new ScannedPdfError(
-      corrupted
+      corruptedLayerSuspected
         ? 'В этом PDF обнаружен повреждённый текстовый слой (псевдокириллица или сдвинутая кириллица старого OCR). Для качественного чтения нужно оптическое распознавание: встроенный OCR (Tesseract) или AI (Gemini).'
-        : `PDF-файл не содержит текстового слоя. Скорее всего это скан. Рекомендуется оптическое распознавание: ${isSidecarAvailable() ? 'встроенный OCR или ' : ''}AI (Gemini).`,
+        : `PDF-файл не содержит текстового слоя. Скорее всего это скан. Рекомендуется оптическое распознавание: ${isSidecarEngineAvailable() ? 'встроенный OCR или ' : ''}AI (Gemini).`,
       info.pageCount,
       0,
-      corrupted,
+      corruptedLayerSuspected,
     );
   }
 
@@ -66,8 +73,8 @@ export async function createPagedPdfBook(file: File, requested: PdfEngine): Prom
         outline: info.outline ?? [],
         bodyFontSize: info.bodyFontSize,
         hasTextLayer: info.hasTextLayer,
-        corruptedLayerSuspected: info.corruptedLayerSuspected,
-        recommendedMode: info.recommendedMode,
+        corruptedLayerSuspected,
+        recommendedMode,
         pageSize: info.pageSize,
         pagesDone: 0,
         pagesError: 0,

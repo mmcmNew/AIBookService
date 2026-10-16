@@ -1,4 +1,6 @@
 import type { PdfEngine } from '../../types/book';
+import { isSidecarAvailable } from '../parsers/pdfSidecar';
+import { useSettingsStore } from '../../store/settingsStore';
 
 /**
  * Выбор способа обработки PDF по режиму из модалки/настроек и среде.
@@ -48,3 +50,15 @@ export function availableEngines(env: EngineEnv): PdfEngine[] {
   list.push('gemini');
   return list;
 }
+
+export function isSidecarEngineAvailable(): boolean {
+  return isSidecarAvailable();
+}
+
+/** Движки, доступные в текущей среде (проверяет sidecar и ключ Gemini из useSettingsStore). */
+export function getAvailableEngines(): PdfEngine[] {
+  const sidecar = isSidecarEngineAvailable();
+  const geminiKey = useSettingsStore.getState().apiKeys.gemini;
+  return availableEngines({ sidecar, geminiKey });
+}
+

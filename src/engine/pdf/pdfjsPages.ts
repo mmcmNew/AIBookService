@@ -1,7 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import type { PdfInfo, PdfPageResult } from '../parsers/pdfSidecar';
-import { checkCorruptedTextLayer, extractCover, loadOutline } from '../parsers/pdfParser';
-import { detectShiftedCyrillic } from '../cleanup/shiftedCyrillic';
+import type { PdfInfo, PdfPageResult } from '../../types/pdf';
+import { extractCover, loadOutline } from './pdfjsDoc';
 import { layoutPage, type LayoutItem } from './textLayout';
 
 /**
@@ -75,7 +74,6 @@ export async function pdfjsGetInfo(doc: PDFDocumentProxy, fileName: string): Pro
   }
   const hasTextLayer = withText > 0 && withText >= Math.max(1, Math.round(idxs.length / 3));
   const joined = texts.join('\n').slice(0, 8000);
-  const corrupted = hasTextLayer && (checkCorruptedTextLayer(joined).isCorrupted || detectShiftedCyrillic(joined).isShifted);
   let bodyFontSize: number | null = null;
   if (hasTextLayer && sizes.length) {
     sizes.sort((a, b) => a.fs - b.fs);
@@ -100,18 +98,20 @@ export async function pdfjsGetInfo(doc: PDFDocumentProxy, fileName: string): Pro
     outline,
     pageSize,
     hasTextLayer,
-    corruptedLayerSuspected: corrupted,
+    corruptedLayerSuspected: false,
+    textSample: joined,
     bodyFontSize,
-    recommendedMode: !hasTextLayer || corrupted ? 'ocr' : 'text',
+    recommendedMode: !hasTextLayer ? 'ocr' : 'text',
   };
 }
+
+export const inspectPdfjsPage = pdfjsGetInfo;
 
 export async function pdfjsRecognizePage(doc: PDFDocumentProxy, pageNo: number, bodyFontSize: number | null): Promise<PdfPageResult> {
   const { items, W, H } = await pageItems(doc, pageNo);
   const { blocks, text } = layoutPage(items, W, H, bodyFontSize);
   const warnings: string[] = [];
   if (blocks.length === 0) warnings.push('no-text-layer');
-  if (detectShiftedCyrillic(text).isShifted) warnings.push('shifted-cyrillic');
-  if (text.includes('�')) warnings.push('replacement-chars');
+  if (text.includes('\uFFFD')) warnings.push('replacement-chars');
   return { page: pageNo, source: 'text', width: Math.round(W * 10) / 10, height: Math.round(H * 10) / 10, blocks, text, warnings };
 }

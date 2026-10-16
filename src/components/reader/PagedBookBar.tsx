@@ -5,7 +5,8 @@ import { goToPage } from '../../engine/library';
 import { usePagedStore } from '../../store/pagedStore';
 import { useAudioStore } from '../../store/audioStore';
 import { RerecognizeDialog } from './RerecognizeDialog';
-import { isSidecarAvailable } from '../../engine/parsers/pdfSidecar';
+import { isSidecarEngineAvailable } from '../../engine/pdf/engineChoice';
+import { getPageMeta, retryPage, setPaused, skipPage, switchEngine } from '../../engine/pdf/pagedSession';
 import type { PageState } from '../../types/pdf';
 
 /** Событие для открытия диалога перераспознавания из других компонентов (текстовый вид, редактор). */
@@ -42,7 +43,6 @@ export const PagedBookBar: React.FC = () => {
   const doneCount = usePagedStore((s) => s.doneCount);
   const errorCount = usePagedStore((s) => s.errorCount);
   const runningCount = usePagedStore((s) => s.runningCount);
-  const controller = usePagedStore((s) => s.controller);
   const paused = usePagedStore((s) => s.paused);
   const bookEngine = usePagedStore((s) => s.engine);
   const waitingPage = useAudioStore((s) => s.waitingPage);
@@ -73,7 +73,7 @@ export const PagedBookBar: React.FC = () => {
   if (pageCount === 0) return null;
 
   const state: PageState = states[currentPage - 1] ?? 'pending';
-  const meta = state === 'done' ? controller?.getPageMeta(currentPage) : null;
+  const meta = state === 'done' ? getPageMeta(currentPage) : null;
   const percent = Math.round((doneCount / pageCount) * 100);
 
   // Какую страницу показываем в баннере: ту, которую ждёт озвучка, иначе текущую, если на ней ошибка
@@ -138,7 +138,7 @@ export const PagedBookBar: React.FC = () => {
         {(runningCount > 0 || paused || doneCount < pageCount) && (
           <button
             type="button"
-            onClick={() => controller?.setPaused(!paused)}
+            onClick={() => setPaused(!paused)}
             aria-pressed={paused}
             className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
             title={paused ? 'Продолжить распознавание' : 'Остановить распознавание (идущая страница дорабатывает, новые не запускаются)'}
@@ -188,20 +188,20 @@ export const PagedBookBar: React.FC = () => {
                 Не удалось распознать страницу {bannerPage}: {errors[bannerPage] ?? 'ошибка распознавания'}
               </span>
               <button
-                onClick={() => controller?.retryPage(bannerPage)}
+                onClick={() => retryPage(bannerPage)}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold"
               >
                 <RefreshCw className="w-3 h-3" aria-hidden="true" /> Повторить
               </button>
               <button
-                onClick={() => void controller?.skipPage(bannerPage)}
+                onClick={() => void skipPage(bannerPage)}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg border border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-950/40 font-semibold"
               >
                 <SkipForward className="w-3 h-3" aria-hidden="true" /> Пропустить
               </button>
-              {bookEngine !== 'auto' && isSidecarAvailable() && (
+              {bookEngine !== 'auto' && isSidecarEngineAvailable() && (
                 <button
-                  onClick={() => void controller?.switchEngine('auto', bannerPage)}
+                  onClick={() => void switchEngine('auto', bannerPage)}
                   className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold"
                   title="Дальше распознавать автоматически: текст из слоя, OCR только где нужно. Уже готовые страницы не меняются."
                 >

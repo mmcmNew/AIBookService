@@ -1,10 +1,9 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PDFDocumentProxy, PageViewport, RenderTask } from 'pdfjs-dist';
 import { useBookStore } from '../../store/bookStore';
-import { jumpToSentence, setPdfViewMode, setViewPage } from '../../engine/library';
+import { getPdfDocument, jumpToSentence, setPdfViewMode, setViewPage } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { usePagedStore } from '../../store/pagedStore';
-import { loadPdfjsDocument, getPdfBuffer } from '../../engine/pdf/pdfjsDoc';
 import { SentenceItem } from '../../types/book';
 import { ZoomIn, ZoomOut, RotateCcw, AlertCircle, RefreshCw, BookText } from 'lucide-react';
 import { ResumeAutoscrollButton, ensureVisible, scrollIntoComfortZone, useAutoscrollPause, useIsReading } from './readerScroll';
@@ -310,7 +309,7 @@ export const PdfBookView: React.FC = () => {
   const { paused, resume } = useAutoscrollPause(mainRef, bookId, { getActive: getActiveEl });
   const reading = useIsReading();
 
-  // Загрузка документа PDF (общий кэш с распознаванием страниц: файл держится в памяти один раз)
+  // Загрузка документа PDF (через Менеджера библиотеки)
   useEffect(() => {
     let isCancelled = false;
     if (!bookId) {
@@ -320,20 +319,7 @@ export const PdfBookView: React.FC = () => {
     setIsLoadingPdf(true);
     setErrorMsg(null);
     setPdfDoc(null);
-    const getBuffer = async () => {
-      const inMemory = useBookStore.getState().currentBook?.rawPdfBuffer;
-      if (inMemory && inMemory.byteLength > 0) return inMemory;
-      const restored = await getPdfBuffer(bookId);
-      if (restored) {
-        useBookStore.setState((state) =>
-          state.currentBook && state.currentBook.metadata.id === bookId
-            ? { currentBook: { ...state.currentBook, rawPdfBuffer: restored } }
-            : {}
-        );
-      }
-      return restored;
-    };
-    loadPdfjsDocument(bookId, getBuffer)
+    getPdfDocument(bookId)
       .then((doc) => {
         if (isCancelled) return;
         setPdfDoc(doc);

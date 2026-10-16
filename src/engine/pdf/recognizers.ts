@@ -1,6 +1,6 @@
 import type { PdfEngine } from '../../types/book';
-import { closePdf, getInfo, getPages, isSidecarAvailable, openPdf, type PdfInfo, type PdfPageResult } from '../parsers/pdfSidecar';
-import type { PageSource } from '../../types/pdf';
+import { closePdf, getInfo, getPages, isSidecarAvailable, openPdf, type PdfPageResult } from '../parsers/pdfSidecar';
+import type { PageSource, PdfInfo } from '../../types/pdf';
 
 /**
  * Движки распознавания страниц. Единый интерфейс: recognize(pages) -> результаты в формате sidecar.

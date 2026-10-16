@@ -1,14 +1,17 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import * as pdfWorkerModule from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { Chapter, ParsedBook, PdfBoundingRect, SentenceItem } from '../../types/book';
 import { ReplacementRule } from '../../types/settings';
 import { tokenizeSentences } from '../tokenizer/sentenceTokenizer';
 import { escapeHtml } from './htmlUtil';
-import { classifyHeading, detectChapters, type DetectParagraph, type OutlineEntry } from '../cleanup/chapters';
+import { classifyHeading, detectChapters, type DetectParagraph } from '../cleanup/chapters';
 import { headerKey } from '../cleanup/textOps';
 
 // Настройка воркера PDF.js через Vite asset URL
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+const pdfWorker = (pdfWorkerModule as { default?: string }).default ?? '';
+if (pdfWorker) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+}
 
 export class ScannedPdfError extends Error {
   pageCount: number;
@@ -96,57 +99,8 @@ interface ParagraphBlock {
   newPage?: boolean;
 }
 
-/** Оглавление (outline) PDF с номерами страниц; пустой массив, если оглавления нет или его не удалось разобрать. */
-export async function loadOutline(pdfDoc: any): Promise<OutlineEntry[]> {
-  try {
-    const outline = await pdfDoc.getOutline();
-    if (!outline || outline.length === 0) return [];
-    const result: OutlineEntry[] = [];
-    const visit = async (items: any[], level: number) => {
-      for (const item of items) {
-        let page: number | undefined;
-        try {
-          let dest = item.dest;
-          if (typeof dest === 'string') dest = await pdfDoc.getDestination(dest);
-          if (Array.isArray(dest) && dest[0] !== undefined) {
-            const ref = dest[0];
-            page = typeof ref === 'object' ? (await pdfDoc.getPageIndex(ref)) + 1 : Number(ref) + 1;
-          }
-        } catch {
-          page = undefined;
-        }
-        const t = typeof item.title === 'string' ? item.title.trim() : '';
-        if (t) result.push({ title: t, level, page });
-        if (level < 2 && item.items?.length) await visit(item.items, level + 1);
-      }
-    };
-    await visit(outline, 1);
-    return result;
-  } catch (e) {
-    console.warn('[PDF Parser] Не удалось прочитать оглавление PDF:', e);
-    return [];
-  }
-}
-
-/**
- * Рендерит первую страницу книги на холст и возвращает data-url обложки
- */
-export async function extractCover(page: any): Promise<string | undefined> {
-  try {
-    const viewport = page.getViewport({ scale: 0.6 });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return undefined;
-
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    return canvas.toDataURL('image/jpeg', 0.82);
-  } catch (err) {
-    console.warn('[PDF Parser] ⚠️ Предупреждение: не удалось отрендерить обложку:', err);
-    return undefined;
-  }
-}
+import { extractCover, loadOutline } from '../pdf/pdfjsDoc';
+export { extractCover, loadOutline };
 
 /**
  * Клиентский парсер PDF с сохранением точных координат предложений

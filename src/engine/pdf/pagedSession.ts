@@ -1,15 +1,14 @@
 import { db } from '../../storage/db';
 import { useSettingsStore } from '../../store/settingsStore';
-import { usePagedStore, type PagedController, type RerecognizeRequest } from '../../store/pagedStore';
+import { usePagedStore } from '../../store/pagedStore';
 import type { BookMetadata, ManualChapterStart, PagedMeta, PdfEngine } from '../../types/book';
-import type { PdfBlock } from '../parsers/pdfSidecar';
+import type { PageSource, PageState, PdfBlock, PdfPageRecord, RerecognizeRequest } from '../../types/pdf';
 import { computeBookQuality } from '../cleanup/bookQuality';
 import { detectShiftedCyrillic } from '../cleanup/shiftedCyrillic';
 import { composeBook, createComposeCache } from './composer';
 import { cleanBlocks, repairBlocksShifted } from './pageClean';
 import { PageScheduler, type BatchOutcome, type SchedulerConfig, type SchedState } from './pageScheduler';
 import { closeSidecarHandle, effectiveEngine, recognizePages, RecognitionError, type RecognizerContext } from './recognizers';
-import type { PageState, PdfPageRecord } from '../../types/pdf';
 
 /**
  * Сессия открытой постраничной PDF-книги: загрузка записей страниц из Dexie, планировщик «скользящего окна»,
@@ -132,7 +131,6 @@ class PagedSession {
       pageCount: n,
       engine: this.meta.engine,
       meta: { ...this.meta },
-      controller: this.controller(),
       focusPage: Math.min(Math.max(1, this.init.startPage), n),
     });
     this.publishStatesNow();
@@ -321,43 +319,54 @@ class PagedSession {
     }
   }
 
-  // ------------------------------------------------------------------ команды
+  // ------------------------------------------------------------------ команды сессии
 
-  private controller(): PagedController {
-    return {
-      setCenter: (page) => this.scheduler.setCenter(page),
-      retryPage: (page) => this.scheduler.retry(page),
-      skipPage: (page) => this.skipPage(page),
-      rerecognize: (req) => this.rerecognize(req),
-      savePageBlocks: (page, blocks) => this.savePageBlocks(page, blocks),
-      setEngine: (engine) => this.setEngine(engine),
-      setPaused: (on) => {
-        this.scheduler.setPaused(on);
-        usePagedStore.setState({ paused: on });
-      },
-      switchEngine: (engine, fromPage) => this.switchEngine(engine, fromPage),
-      setAutoClean: (on) => {
-        this.meta.autoClean = on;
-        void this.persistMeta();
-      },
-      cleanRecognizedPages: () => this.mapRecords((b) => cleanBlocks(b)),
-      repairShiftedPages: () => this.mapRecords((b) => repairBlocksShifted(b)),
-      setManualChapters: (starts) => this.setManualChapters(starts),
-      getPageBlocks: (page) => this.records.get(page)?.blocks ?? null,
-      isEdited: (page) => Boolean(this.records.get(page)?.editedByUser),
-      getPageMeta: (page) => {
-        const r = this.records.get(page);
-        return r ? { source: r.source, edited: r.editedByUser, skipped: Boolean(r.skipped), warnings: r.warnings } : null;
-      },
-      countShiftedPages: () => {
-        let n = 0;
-        for (const r of this.records.values()) if (r.blocks.some((b) => detectShiftedCyrillic(b.text).isShifted)) n++;
-        return n;
-      },
-    };
+  setCenter(page: number): void {
+    this.scheduler.setCenter(page);
   }
 
-  private async skipPage(page: number): Promise<void> {
+  retryPage(page: number): void {
+    this.scheduler.retry(page);
+  }
+
+  setPaused(on: boolean): void {
+    this.scheduler.setPaused(on);
+    usePagedStore.setState({ paused: on });
+  }
+
+  setAutoClean(on: boolean): void {
+    this.meta.autoClean = on;
+    void this.persistMeta();
+  }
+
+  cleanRecognizedPages(): Promise<number> {
+    return this.mapRecords((b) => cleanBlocks(b));
+  }
+
+  repairShiftedPages(): Promise<number> {
+    return this.mapRecords((b) => repairBlocksShifted(b));
+  }
+
+  getPageBlocks(page: number): PdfBlock[] | null {
+    return this.records.get(page)?.blocks ?? null;
+  }
+
+  isEdited(page: number): boolean {
+    return Boolean(this.records.get(page)?.editedByUser);
+  }
+
+  getPageMeta(page: number): { source?: PageSource; edited: boolean; skipped: boolean; warnings: string[] } | null {
+    const r = this.records.get(page);
+    return r ? { source: r.source, edited: r.editedByUser, skipped: Boolean(r.skipped), warnings: r.warnings } : null;
+  }
+
+  countShiftedPages(): number {
+    let n = 0;
+    for (const r of this.records.values()) if (r.blocks.some((b) => detectShiftedCyrillic(b.text).isShifted)) n++;
+    return n;
+  }
+
+  async skipPage(page: number): Promise<void> {
     const rec: PdfPageRecord = {
       bookId: this.bookId,
       page,
@@ -376,7 +385,7 @@ class PagedSession {
     this.scheduleMeta();
   }
 
-  private async rerecognize(req: RerecognizeRequest): Promise<{ queued: number; skippedEdited: number }> {
+  async rerecognize(req: RerecognizeRequest): Promise<{ queued: number; skippedEdited: number }> {
     const from = Math.max(1, req.from);
     const to = Math.min(this.meta.pageCount, req.to);
     const pages: number[] = [];
@@ -415,7 +424,7 @@ class PagedSession {
     return { queued: pages.length, skippedEdited };
   }
 
-  private async savePageBlocks(page: number, blocks: PdfBlock[]): Promise<void> {
+  async savePageBlocks(page: number, blocks: PdfBlock[]): Promise<void> {
     const prev = this.records.get(page);
     const rec: PdfPageRecord = {
       bookId: this.bookId,
@@ -436,7 +445,7 @@ class PagedSession {
     this.scheduleMeta();
   }
 
-  private async switchEngine(engine: PdfEngine, fromPage: number): Promise<number> {
+  async switchEngine(engine: PdfEngine, fromPage: number): Promise<number> {
     this.setEngine(engine);
     this.scheduler.setPaused(false);
     usePagedStore.setState({ paused: false });
@@ -458,7 +467,7 @@ class PagedSession {
     return redo.length;
   }
 
-  private setEngine(engine: PdfEngine): void {
+  setEngine(engine: PdfEngine): void {
     this.meta.engine = engine;
     this.scheduler.setConfig(schedulerConfigFor(engine, this.meta));
     usePagedStore.setState({ engine });
@@ -486,7 +495,7 @@ class PagedSession {
     return changedBlocks;
   }
 
-  private async setManualChapters(starts: ManualChapterStart[] | undefined): Promise<void> {
+  async setManualChapters(starts: ManualChapterStart[] | undefined): Promise<void> {
     this.meta.chapterStarts = starts && starts.length ? starts : undefined;
     usePagedStore.setState({ meta: { ...this.meta } });
     this.composeNow();
@@ -536,6 +545,7 @@ export async function closePagedSession(): Promise<void> {
 /** Выставляет страницу фокуса распознавания (владелец st_paged: b_dom_pdf) */
 export function setFocusPage(page: number): void {
   usePagedStore.getState().setFocusPage(page);
+  setCenter(page);
 }
 
 /** Увеличивает navNonce при явной навигации для обновления видов (владелец st_paged: b_dom_pdf) */
@@ -546,5 +556,81 @@ export function bumpNavNonce(): void {
 /** Удаляет сохранённые страницы книги из Dexie (владелец res_pdfPages: b_dom_pdf) */
 export async function deletePagesForBook(bookId: string): Promise<void> {
   await db.pdfPages.where('bookId').equals(bookId).delete();
+}
+
+/** Центр окна распознавания (текущая страница) */
+export function setCenter(page: number): void {
+  active?.setCenter(page);
+}
+
+export function retryPage(page: number): void {
+  active?.retryPage(page);
+}
+
+/** Пропустить страницу: помечается готовой и пустой, чтение идёт дальше */
+export async function skipPage(page: number): Promise<void> {
+  await active?.skipPage(page);
+}
+
+export async function rerecognize(req: RerecognizeRequest): Promise<{ queued: number; skippedEdited: number }> {
+  return active ? active.rerecognize(req) : { queued: 0, skippedEdited: 0 };
+}
+
+/** Сохранить ручную правку страницы (editedByUser = true, source = manual) */
+export async function savePageBlocks(page: number, blocks: PdfBlock[]): Promise<void> {
+  await active?.savePageBlocks(page, blocks);
+}
+
+export function setEngine(engine: PdfEngine): void {
+  active?.setEngine(engine);
+}
+
+/** Остановить/продолжить распознавание (идущий вызов дорабатывает, новые не стартуют) */
+export function setPaused(on: boolean): void {
+  active?.setPaused(on);
+}
+
+/**
+ * Сменить движок для всей книги с указанной страницы: уже распознанные страницы не трогаются,
+ * страницы с ошибкой и ещё не распознанные идут новым движком.
+ */
+export async function switchEngine(engine: PdfEngine, fromPage: number): Promise<number> {
+  return active ? active.switchEngine(engine, fromPage) : 0;
+}
+
+export function setAutoClean(on: boolean): void {
+  active?.setAutoClean(on);
+}
+
+/** Очистка уже распознанных страниц (markdown, мусорные символы, пробелы); правленые вручную не трогает */
+export async function cleanRecognizedPages(): Promise<number> {
+  return active ? active.cleanRecognizedPages() : 0;
+}
+
+/** Исправление сдвинутой кириллицы на распознанных страницах (по решению пользователя) */
+export async function repairShiftedPages(): Promise<number> {
+  return active ? active.repairShiftedPages() : 0;
+}
+
+export async function setManualChapters(starts: ManualChapterStart[] | undefined): Promise<void> {
+  await active?.setManualChapters(starts);
+}
+
+export function getPageBlocks(page: number): PdfBlock[] | null {
+  return active ? active.getPageBlocks(page) : null;
+}
+
+export function isEdited(page: number): boolean {
+  return active ? active.isEdited(page) : false;
+}
+
+/** Источник и предупреждения распознавания страницы (null — страница ещё не готова) */
+export function getPageMeta(page: number): { source?: PageSource; edited: boolean; skipped: boolean; warnings: string[] } | null {
+  return active ? active.getPageMeta(page) : null;
+}
+
+/** Сколько распознанных страниц содержат сдвинутую кириллицу */
+export function countShiftedPages(): number {
+  return active ? active.countShiftedPages() : 0;
 }
 

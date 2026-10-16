@@ -9,6 +9,7 @@ import type { SentenceItem } from '../../types/book';
 import type { ChapterSpec, ComposedPage, PageState } from '../../types/pdf';
 import { paragraphIndexFor } from '../../engine/pdf/pageSentences';
 import { sentencePage } from '../../engine/pdf/composer';
+import { retryPage, skipPage } from '../../engine/pdf/pagedSession';
 import { Paragraph, useSentenceJump } from './Sentence';
 import { openRerecognizeDialog } from './PagedBookBar';
 import { ResumeAutoscrollButton, ensureVisible, scrollIntoComfortZone, useAutoscrollPause, useIsReading } from './readerScroll';
@@ -38,7 +39,6 @@ const aroundPage = (page: number, pageCount: number): Win => ({
 /* --------------------------------- Заглушка ---------------------------------- */
 
 const PagePlaceholder: React.FC<{ page: number; state: PageState; error?: string }> = ({ page, state, error }) => {
-  const controller = usePagedStore((s) => s.controller);
   return (
     <div
       className="min-h-[45vh] flex flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-zinc-400 font-sans border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl px-4 py-8"
@@ -72,14 +72,14 @@ const PagePlaceholder: React.FC<{ page: number; state: PageState; error?: string
           <div className="flex flex-wrap justify-center gap-2">
             <button
               type="button"
-              onClick={() => controller?.retryPage(page)}
+              onClick={() => retryPage(page)}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold"
             >
               <RefreshCw className="w-3 h-3" aria-hidden="true" /> Повторить
             </button>
             <button
               type="button"
-              onClick={() => void controller?.skipPage(page)}
+              onClick={() => void skipPage(page)}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-zinc-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-zinc-800"
             >
               <SkipForward className="w-3 h-3" aria-hidden="true" /> Пропустить
