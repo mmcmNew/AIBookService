@@ -41,15 +41,20 @@ test('audioCatalog: isVoiceValidForModel валидирует голос для 
   // Пустой голос (по умолчанию) валиден всегда
   assert.equal(isVoiceValidForModel('', 'openai/gpt-4o-mini-tts'), true);
 
-  // С голосами из каталога
-  assert.equal(isVoiceValidForModel('custom-voice', 'some/model', [], ['custom-voice', 'other']), true);
-  assert.equal(isVoiceValidForModel('wrong-voice', 'some/model', [], ['custom-voice', 'other']), false);
+  // Не-OpenAI модели (bytedance-seed/seed-audio-1-0 и др.) не поддерживают голоса OpenAI
+  assert.equal(isVoiceValidForModel('alloy', 'bytedance-seed/seed-audio-1-0'), false);
+  assert.equal(isVoiceValidForModel('echo', 'bytedance-seed/seed-audio-1-0'), false);
+  assert.equal(isVoiceValidForModel('seed-speaker-1', 'bytedance-seed/seed-audio-1-0'), true);
 });
 
 test('audioCatalog: normalizeVoiceForModel сбрасывает неподходящий голос', () => {
   assert.equal(normalizeVoiceForModel('alloy', 'openai/gpt-4o-mini-tts'), 'alloy');
   assert.equal(normalizeVoiceForModel('invalid-voice', 'openai/gpt-4o-mini-tts'), '');
   assert.equal(normalizeVoiceForModel('custom', 'vendor/custom-tts', undefined), 'custom');
+  // Голоса OpenAI для моделей не от OpenAI сбрасываются в пустую строку (по умолчанию модели)
+  assert.equal(normalizeVoiceForModel('alloy', 'bytedance-seed/seed-audio-1-0', undefined), '');
+  assert.equal(normalizeVoiceForModel('echo', 'bytedance-seed/seed-audio-1-0', undefined), '');
+  assert.equal(normalizeVoiceForModel('custom-speaker', 'bytedance-seed/seed-audio-1-0', undefined), 'custom-speaker');
 });
 
 test('settings domain: проксирует запросы каталога в Поставщик озвучки', async () => {

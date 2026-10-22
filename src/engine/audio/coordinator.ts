@@ -1,12 +1,13 @@
 import { audioManager } from './audioManager';
 import { acceptEnded, PlayTrigger, shouldAnnounceChapter } from './playerState';
-import { cancelPrepare, prepareAudio, type PrepareKeepTarget } from './audioFetch';
+import { cancelPrepare, prepareAudio, type PrepareKeepTarget, type PrepareAudioJob } from './audioFetch';
 import { useBookStore } from '../../store/bookStore';
 import { useAudioStore } from '../../store/audioStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { SynthesisOptions, TTSProviderType } from '../../types/tts';
 import type { SentenceItem } from '../../types/book';
 import { buildSynthesisOptions } from '../settings';
+import { mediaSessionManager } from '../../infra/audio/mediaSession';
 import {
   currentPhrase,
   flushProgress,
@@ -14,17 +15,14 @@ import {
   nextPhrase,
   observeBook,
   pageReady,
+  stepPhrase,
   type ExternalMove,
 } from '../library';
 
-/** Задание на подготовку озвучки следующей фразы: запускается, когда текущая зазвучала */
+/** Задания на подготовку озвучки следующих фраз (буфер наперёд): запускаются, когда текущая зазвучала */
 let pendingPrepare: {
   token: number;
-  bookId: string;
-  chapterKey: string;
-  sentence: SentenceItem;
-  providerType: TTSProviderType;
-  options: SynthesisOptions;
+  jobs: PrepareAudioJob[];
 } | null = null;
 
 /** «Отмени»: Поставщик озвучки бросает подготовку следующей фразы */
@@ -36,6 +34,7 @@ function cancelPreparation(keep?: PrepareKeepTarget): void {
 function stopAll(notice: string | null = null): void {
   cancelPreparation();
   audioManager.stopPlayer(notice);
+  mediaSessionManager.setPlaybackState('none');
 }
 
 let waitMode: 'jump' | 'next' = 'next';
@@ -70,7 +69,8 @@ function checkWait(): void {
  */
 function startPlayback(trigger: PlayTrigger): void {
   const settings = useSettingsStore.getState();
-  const phrase = currentPhrase(settings.autoAdvanceChapter);
+  const prefetchCount = Math.max(1, Math.min(10, settings.prefetchSentences ?? 2));
+  const phrase = currentPhrase(settings.autoAdvanceChapter, prefetchCount);
   if (phrase.kind === 'none') {
     stopAll();
     return;
@@ -85,6 +85,15 @@ function startPlayback(trigger: PlayTrigger): void {
   }
 
   const state = audioManager.startPlayerRequest();
+
+  const currentBook = useBookStore.getState().currentBook;
+  mediaSessionManager.updateMetadata({
+    title: phrase.sentence.rawText.slice(0, 150),
+    artist: currentBook?.metadata.author || 'AIBookReader',
+    album: currentBook?.metadata.title || phrase.chapterTitle || 'Электронная книга',
+    artworkUrl: currentBook?.metadata.coverUrl,
+  });
+  mediaSessionManager.setPlaybackState('playing');
 
   // Название главы озвучиваем только в её начале; переход между страницами внутри главы — без объявления
   const announce = shouldAnnounceChapter({
@@ -102,14 +111,22 @@ function startPlayback(trigger: PlayTrigger): void {
     providerType: settings.activeProvider,
     options,
   });
-  pendingPrepare = phrase.next
+  const followingList = phrase.following && phrase.following.length > 0
+    ? phrase.following
+    : phrase.next
+    ? [phrase.next]
+    : [];
+
+  pendingPrepare = followingList.length > 0
     ? {
         token: state.token,
-        bookId: phrase.bookId,
-        chapterKey: phrase.next.chapterKey,
-        sentence: phrase.next.sentence,
-        providerType: settings.activeProvider,
-        options,
+        jobs: followingList.map((item) => ({
+          bookId: phrase.bookId,
+          chapterId: item.chapterKey,
+          sentence: item.sentence,
+          providerType: settings.activeProvider,
+          options,
+        })),
       }
     : null;
   audioManager.speak({
@@ -139,11 +156,12 @@ function advance(auto: boolean): void {
 
 export function onStarted(token: number): void {
   audioManager.onPlayerStarted(token);
-  // Фраза зазвучала — Поставщик озвучки готовит следующую
+  mediaSessionManager.setPlaybackState('playing');
+  // Фраза зазвучала — Поставщик озвучки готовит следующие фразы (буфер наперёд)
   if (pendingPrepare && pendingPrepare.token === token) {
-    const job = pendingPrepare;
+    const { jobs } = pendingPrepare;
     pendingPrepare = null;
-    prepareAudio(job.bookId, job.chapterKey, job.sentence, job.providerType, job.options);
+    prepareAudio(jobs);
   }
 }
 
@@ -184,6 +202,27 @@ audioManager.setHandlers({
 });
 
 /** Пользователь сдвинул позицию через Менеджера книги: плеер подстраивается под новую фразу */
+// Интеграция с нативной шторкой воспроизведения и экраном блокировки (MediaSession API)
+mediaSessionManager.setupHandlers({
+  onPlay: () => {
+    const s = useAudioStore.getState().status;
+    if (s === 'paused') audioManager.resume();
+    else if (s === 'idle') startPlayback('start');
+  },
+  onPause: () => audioManager.pause(),
+  onStop: () => stopAll(),
+  onPreviousTrack: () => stepPhrase(-1),
+  onNextTrack: () => stepPhrase(1),
+});
+
+useAudioStore.subscribe((state, prev) => {
+  if (state.status !== prev.status) {
+    if (state.status === 'playing') mediaSessionManager.setPlaybackState('playing');
+    else if (state.status === 'paused') mediaSessionManager.setPlaybackState('paused');
+    else if (state.status === 'idle') mediaSessionManager.setPlaybackState('none');
+  }
+});
+
 export function onExternalMove(move: ExternalMove): void {
   const status = useAudioStore.getState().status;
   switch (move.kind) {

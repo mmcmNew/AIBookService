@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   BookOpen,
   List,
@@ -13,12 +13,17 @@ import {
   FileText,
   Palette,
   Pencil,
+  LogIn,
+  LogOut,
+  RefreshCw,
 } from 'lucide-react';
 import { useBookStore } from '../../store/bookStore';
 import { reparsePdfBook, setPdfViewMode } from '../../engine/library';
 import { useSettingsStore } from '../../store/settingsStore';
 import { setTheme, setPdfRecognitionMode, setAlwaysAskPdfMode } from '../../engine/settings';
 import { useUserStore } from '../../store/userStore';
+import { logout, syncUserData } from '../../engine/account';
+import { AuthModal } from '../auth/AuthModal';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
 import { RerecognizeDialog } from '../reader/RerecognizeDialog';
 import { PdfRecognitionMode, ReaderTheme } from '../../types/settings';
@@ -126,12 +131,55 @@ export const Header: React.FC<HeaderProps> = ({
   const pdfViewMode = useBookStore((state) => state.pdfViewMode);
 
   const { theme, activeProvider, geminiModel, openRouterModel, replacementRules, pdfRecognitionMode } = useSettingsStore();
+  const email = useUserStore((state) => state.email);
+  const isGuest = useUserStore((state) => state.isGuest);
   const balance = useUserStore((state) => state.balance);
+  const lastSyncTime = useUserStore((state) => state.lastSyncTime);
   const toast = useToast();
 
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isReparsing, setIsReparsing] = useState(false);
   const [reparseStatus, setReparseStatus] = useState('Перераспознавание книги...');
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isProfileOpen]);
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await syncUserData();
+      toast.success('Данные успешно синхронизированы');
+    } catch (err) {
+      console.error('[Header] Ошибка синхронизации:', err);
+      const message = err instanceof Error ? err.message : 'Ошибка при синхронизации';
+      toast.error(`Не удалось синхронизировать: ${message}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const nextTheme = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
   const toggleTheme = () => setTheme(nextTheme);
@@ -241,17 +289,130 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Баланс символов и кнопка пополнения через ЮKassa */}
-          <button
-            onClick={onOpenTopUp}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-400 border border-amber-500/30 transition-all font-medium"
-            aria-label={`Баланс: ${Math.max(0, Math.floor(balance))} символов. Пополнить через ЮKassa`}
-            title="Баланс символов. Нажмите для пополнения через ЮKassa"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
-            <span className="font-mono">{formatBalance(balance)}</span>
-            <Plus className="w-3 h-3 text-amber-600" aria-hidden="true" />
-          </button>
+          {/* Авторизованный профиль / Гостевой вход */}
+          {isGuest || !email ? (
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Баланс символов для гостя */}
+              <button
+                onClick={onOpenTopUp}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-400 border border-amber-500/30 transition-all font-medium"
+                aria-label={`Баланс: ${Math.max(0, Math.floor(balance))} символов. Пополнить через ЮKassa`}
+                title="Баланс символов. Нажмите для пополнения через ЮKassa"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
+                <span className="font-mono">{formatBalance(balance)}</span>
+                <Plus className="w-3 h-3 text-amber-600" aria-hidden="true" />
+              </button>
+
+              {/* Кнопка Войти */}
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-sm active:scale-95 shrink-0"
+                aria-label="Войти в аккаунт"
+                title="Войти в аккаунт"
+              >
+                <LogIn className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Войти</span>
+              </button>
+            </div>
+          ) : (
+            <div className="relative shrink-0" ref={profileMenuRef}>
+              <button
+                onClick={() => setIsProfileOpen((prev) => !prev)}
+                className="flex items-center gap-1.5 p-1 pl-1.5 pr-2.5 rounded-full border border-slate-200 dark:border-zinc-700 hover:border-amber-500/50 bg-slate-50 dark:bg-zinc-800 transition-colors"
+                aria-expanded={isProfileOpen}
+                aria-label={`Профиль ${email}. Баланс: ${formatBalance(balance)} символов`}
+                title={`Профиль: ${email}`}
+              >
+                <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm shrink-0">
+                  {email.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex items-center gap-1 text-xs font-mono font-medium text-slate-700 dark:text-zinc-300">
+                  <Sparkles className="w-3 h-3 text-amber-600" aria-hidden="true" />
+                  <span>{formatBalance(balance)}</span>
+                </div>
+              </button>
+
+              {/* Выпадающее меню профиля */}
+              {isProfileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl p-4 z-50 text-xs animate-pop-in">
+                  {/* Email и статус */}
+                  <div className="pb-3 border-b border-slate-100 dark:border-zinc-800">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-slate-800 dark:text-zinc-100 truncate text-xs" title={email}>
+                        {email}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Активен
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Баланс символов с кнопкой Пополнить */}
+                  <div className="py-3 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] text-slate-500 dark:text-zinc-400">Баланс символов</div>
+                      <div className="text-sm font-bold font-mono text-slate-900 dark:text-zinc-100 flex items-center gap-1 mt-0.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
+                        {Math.max(0, Math.floor(balance)).toLocaleString('ru-RU')}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        onOpenTopUp();
+                      }}
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-400 border border-amber-500/30 transition-colors flex items-center gap-1 active:scale-95"
+                    >
+                      <Plus className="w-3 h-3 text-amber-600" aria-hidden="true" />
+                      <span>Пополнить</span>
+                    </button>
+                  </div>
+
+                  {/* Кнопка Синхронизировать */}
+                  <div className="py-3 border-b border-slate-100 dark:border-zinc-800">
+                    <button
+                      onClick={handleSync}
+                      disabled={isSyncing}
+                      className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 transition-colors disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className={`w-4 h-4 text-amber-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <span className="font-medium text-xs">Синхронизировать</span>
+                      </div>
+                      {isSyncing && <span className="text-[10px] text-amber-600">Синхронизация...</span>}
+                    </button>
+                    <div className="px-2 pt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                      {lastSyncTime
+                        ? `Синхронизировано: ${new Date(lastSyncTime).toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}`
+                        : 'Синхронизация ещё не выполнялась'}
+                    </div>
+                  </div>
+
+                  {/* Кнопка Выйти */}
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        logout();
+                        toast.info('Вы вышли из аккаунта');
+                      }}
+                      className="w-full flex items-center gap-2 p-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors font-medium text-xs"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Выйти</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Словарь замен */}
           <button
@@ -375,6 +536,8 @@ export const Header: React.FC<HeaderProps> = ({
           }
         />
       )}
+
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </>
   );
 };

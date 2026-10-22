@@ -15,7 +15,7 @@
  *
  * Конец фразы: acceptEnded(state, token) истинно только при status==='playing' и своём токене;
  * после этого хранилище сразу делает request (следующая фраза) либо stop (конец книги).
- * Производные флаги: isPlaying = loading|playing; isPaused = paused.
+ * Производные флаги считает сам audioStore из status: isPlaying = loading|playing; isPaused = paused.
  */
 
 import type { AnnounceInput, PlayerEvent, PlayerState, PlayerStatus, PlayTrigger } from '../../types/player';
@@ -47,14 +47,6 @@ export function reducePlayer(state: PlayerState, event: PlayerEvent): PlayerStat
     default:
       return state;
   }
-}
-
-export function isPlayingStatus(status: PlayerStatus): boolean {
-  return status === 'loading' || status === 'playing';
-}
-
-export function isPausedStatus(status: PlayerStatus): boolean {
-  return status === 'paused';
 }
 
 /** Можно ли принять событие «фраза закончилась» от движка */

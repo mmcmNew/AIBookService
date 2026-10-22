@@ -1,5 +1,15 @@
 import { ITTSProvider, SynthesisOptions, VoiceOption } from '../../types/tts';
 
+function cleanServerUrl(rawUrl?: string): string {
+  const url = (rawUrl || '').trim().replace(/\/+$/, '');
+  if (!url || url === 'http://localhost:4000') {
+    if (typeof window !== 'undefined' && window.location?.origin && window.location.protocol === 'https:') {
+      return window.location.origin;
+    }
+  }
+  return url || 'http://localhost:4000';
+}
+
 export class InsufficientFundsError extends Error {
   constructor(
     message = 'Недостаточно символов на балансе. Пожалуйста, пополните баланс в настройках или переключитесь на другой движок озвучки.'
@@ -32,12 +42,42 @@ export class CloudTTSProvider implements ITTSProvider {
   supportsVoiceCloning = true;
   supportsOffline = false;
 
+  private cachedVoices: { list: VoiceOption[]; timestamp: number } | null = null;
+  private readonly CACHE_TTL_MS = 10 * 60 * 1000;
+
   async getVoices(): Promise<VoiceOption[]> {
+    if (this.cachedVoices && Date.now() - this.cachedVoices.timestamp < this.CACHE_TTL_MS) {
+      return this.cachedVoices.list;
+    }
+
+    try {
+      const serverUrl = cleanServerUrl();
+      const res = await fetch(`${serverUrl}/api/tts/voices`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.voices) && data.voices.length > 0) {
+          const list: VoiceOption[] = data.voices.map((v: any) => ({
+            id: v.id,
+            name: `${v.name}`,
+            lang: v.lang || 'ru-RU',
+            gender: v.gender || 'neutral',
+            provider: 'cloud' as const,
+          }));
+          this.cachedVoices = { list, timestamp: Date.now() };
+          return list;
+        }
+      }
+    } catch {
+      // Игнорируем и возвращаем базовый список популярных голосов
+    }
+
     return CLOUD_VOICES;
   }
 
   async synthesize(text: string, options: SynthesisOptions): Promise<ArrayBuffer> {
-    const serverUrl = options.serverUrl || 'http://localhost:4000';
+    const serverUrl = cleanServerUrl(options.serverUrl);
     const voiceId = options.voiceId || 'Aoede';
 
     const headers: Record<string, string> = {
@@ -53,6 +93,8 @@ export class CloudTTSProvider implements ITTSProvider {
       body: JSON.stringify({
         text,
         voiceId,
+        speed: options.speed,
+        pitch: options.pitch,
       }),
       signal: options.signal,
     });

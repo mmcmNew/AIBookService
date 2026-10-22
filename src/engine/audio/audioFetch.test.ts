@@ -130,6 +130,27 @@ test('«приготовь» для системной озвучки (webspeech
   }
 });
 
+test('«приготовь» списка предложений: последовательно синтезирует несколько фраз наперёд', async () => {
+  const { fake, restore } = installFakeProvider();
+  try {
+    const s1 = sentence(61, 'Фраза 1.');
+    const s2 = sentence(62, 'Фраза 2.');
+    prepareAudio([
+      { bookId: 'b-multi', chapterId: 'ch1', sentence: s1, providerType: 'openai', options },
+      { bookId: 'b-multi', chapterId: 'ch1', sentence: s2, providerType: 'openai', options },
+    ]);
+    await tick();
+    assert.equal(fake.calls.length, 1, 'первая фраза из очереди запущена');
+    fake.calls[0].resolve();
+    await tick();
+    assert.equal(fake.calls.length, 2, 'после завершения первой запустилась вторая');
+    fake.calls[1].resolve();
+    cancelPrepare();
+  } finally {
+    restore();
+  }
+});
+
 test('«возьми аудио» с отменённым сигналом: AbortError (отмена), а не обычная ошибка', async () => {
   const { restore } = installFakeProvider();
   try {

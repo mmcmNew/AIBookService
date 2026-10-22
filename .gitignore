@@ -3,6 +3,8 @@ dist
 server/data
 server/temp
 .env
+.env.local
+.env.*.local
 src-tauri/target
 *.log
 

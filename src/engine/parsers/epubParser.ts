@@ -4,6 +4,22 @@ import { ReplacementRule } from '../../types/settings';
 import { tokenizeSentences } from '../tokenizer/sentenceTokenizer';
 import { escapeHtml } from './htmlUtil';
 
+function findZipFile(zip: JSZip, targetPath: string): JSZip.JSZipObject | null {
+  const direct = zip.file(targetPath);
+  if (direct) return direct;
+
+  const normalized = targetPath.replace(/^\//, '').toLowerCase();
+  const found = Object.values(zip.files).find((f) => !f.dir && f.name.replace(/^\//, '').toLowerCase() === normalized);
+  if (found) return found;
+
+  // Поиск по окончанию пути
+  const baseName = normalized.split('/').pop();
+  if (baseName) {
+    return Object.values(zip.files).find((f) => !f.dir && f.name.toLowerCase().endsWith(baseName)) || null;
+  }
+  return null;
+}
+
 export async function parseEPUB(
   fileContent: ArrayBuffer,
   fileName: string,
@@ -12,7 +28,7 @@ export async function parseEPUB(
   const zip = await JSZip.loadAsync(fileContent);
 
   // 1. Поиск container.xml для определения пути к .opf файлу
-  const containerFile = zip.file('META-INF/container.xml');
+  const containerFile = findZipFile(zip, 'META-INF/container.xml');
   if (!containerFile) {
     throw new Error('Некорректный EPUB: отсутствует META-INF/container.xml');
   }
@@ -20,14 +36,20 @@ export async function parseEPUB(
   const containerXml = await containerFile.async('text');
   const domParser = new DOMParser();
   const containerDoc = domParser.parseFromString(containerXml, 'text/xml');
-  const rootfilePath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+  const rawRootfilePath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
 
-  if (!rootfilePath) {
+  if (!rawRootfilePath) {
     throw new Error('Некорректный EPUB: не найден full-path в container.xml');
   }
 
+  const rootfilePath = decodeURIComponent(rawRootfilePath).replace(/^\//, '');
+
   // 2. Чтение OPF файла (метаданные, манифест, спин)
-  const opfFile = zip.file(rootfilePath);
+  let opfFile = findZipFile(zip, rootfilePath);
+  if (!opfFile) {
+    // Резервный поиск любого .opf файла в архиве
+    opfFile = Object.values(zip.files).find((f) => !f.dir && f.name.toLowerCase().endsWith('.opf')) || null;
+  }
   if (!opfFile) {
     throw new Error(`Файл манифеста не найден: ${rootfilePath}`);
   }
@@ -37,8 +59,11 @@ export async function parseEPUB(
   const opfDoc = domParser.parseFromString(opfXml, 'text/xml');
 
   // Метаданные
-  const title = opfDoc.querySelector('metadata > title, metadata > dc\\:title')?.textContent?.trim() || fileName.replace(/\.[^/.]+$/, '');
-  const author = opfDoc.querySelector('metadata > creator, metadata > dc\\:creator')?.textContent?.trim() || 'Неизвестный автор';
+  const title =
+    opfDoc.querySelector('metadata > title, metadata > dc\\:title')?.textContent?.trim() ||
+    fileName.replace(/\.[^/.]+$/, '');
+  const author =
+    opfDoc.querySelector('metadata > creator, metadata > dc\\:creator')?.textContent?.trim() || 'Неизвестный автор';
   const lang = opfDoc.querySelector('metadata > language, metadata > dc\\:language')?.textContent?.trim() || 'ru';
 
   // Поиск обложки
@@ -56,10 +81,11 @@ export async function parseEPUB(
   });
 
   // Извлечение обложки
-  const coverItemId = coverMeta || Object.keys(manifestItems).find(k => k.toLowerCase().includes('cover'));
+  const coverItemId = coverMeta || Object.keys(manifestItems).find((k) => k.toLowerCase().includes('cover'));
   if (coverItemId && manifestItems[coverItemId]) {
-    const coverPath = opfDir + manifestItems[coverItemId].href;
-    const coverFile = zip.file(coverPath);
+    const rawCoverHref = decodeURIComponent(manifestItems[coverItemId].href.split('#')[0].split('?')[0]);
+    const coverPath = opfDir + rawCoverHref;
+    const coverFile = findZipFile(zip, coverPath);
     if (coverFile) {
       const coverBlob = await coverFile.async('blob');
       coverUrl = URL.createObjectURL(coverBlob);
@@ -76,15 +102,17 @@ export async function parseEPUB(
     const item = manifestItems[idref];
     if (!item) continue;
 
-    const chapterPath = opfDir + item.href;
-    const chapterFile = zip.file(chapterPath);
+    const rawHref = decodeURIComponent(item.href.split('#')[0].split('?')[0]);
+    const chapterPath = opfDir + rawHref;
+    const chapterFile = findZipFile(zip, chapterPath);
     if (!chapterFile) continue;
 
     const chapterHtml = await chapterFile.async('text');
     const chapterDoc = domParser.parseFromString(chapterHtml, 'text/html');
 
     // Название главы
-    const heading = chapterDoc.querySelector('h1, h2, h3, title')?.textContent?.trim() || `Глава ${chapters.length + 1}`;
+    const heading =
+      chapterDoc.querySelector('h1, h2, h3, title')?.textContent?.trim() || `Глава ${chapters.length + 1}`;
 
     const paragraphs: string[] = [];
     const chapterSentences: SentenceItem[] = [];
@@ -103,8 +131,11 @@ export async function parseEPUB(
       });
     } else {
       // Если тегов <p> нет, берем body с разбивкой по строкам
-      const bodyText = chapterDoc.body.textContent?.trim() || '';
-      const lines = bodyText.split(/\n\s*\n/).map(l => l.trim()).filter(Boolean);
+      const bodyText = chapterDoc.body?.textContent?.trim() || '';
+      const lines = bodyText
+        .split(/\n\s*\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
       lines.forEach((line) => {
         paragraphs.push(`<p class="my-3 leading-relaxed">${escapeHtml(line)}</p>`);
         const s = tokenizeSentences(line, globalSentenceId, pIndex++, userRules, lang);

@@ -40,6 +40,8 @@ export type CurrentPhrase =
       announceIndex: number;
       /** Следующая фраза — для подготовки озвучки заранее */
       next: PhraseRef | null;
+      /** Последующие фразы — для буферизации наперёд (до N предложений) */
+      following: PhraseRef[];
     };
 
 /** Что делать после окончания фразы / по команде «следующая» */
@@ -65,8 +67,10 @@ export function isPageReady(page: number): boolean {
 }
 
 /** Фраза, с которой начнётся озвучка (по текущей позиции чтения) */
-export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
+export function currentPhrase(autoAdvanceChapter: boolean, prefetchCount = 2): CurrentPhrase {
   const book = useBookStore.getState();
+  const maxAhead = Math.max(1, Math.min(10, prefetchCount));
+
   if (isPaged()) {
     const paged = usePagedStore.getState();
     const composed = paged.composed;
@@ -87,16 +91,22 @@ export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
       sentenceId = first.id;
       positionFix = true;
     }
-    const sentence = composed.order[composed.indexById.get(sentenceId) as number];
+    const curIdx = composed.indexById.get(sentenceId) as number;
+    const sentence = composed.order[curIdx];
     const chapterIndex = composed.chapterOfSentence.get(sentenceId) ?? 0;
     const chapter = composed.chapters[chapterIndex];
 
-    // Следующая фраза (только если следующая страница уже распознана)
-    const step = nextStep(composed, (p) => paged.stateOf(p), sentence.id);
-    let next: PhraseRef | null = null;
-    if (step.kind === 'sentence' && (step.chapterIndex === chapterIndex || autoAdvanceChapter)) {
-      next = { chapterKey: pagedKey(step.sentence), sentence: step.sentence };
+    // Последующие фразы для буферизации (только пока следующие страницы уже распознаны)
+    const following: PhraseRef[] = [];
+    let curCheckId = sentence.id;
+    while (following.length < maxAhead) {
+      const step = nextStep(composed, (p) => paged.stateOf(p), curCheckId);
+      if (step.kind !== 'sentence') break;
+      if (step.chapterIndex !== chapterIndex && !autoAdvanceChapter) break;
+      following.push({ chapterKey: pagedKey(step.sentence), sentence: step.sentence });
+      curCheckId = step.sentence.id;
     }
+
     // Название главы озвучиваем только в её начале; переход между страницами внутри главы — без объявления
     const startsChapter =
       Boolean(chapter) &&
@@ -110,7 +120,8 @@ export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
       positionFix,
       chapterTitle: chapter ? chapter.title : null,
       announceIndex: startsChapter ? 0 : 1,
-      next,
+      next: following[0] ?? null,
+      following,
     };
   }
 
@@ -118,14 +129,22 @@ export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
   if (!book.currentBook || !chapter || chapter.sentences.length === 0) return { kind: 'none' };
   const sentenceIndex = book.getCurrentSentenceIndex();
   const sentence = chapter.sentences[sentenceIndex];
-  // Следующая фраза (в т.ч. первая в следующей главе)
-  let next: PhraseRef | null = null;
-  if (sentenceIndex + 1 < chapter.sentences.length) {
-    next = { chapterKey: chapter.id, sentence: chapter.sentences[sentenceIndex + 1] };
-  } else if (autoAdvanceChapter) {
-    const following = book.currentBook.chapters.slice(book.currentChapterIndex + 1).find((c) => c.sentences.length > 0);
-    if (following) next = { chapterKey: following.id, sentence: following.sentences[0] };
+
+  // Последующие фразы для текстовых книг (в т.ч. через границы глав)
+  const following: PhraseRef[] = [];
+  for (let i = sentenceIndex + 1; i < chapter.sentences.length && following.length < maxAhead; i++) {
+    following.push({ chapterKey: chapter.id, sentence: chapter.sentences[i] });
   }
+  if (autoAdvanceChapter && following.length < maxAhead && book.currentBook.chapters) {
+    for (let cIdx = book.currentChapterIndex + 1; cIdx < book.currentBook.chapters.length && following.length < maxAhead; cIdx++) {
+      const nextCh = book.currentBook.chapters[cIdx];
+      if (!nextCh || !nextCh.sentences) continue;
+      for (let s = 0; s < nextCh.sentences.length && following.length < maxAhead; s++) {
+        following.push({ chapterKey: nextCh.id, sentence: nextCh.sentences[s] });
+      }
+    }
+  }
+
   return {
     kind: 'phrase',
     bookId: book.currentBook.metadata.id,
@@ -134,7 +153,8 @@ export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
     positionFix: false,
     chapterTitle: chapter.title,
     announceIndex: sentenceIndex,
-    next,
+    next: following[0] ?? null,
+    following,
   };
 }
 

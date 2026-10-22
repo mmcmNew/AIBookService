@@ -18,10 +18,11 @@ import { rememberPdfRecognitionMode } from '../../engine/settings';
 import { useSettingsStore } from '../../store/settingsStore';
 import { PdfRecognitionModal } from '../reader/PdfRecognitionModal';
 import { PdfRecognitionMode } from '../../types/settings';
+import { isSupportedBookFile, normalizeBookFile, SUPPORTED_EXTENSIONS } from '../../engine/parsers/formatDetector';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/Toast';
 
-const SUPPORTED_EXTENSIONS = ['.fb2', '.fb2.zip', '.fbz', '.epub', '.mobi', '.azw', '.azw3', '.pdf', '.txt'];
+// Расширения импортируются из formatDetector
 const ACCEPT_ATTR = SUPPORTED_EXTENSIONS.join(',');
 
 type SortKey = 'recent' | 'title' | 'author' | 'added' | 'progress';
@@ -46,10 +47,7 @@ const readStoredSort = (): SortKey => {
   return 'recent';
 };
 
-const isSupportedFile = (name: string): boolean => {
-  const lower = name.toLowerCase();
-  return SUPPORTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
-};
+const isSupportedFile = (name: string): boolean => isSupportedBookFile(name);
 
 const formatDate = (timestamp: number): string =>
   new Date(timestamp).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -67,6 +65,11 @@ const isScannedPdfError = (err: unknown): boolean => {
 };
 
 const hasFiles = (e: React.DragEvent): boolean => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+
+const isMobileDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+};
 
 /* ------------------------------ Карточка книги ------------------------------ */
 
@@ -271,7 +274,7 @@ export const LibraryView: React.FC = () => {
     };
   }, []);
 
-  const handleFileUpload = async (file: File, options?: { pdfMode?: PdfRecognitionMode }) => {
+  const handleFileUpload = async (file: File, options?: { pdfMode?: PdfRecognitionMode; pdfForce?: boolean }) => {
     if (processingRef.current) return;
     processingRef.current = true;
     setIsProcessing(true);
@@ -317,8 +320,15 @@ export const LibraryView: React.FC = () => {
     }
   };
 
-  const onFileSelected = async (file: File) => {
+  const onFileSelected = async (rawFile: File) => {
     if (processingRef.current) return;
+
+    let file = rawFile;
+    try {
+      file = await normalizeBookFile(rawFile);
+    } catch (e) {
+      console.warn('[LibraryView] Ошибка нормализации книги:', e);
+    }
 
     if (!isSupportedFile(file.name)) {
       const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '(без расширения)';
@@ -348,19 +358,22 @@ export const LibraryView: React.FC = () => {
     await handleFileUpload(file);
   };
 
-  const handlePdfModeSelect = async (mode: PdfRecognitionMode, rememberDefault: boolean) => {
+  const handlePdfModeSelect = async (mode: PdfRecognitionMode, rememberDefault: boolean, force?: boolean) => {
     if (!pendingPdfFile || processingRef.current) return;
     if (rememberDefault) {
       rememberPdfRecognitionMode(mode);
     }
     // Оставляем модалку открытой: она сама отобразит спиннер и статус обработки
-    await handleFileUpload(pendingPdfFile, { pdfMode: mode });
+    await handleFileUpload(pendingPdfFile, { pdfMode: mode, pdfForce: force });
   };
 
   const handleOpenFileDialog = async () => {
     if (processingRef.current) return;
+    const isMobile = isMobileDevice();
     const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-    if (isTauri) {
+    // На мобильных устройствах плагин диалогов Tauri блокирует fb2 из-за MimeTypeMap и теряет имя файла.
+    // Поэтому на мобильных сборках используем прямой системный выбор через HTML input.
+    if (isTauri && !isMobile) {
       try {
         const { open } = await import('@tauri-apps/plugin-dialog');
         const { readFile } = await import('@tauri-apps/plugin-fs');
@@ -522,7 +535,7 @@ export const LibraryView: React.FC = () => {
         <input
           ref={fileInputRef}
           type="file"
-          accept={ACCEPT_ATTR}
+          accept={isMobileDevice() ? undefined : ACCEPT_ATTR}
           className="hidden"
           tabIndex={-1}
           aria-hidden="true"

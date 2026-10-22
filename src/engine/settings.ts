@@ -1,4 +1,4 @@
-import { useSettingsStore } from '../store/settingsStore';
+import { useSettingsStore, getEnvApiKey, getAggregatorApiKey, normalizeBaseUrl } from '../store/settingsStore';
 import type { FontFamily, PdfRecognitionMode, ReaderTheme } from '../types/settings';
 import type { AggregatorApiMode, AggregatorModelInfo, SynthesisOptions, TTSProviderType, VoiceOption } from '../types/tts';
 import {
@@ -57,10 +57,19 @@ export function setOpenRouterModel(openRouterModel: string): void {
     [],
     getModelCatalogVoices(state.openRouterBaseUrl, openRouterModel)
   );
+  const cleanUrl = normalizeBaseUrl(state.openRouterBaseUrl);
   useSettingsStore.setState({
     openRouterModel,
     selectedVoiceIds: keep ? state.selectedVoiceIds : { ...state.selectedVoiceIds, openrouter: '' },
+    aggregatorModels: {
+      ...(state.aggregatorModels || {}),
+      [cleanUrl]: openRouterModel,
+    },
   });
+}
+
+export function setAggregatorApiKey(key: string, baseUrl?: string): void {
+  useSettingsStore.getState().setAggregatorApiKey(key, baseUrl);
 }
 
 /** Запомнить режим распознавания PDF по умолчанию и перестать спрашивать при каждой загрузке. */
@@ -105,6 +114,10 @@ export function setChapterChime(enabled: boolean): void {
 
 export function setAutoAdvanceChapter(enabled: boolean): void {
   useSettingsStore.getState().setAutoAdvanceChapter(enabled);
+}
+
+export function setPrefetchSentences(count: number): void {
+  useSettingsStore.getState().setPrefetchSentences(count);
 }
 
 export function setActiveProvider(provider: TTSProviderType): void {
@@ -191,10 +204,11 @@ export function stopVoiceCheck(): void {
  */
 export function buildSynthesisOptions(settings = useSettingsStore.getState()): SynthesisOptions {
   const provider = settings.activeProvider;
-  const apiKey = provider === 'gemini' ? settings.apiKeys.gemini
-    : provider === 'openai' ? settings.apiKeys.openai
-    : provider === 'elevenlabs' ? settings.apiKeys.elevenlabs
-    : provider === 'openrouter' ? settings.apiKeys.openrouter
+  const baseUrl = provider === 'openrouter' ? (settings.openRouterBaseUrl || 'https://openrouter.ai/api/v1') : undefined;
+  const apiKey = provider === 'gemini' ? (settings.apiKeys.gemini || getEnvApiKey('gemini'))
+    : provider === 'openai' ? (settings.apiKeys.openai || getEnvApiKey('openai'))
+    : provider === 'elevenlabs' ? (settings.apiKeys.elevenlabs || getEnvApiKey('elevenlabs'))
+    : provider === 'openrouter' ? getAggregatorApiKey(baseUrl, settings)
     : undefined;
 
   const model = provider === 'gemini' ? settings.geminiModel
@@ -216,12 +230,12 @@ export function buildSynthesisOptions(settings = useSettingsStore.getState()): S
     volume,
     apiKey,
     model,
-    baseUrl: provider === 'openrouter' ? (settings.openRouterBaseUrl || 'https://openrouter.ai/api/v1') : undefined,
+    baseUrl,
     apiMode: provider === 'openrouter' ? (settings.openRouterApiMode || 'auto') : undefined,
   };
 }
 
-export { listProviders };
+export { listProviders, getAggregatorApiKey, normalizeBaseUrl };
 export type { ProviderMetadata };
 
 /** Загружает каталог голосов через Поставщика озвучки */
@@ -229,7 +243,12 @@ export async function loadCatalogVoices(
   apiKeys: { gemini?: string; openai?: string; elevenlabs?: string; openrouter?: string },
   openRouterBaseUrl?: string
 ): Promise<VoiceOption[]> {
-  return listVoices(apiKeys, openRouterBaseUrl);
+  const effectiveAggKey = getAggregatorApiKey(openRouterBaseUrl);
+  const effectiveKeys = {
+    ...apiKeys,
+    openrouter: effectiveAggKey || apiKeys.openrouter,
+  };
+  return listVoices(effectiveKeys, openRouterBaseUrl);
 }
 
 /** Запрашивает каталог моделей агрегатора (OpenRouter) через Поставщика озвучки */
@@ -238,7 +257,8 @@ export async function fetchAggregatorModels(
   baseUrl?: string,
   force?: boolean
 ): Promise<AggregatorModelInfo[]> {
-  return listModels(apiKey, baseUrl, force);
+  const resolvedKey = apiKey || getAggregatorApiKey(baseUrl);
+  return listModels(resolvedKey, baseUrl, force);
 }
 
 /** Получает список доступных голосов для модели агрегатора */
@@ -258,4 +278,65 @@ export function isAggregatorVoiceValid(
   catalogVoices?: string[]
 ): boolean {
   return isVoiceValidForModel(voiceId, model, gatewayVoices, catalogVoices);
+}
+
+export function getSettingsForSync(): { settings: Record<string, any>; replacementRules: any[] } {
+  const settingsState = useSettingsStore.getState();
+  const settings = {
+    theme: settingsState.theme,
+    fontFamily: settingsState.fontFamily,
+    fontSize: settingsState.fontSize,
+    lineHeight: settingsState.lineHeight,
+    autoscroll: settingsState.autoscroll,
+    announceChapters: settingsState.announceChapters,
+    chapterChime: settingsState.chapterChime,
+    autoAdvanceChapter: settingsState.autoAdvanceChapter,
+    prefetchSentences: settingsState.prefetchSentences,
+    activeProvider: settingsState.activeProvider,
+    selectedVoiceIds: settingsState.selectedVoiceIds,
+    speed: settingsState.speed,
+    pitch: settingsState.pitch,
+    volume: settingsState.volume,
+    geminiModel: settingsState.geminiModel,
+    openRouterModel: settingsState.openRouterModel,
+    openRouterBaseUrl: settingsState.openRouterBaseUrl,
+    openRouterApiMode: settingsState.openRouterApiMode,
+    pdfRecognitionMode: settingsState.pdfRecognitionMode,
+  };
+  return {
+    settings,
+    replacementRules: settingsState.replacementRules || [],
+  };
+}
+
+export function applySyncedSettings(settings?: Record<string, any>, replacementRules?: any[]): void {
+  if (settings && typeof settings === 'object') {
+    useSettingsStore.setState((state) => ({
+      ...state,
+      ...settings,
+    }));
+  }
+  if (Array.isArray(replacementRules)) {
+    useSettingsStore.setState({ replacementRules });
+  }
+}
+
+export function applyRestoredApiKeys(apiKeys?: Record<string, string>, aggregatorKeys?: Record<string, string>): void {
+  useSettingsStore.setState((state) => ({
+    apiKeys: {
+      ...state.apiKeys,
+      ...(apiKeys || {}),
+    },
+    aggregatorKeys: {
+      ...(state.aggregatorKeys || {}),
+      ...(aggregatorKeys || {}),
+    },
+  }));
+}
+export function getApiKeysForEncryption(): { apiKeys: Record<string, string>; aggregatorKeys: Record<string, string> } {
+  const state = useSettingsStore.getState();
+  return {
+    apiKeys: state.apiKeys || {},
+    aggregatorKeys: state.aggregatorKeys || {},
+  };
 }

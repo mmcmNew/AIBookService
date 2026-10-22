@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUserStore } from '../../store/userStore';
+import { AuthModal } from '../auth/AuthModal';
 import { requestTopUp } from '../../engine/account';
 import { AggregatorApiMode, AggregatorModelInfo, TTSProviderType, VoiceOption } from '../../types/tts';
 import {
@@ -58,6 +59,7 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: 'tts' | 'keys' | 'dictionary' | 'view' | 'network';
+  onOpenAuth?: () => void;
 }
 
 const KIND_LABEL: Record<AggregatorModelInfo['kind'], string> = {
@@ -71,10 +73,17 @@ const KIND_BADGE: Record<AggregatorModelInfo['kind'], string> = {
   other: '[текст]',
 };
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, initialTab = 'tts' }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({
+  isOpen,
+  onClose,
+  initialTab = 'tts',
+  onOpenAuth,
+}) => {
   const [activeTab, setActiveTab] = useState<'tts' | 'keys' | 'dictionary' | 'view' | 'network'>(
     initialTab === 'keys' ? 'tts' : initialTab
   );
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const isGuest = useUserStore((state) => state.isGuest);
   const [availableVoices, setAvailableVoices] = useState<VoiceOption[]>([]);
   const [newWord, setNewWord] = useState('');
   const [newReplacement, setNewReplacement] = useState('');
@@ -241,7 +250,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div role="dialog" aria-modal="true" aria-label="Настройки читалки" className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Шапка модалки */}
@@ -346,6 +356,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                   })}
                 </div>
               </div>
+
+              {/* Баннер сохранения API-ключей для гостя */}
+              {isGuest && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-950 dark:text-amber-200">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base select-none">💡</span>
+                    <p className="leading-relaxed">
+                      Войдите в аккаунт, чтобы безопасно сохранять ваши API-ключи в зашифрованном виде (AES-256) и использовать их на всех ваших устройствах.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenAuth) {
+                        onOpenAuth();
+                      } else {
+                        setIsAuthModalOpen(true);
+                      }
+                    }}
+                    className="shrink-0 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
+                  >
+                    Войти в аккаунт
+                  </button>
+                </div>
+              )}
 
               {/* 1. Google Gemini */}
               {activeProvider === 'gemini' && (
@@ -1207,5 +1242,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
         </div>
       </div>
     </div>
+    <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+  </>
   );
 };

@@ -31,6 +31,8 @@ export interface UserSettings {
   chapterChime: boolean;
   /** В конце главы автоматически продолжать чтение со следующей */
   autoAdvanceChapter: boolean;
+  /** Сколько предложений готовить наперёд (буферизация / предзагрузка озвучки: 1..10, по умолчанию 2) */
+  prefetchSentences?: number;
   activeProvider: TTSProviderType;
   /** Выбранный голос отдельно для каждого провайдера ('' = по умолчанию) */
   selectedVoiceIds: Partial<Record<TTSProviderType, string>>;
@@ -41,6 +43,10 @@ export interface UserSettings {
   openRouterModel?: string;
   openRouterBaseUrl?: string;
   openRouterApiMode?: AggregatorApiMode;
+  /** Ключи API отдельно для каждого базового URL шлюза/агрегатора (baseUrl -> apiKey) */
+  aggregatorKeys?: Record<string, string>;
+  /** Выбранная модель отдельно для каждого базового URL шлюза (baseUrl -> modelId) */
+  aggregatorModels?: Record<string, string>;
   pdfRecognitionMode: PdfRecognitionMode;
   alwaysAskPdfMode: boolean;
   proxy: DesktopProxyConfig;

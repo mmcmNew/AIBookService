@@ -82,39 +82,6 @@ test('engineChoice: sidecar detection in browser vs tauri', () => {
   }
 });
 
-test('library: getPdfBuffer delegates to loadPdfBuffer', async () => {
-  const g = globalThis as unknown as Record<string, unknown>;
-  if (typeof g.NodeFilter === 'undefined') {
-    g.NodeFilter = { SHOW_ELEMENT: 1, SHOW_TEXT: 4 };
-  }
-  if (typeof g.HTMLElement === 'undefined') {
-    g.HTMLElement = class HTMLElement {};
-  }
-  if (typeof g.customElements === 'undefined') {
-    g.customElements = { define() {} };
-  }
-  const { db } = await import('../../../storage/db');
-  const dummyBuf = new ArrayBuffer(8);
-  const origGet = db.pdfFiles.get;
-  const origBooksGet = db.books.get;
-  db.pdfFiles.get = (async (id: string) => {
-    if (id === 'b1') return { id: 'b1', buffer: dummyBuf };
-    return undefined;
-  }) as any;
-  db.books.get = (async () => undefined) as any;
-
-  try {
-    const { getPdfBuffer } = await import('../../library');
-    const b1 = await getPdfBuffer('b1');
-    assert.equal(b1, dummyBuf);
-    const b2 = await getPdfBuffer('b2');
-    assert.equal(b2, undefined);
-  } finally {
-    db.pdfFiles.get = origGet;
-    db.books.get = origBooksGet;
-  }
-});
-
 test('createPagedPdfBook: identifies corrupted text layer and sets corruptedLayerSuspected', async () => {
   const originalWindow = (globalThis as unknown as { window?: unknown }).window;
   try {

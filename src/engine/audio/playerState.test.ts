@@ -6,8 +6,6 @@ import {
   PlayerEvent,
   PlayerState,
   acceptEnded,
-  isPausedStatus,
-  isPlayingStatus,
   reducePlayer,
   shouldAnnounceChapter,
 } from './playerState';
@@ -28,20 +26,19 @@ test('idle -> loading -> playing -> paused -> playing -> idle', () => {
   assert.equal(s.status, 'idle');
 });
 
-test('производные флаги: isPlaying = loading|playing, isPaused = paused', () => {
-  assert.deepEqual(['idle', 'loading', 'playing', 'paused', 'error'].map((x) => isPlayingStatus(x as never)), [false, true, true, false, false]);
-  assert.deepEqual(['idle', 'loading', 'playing', 'paused', 'error'].map((x) => isPausedStatus(x as never)), [false, false, false, true, false]);
-});
-
-test('флаги audioStore для каждого статуса совпадают с функциями Домена', async () => {
+test('флаги audioStore по статусу: isPlaying = loading|playing, isPaused = paused, isBuffering = loading', async () => {
   const { useAudioStore } = await import('../../store/audioStore');
-  const statuses = ['idle', 'loading', 'playing', 'paused', 'error'] as const;
-  for (const st of statuses) {
+  const expected = {
+    idle: { isPlaying: false, isPaused: false, isBuffering: false },
+    loading: { isPlaying: true, isPaused: false, isBuffering: true },
+    playing: { isPlaying: true, isPaused: false, isBuffering: false },
+    paused: { isPlaying: false, isPaused: true, isBuffering: false },
+    error: { isPlaying: false, isPaused: false, isBuffering: false },
+  } as const;
+  for (const st of Object.keys(expected) as Array<keyof typeof expected>) {
     useAudioStore.getState().applyPlayerState({ status: st, error: null, token: 1 });
     const s = useAudioStore.getState();
-    assert.equal(s.isPlaying, isPlayingStatus(st), `isPlaying mismatch for ${st}`);
-    assert.equal(s.isPaused, isPausedStatus(st), `isPaused mismatch for ${st}`);
-    assert.equal(s.isBuffering, st === 'loading', `isBuffering mismatch for ${st}`);
+    assert.deepEqual({ isPlaying: s.isPlaying, isPaused: s.isPaused, isBuffering: s.isBuffering }, expected[st], `флаги для ${st}`);
   }
 });
 

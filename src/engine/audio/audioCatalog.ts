@@ -7,6 +7,8 @@ import {
   isVoiceValidForModel as isVoiceValidForModelRaw,
   getCatalogModelInfo,
   getKnownModelVoices,
+  isOpenAIModel,
+  isOpenAIVoice,
 } from '../providers/openRouterTts';
 
 export interface ProviderMetadata {
@@ -95,6 +97,9 @@ export function normalizeVoiceForModel(
   }
   const known = getKnownModelVoices(model);
   if (known && !known.some((v) => v.id === norm)) {
+    return '';
+  }
+  if (!isOpenAIModel(model || '') && isOpenAIVoice(norm)) {
     return '';
   }
   return norm;

@@ -89,8 +89,34 @@ const VOICES_CHAT_AUDIO = pick(['alloy', 'ash', 'ballad', 'coral', 'echo', 'fabl
 const VOICES_TTS_1 = pick(['alloy', 'ash', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer']);
 const VOICES_MINI_TTS = pick(['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'marin', 'cedar']);
 
+export const OPENAI_VOICE_IDS: ReadonlySet<string> = new Set(Object.keys(VOICE_CATALOG));
+
+export function isOpenAIVoice(voiceId?: string): boolean {
+  if (!voiceId) return false;
+  return OPENAI_VOICE_IDS.has(normalizeAggregatorVoice(voiceId).toLowerCase());
+}
+
+export function isOpenAIModel(model: string = ''): boolean {
+  const s = model.toLowerCase().trim();
+  return /^openai\//.test(s) || /^(tts-1|gpt-4o|gpt-audio)/.test(s);
+}
+
 /** Обратная совместимость: прежний экспорт (список голосов OpenAI Audio) */
 export const OPENROUTER_DEFAULT_VOICES: VoiceOption[] = VOICES_MINI_TTS;
+
+const VOICES_KOKORO: VoiceOption[] = [
+  { id: 'af_heart', name: 'Heart (женский, высшее качество)', lang: 'en-US', gender: 'female', provider: 'openrouter' },
+  { id: 'af_bella', name: 'Bella (женский)', lang: 'en-US', gender: 'female', provider: 'openrouter' },
+  { id: 'af_nicole', name: 'Nicole (женский)', lang: 'en-US', gender: 'female', provider: 'openrouter' },
+  { id: 'af_sarah', name: 'Sarah (женский)', lang: 'en-US', gender: 'female', provider: 'openrouter' },
+  { id: 'af_sky', name: 'Sky (женский)', lang: 'en-US', gender: 'female', provider: 'openrouter' },
+  { id: 'am_adam', name: 'Adam (мужской)', lang: 'en-US', gender: 'male', provider: 'openrouter' },
+  { id: 'am_michael', name: 'Michael (мужской)', lang: 'en-US', gender: 'male', provider: 'openrouter' },
+  { id: 'bf_emma', name: 'Emma (женский, британский)', lang: 'en-GB', gender: 'female', provider: 'openrouter' },
+  { id: 'bf_isabella', name: 'Isabella (женский, британский)', lang: 'en-GB', gender: 'female', provider: 'openrouter' },
+  { id: 'bm_george', name: 'George (мужской, британский)', lang: 'en-GB', gender: 'male', provider: 'openrouter' },
+  { id: 'bm_lewis', name: 'Lewis (мужской, британский)', lang: 'en-GB', gender: 'male', provider: 'openrouter' },
+];
 
 /**
  * Маппинг модель -> поддерживаемые голоса. null — модель неизвестна,
@@ -102,31 +128,44 @@ export function getKnownModelVoices(model?: string): VoiceOption[] | null {
   if (/gpt-4o-mini-tts/.test(id)) return VOICES_MINI_TTS;
   if (/(^|\/)tts-1(-hd)?$/.test(id)) return VOICES_TTS_1;
   if (/gpt-4o(-mini)?-audio|(^|\/)gpt-audio/.test(id)) return VOICES_CHAT_AUDIO;
+  if (/kokoro/.test(id)) return VOICES_KOKORO;
   return null;
 }
 
-/** Голоса из каталога (supported_voices) → VoiceOption[] */
+/** Голоса из каталога (supported_voices, speaker_map и др.) → VoiceOption[] */
 export function catalogVoicesToOptions(ids?: string[]): VoiceOption[] {
   return (ids || []).map((id) => ({ id, name: id, lang: 'ru-RU', gender: 'neutral' as const, provider: 'openrouter' as const }));
 }
 
 /**
- * Список голосов для выбора в UI: «по умолчанию» + голоса шлюза (/audio/voices),
- * либо голоса модели из каталога (supported_voices), либо известные голоса модели.
- * Для неизвестных моделей — только «по умолчанию».
+ * Динамический список голосов для выбора в UI:
+ * 1. Голоса модели из каталога шлюза (/models: supported_voices, speaker_map и т.д.)
+ * 2. Либо известные голоса архитектуры (OpenAI, Kokoro)
+ * 3. Либо специфичные голоса шлюза (/audio/voices, /voices), не относящиеся к чужим закрытым стекам
+ * 4. Для неизвестных моделей — только «По умолчанию модели» (без навязывания чужих голосов)
  */
 export function resolveAggregatorVoiceOptions(
   model: string | undefined,
   gatewayVoices: VoiceOption[] = [],
   catalogVoices?: string[]
 ): VoiceOption[] {
-  const own = gatewayVoices.filter((x) => x.id);
   const fromCatalog = catalogVoicesToOptions(catalogVoices);
-  const list = fromCatalog.length > 0 ? fromCatalog : own.length > 0 ? own : getKnownModelVoices(model) || [];
-  return [OPENROUTER_DEFAULT_VOICE_OPTION, ...list];
+  if (fromCatalog.length > 0) {
+    return [OPENROUTER_DEFAULT_VOICE_OPTION, ...fromCatalog];
+  }
+  const known = getKnownModelVoices(model);
+  if (known && known.length > 0) {
+    return [OPENROUTER_DEFAULT_VOICE_OPTION, ...known];
+  }
+  const own = gatewayVoices.filter((x) => x.id);
+  const filteredOwn = isOpenAIModel(model) ? own : own.filter((v) => !isOpenAIVoice(v.id));
+  if (filteredOwn.length > 0) {
+    return [OPENROUTER_DEFAULT_VOICE_OPTION, ...filteredOwn];
+  }
+  return [OPENROUTER_DEFAULT_VOICE_OPTION];
 }
 
-/** Годится ли голос для модели (неизвестная модель → любой ручной id допустим) */
+/** Годится ли голос для модели (неизвестная модель → любой ручной id допустим, кроме голосов OpenAI для не-OpenAI моделей) */
 export function isVoiceValidForModel(
   voiceId: string,
   model: string | undefined,
@@ -137,9 +176,11 @@ export function isVoiceValidForModel(
   if (!id) return true;
   if (catalogVoices && catalogVoices.length > 0) return catalogVoices.includes(id);
   const own = gatewayVoices.filter((x) => x.id);
-  const list = own.length > 0 ? own : getKnownModelVoices(model);
-  if (!list) return true;
-  return list.some((x) => x.id === id);
+  if (own.length > 0) return own.some((x) => x.id === id);
+  const known = getKnownModelVoices(model);
+  if (known) return known.some((x) => x.id === id);
+  if (!isOpenAIModel(model || '') && isOpenAIVoice(id)) return false;
+  return true;
 }
 
 /**
@@ -182,16 +223,19 @@ export class OpenRouterTTSProvider implements ITTSProvider {
     const cleanUrl = (baseUrl || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
     const result: VoiceOption[] = [OPENROUTER_DEFAULT_VOICE_OPTION];
 
-    // У openrouter.ai нет /audio/voices — спрашиваем только сторонние шлюзы
+    // У openrouter.ai нет /audio/voices — спрашиваем только сторонние шлюзы (/audio/voices, /voices)
     if (!cleanUrl.includes('openrouter.ai')) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 3000);
       try {
         const headers: Record<string, string> = {};
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-        const res = await fetch(`${cleanUrl}/audio/voices`, { headers, signal: controller.signal });
-        if (res.ok) {
-          const data = await res.json();
+        let res = await fetch(`${cleanUrl}/audio/voices`, { headers, signal: controller.signal }).catch(() => null);
+        if (!res || res.status === 404) {
+          res = await fetch(`${cleanUrl}/voices`, { headers, signal: controller.signal }).catch(() => null);
+        }
+        if (res && res.ok) {
+          const data = await res.json().catch(() => null);
           const voiceList = Array.isArray(data) ? data : data?.voices || data?.data || [];
           if (Array.isArray(voiceList)) {
             for (const x of voiceList) {
@@ -285,9 +329,17 @@ export class OpenRouterTTSProvider implements ITTSProvider {
     const parsed: AggregatorModelInfo[] = Array.from(byId.values()).map((m) => {
       const id: string = m.id || m.name;
       const kind = classifyModel(m);
-      const voices = Array.isArray(m.supported_voices)
-        ? m.supported_voices.filter((v: any) => typeof v === 'string' && v)
-        : undefined;
+      const rawVoices = m.supported_voices || m.voices || m.speakers || m.speaker_map;
+      let voices: string[] | undefined;
+      if (Array.isArray(rawVoices)) {
+        voices = rawVoices.map((v: any) => (typeof v === 'string' ? v : v?.id || v?.name)).filter(Boolean);
+      } else if (rawVoices && typeof rawVoices === 'object') {
+        voices = Object.keys(rawVoices);
+      } else if (Array.isArray(m.parameters?.voice?.enum)) {
+        voices = m.parameters.voice.enum.filter((v: any) => typeof v === 'string' && v);
+      } else if (Array.isArray(m.parameters?.speaker?.enum)) {
+        voices = m.parameters.speaker.enum.filter((v: any) => typeof v === 'string' && v);
+      }
       return {
         id,
         name: m.name || id,
@@ -324,13 +376,19 @@ export class OpenRouterTTSProvider implements ITTSProvider {
     const ctx: RequestCtx = { cleanUrl, model, voice, text, apiKey: options.apiKey, signal: options.signal };
 
     const runOnce = (c: RequestCtx, mode: EndpointMode) => (mode === 'chat' ? requestChatAudio(c) : requestSpeech(c));
-    // Шлюз ответил «voice is missing» — повторяем с голосом из каталога модели (или alloy) и запоминаем его
+    // Шлюз ответил «voice is missing» — повторяем с голосом из каталога модели (или alloy для OpenAI) и запоминаем его
     const run = async (mode: EndpointMode): Promise<ArrayBuffer> => {
       try {
         return await runOnce(ctx, mode);
       } catch (e: any) {
         if (ctx.voice || !(e instanceof ApiHttpError) || e.status !== 400 || !VOICE_REQUIRED.test(e.message)) throw e;
         const v = requiredVoiceFor(ctx);
+        if (!v) {
+          throw new ApiHttpError(
+            `Модель "${ctx.model}" требует указать ID голоса (speaker), но шлюз не вернул список доступных голосов. Выберите или укажите ID голоса вручную в настройках озвучки (вкладка "Озвучка" -> "Голос диктора" -> "Другой (ввести ID вручную)").\nОтвет шлюза: ${e.message}`,
+            e.status
+          );
+        }
         const buf = await runOnce({ ...ctx, voice: v }, mode);
         rememberVoice(ctx, v);
         return buf;
@@ -476,10 +534,6 @@ function guessSpeechModel(model: string): boolean {
   return /(^|[\/\-_])(tts|speech)([\/\-_.]|$)|tts-1|kokoro|piper|xtts|bark/i.test(model);
 }
 
-function isOpenAIModel(model: string): boolean {
-  return /^openai\//i.test(model) || /^(tts-1|gpt-4o|gpt-audio)/i.test(model);
-}
-
 function buildHeaders(apiKey: string): Record<string, string> {
   return {
     Authorization: `Bearer ${apiKey}`,
@@ -608,15 +662,34 @@ function loadLearnedVoices() {
   voicesLoaded = true;
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(VOICE_STORAGE_KEY) : null;
-    for (const [k, v] of Object.entries(raw ? JSON.parse(raw) : {})) if (typeof v === 'string' && v) learnedVoices.set(k, v);
+    let mutated = false;
+    const parsed = raw ? JSON.parse(raw) : {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'string' && v) {
+        const model = k.includes('|') ? k.split('|')[1] : '';
+        // Очищаем старые ошибочно запомненные голоса OpenAI (alloy и др.) для не-OpenAI моделей
+        if (model && !isVoiceValidForModel(v, model)) {
+          delete parsed[k];
+          mutated = true;
+          continue;
+        }
+        learnedVoices.set(k, v);
+      }
+    }
+    if (mutated && typeof localStorage !== 'undefined') {
+      localStorage.setItem(VOICE_STORAGE_KEY, JSON.stringify(parsed));
+    }
   } catch {
     /* хранилище недоступно */
   }
 }
 
 function rememberVoice(ctx: { cleanUrl: string; model: string }, voice: string) {
+  if (!voice || !isVoiceValidForModel(voice, ctx.model)) return;
   loadLearnedVoices();
-  learnedVoices.set(`${ctx.cleanUrl}|${ctx.model}`, voice);
+  const key = `${ctx.cleanUrl}|${ctx.model}`;
+  if (learnedVoices.get(key) === voice) return;
+  learnedVoices.set(key, voice);
   try {
     if (typeof localStorage !== 'undefined') localStorage.setItem(VOICE_STORAGE_KEY, JSON.stringify(Object.fromEntries(learnedVoices)));
   } catch {
@@ -624,10 +697,15 @@ function rememberVoice(ctx: { cleanUrl: string; model: string }, voice: string) 
   }
 }
 
-/** Голос для модели, которой он обязателен: запомненный → из каталога (supported_voices) → alloy */
+/** Голос для модели, которой он обязателен: запомненный → из каталога (supported_voices) → alloy (только OpenAI) */
 function requiredVoiceFor(ctx: { cleanUrl: string; model: string }): string {
   loadLearnedVoices();
-  return learnedVoices.get(`${ctx.cleanUrl}|${ctx.model}`) || getCatalogModelInfo(ctx.cleanUrl, ctx.model)?.voices?.[0] || 'alloy';
+  const learned = learnedVoices.get(`${ctx.cleanUrl}|${ctx.model}`);
+  if (learned && isVoiceValidForModel(learned, ctx.model)) return learned;
+  const catVoice = getCatalogModelInfo(ctx.cleanUrl, ctx.model)?.voices?.[0];
+  if (catVoice) return catVoice;
+  if (isOpenAIModel(ctx.model)) return 'alloy';
+  return '';
 }
 
 /** Модели, у которых speech-эндпоинт принимает только pcm (Gemini TTS и т.п.) */
@@ -641,9 +719,14 @@ async function requestSpeech(ctx: RequestCtx, format: 'mp3' | 'pcm' = 'mp3'): Pr
     input: ctx.text,
     response_format: format,
   };
-  // Для OpenAI-моделей voice обязателен; для прочих — только если задан явно (иначе модель берёт свой голос по умолчанию)
+  // Для OpenAI-моделей voice обязателен (дефолт alloy); для прочих — только если задан явно и валиден для модели
   loadLearnedVoices();
-  const voice = ctx.voice || learnedVoices.get(`${ctx.cleanUrl}|${ctx.model}`) || (isOpenAIModel(ctx.model) ? 'alloy' : '');
+  const learned = learnedVoices.get(`${ctx.cleanUrl}|${ctx.model}`);
+  const validLearned = learned && isVoiceValidForModel(learned, ctx.model) ? learned : '';
+  const rawVoice = ctx.voice || validLearned;
+  const voice = isVoiceValidForModel(rawVoice, ctx.model)
+    ? rawVoice
+    : (isOpenAIModel(ctx.model) ? 'alloy' : '');
   if (voice) body.voice = voice;
   // speed НЕ шлём: скорость применяется плеером через playbackRate (иначе применилась бы дважды,
   // а модели без управления скоростью вернули бы 400 на не-дефолтное значение)
@@ -690,7 +773,12 @@ async function requestChatAudio(ctx: RequestCtx): Promise<ArrayBuffer> {
   const audio: Record<string, unknown> = { format: 'pcm16' };
   // Голос шлём только если выбран явно; для OpenAI-моделей он обязателен → alloy
   loadLearnedVoices();
-  const voice = ctx.voice || learnedVoices.get(`${ctx.cleanUrl}|${ctx.model}`) || (isOpenAIModel(ctx.model) ? 'alloy' : '');
+  const learned = learnedVoices.get(`${ctx.cleanUrl}|${ctx.model}`);
+  const validLearned = learned && isVoiceValidForModel(learned, ctx.model) ? learned : '';
+  const rawVoice = ctx.voice || validLearned;
+  const voice = isVoiceValidForModel(rawVoice, ctx.model)
+    ? rawVoice
+    : (isOpenAIModel(ctx.model) ? 'alloy' : '');
   if (voice) audio.voice = voice;
 
   const body = {

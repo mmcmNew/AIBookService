@@ -20,7 +20,7 @@ export function newPdfBookId(): string {
   return `pdf_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 }
 
-export async function createPagedPdfBook(file: File, requested: PdfEngine): Promise<ParsedBook> {
+export async function createPagedPdfBook(file: File, requested: PdfEngine, force = false): Promise<ParsedBook> {
   const buffer = await file.arrayBuffer();
   const bookId = newPdfBookId();
   let opened;
@@ -41,13 +41,13 @@ export async function createPagedPdfBook(file: File, requested: PdfEngine): Prom
   const corruptedLayerSuspected = info.corruptedLayerSuspected || isCorrupted;
   const recommendedMode = (!info.hasTextLayer || corruptedLayerSuspected) ? 'ocr' : info.recommendedMode;
 
-  // Текстовый слой pdf.js бесполезен для скана/битого слоя: предлагаем OCR (как раньше — через ScannedPdfError)
-  if (engine === 'pdfjs' && (!info.hasTextLayer || corruptedLayerSuspected)) {
+  // Текстовый слой pdf.js бесполезен для скана/битого слоя: предлагаем OCR или онлайн конвертер
+  if (engine === 'pdfjs' && !force && (!info.hasTextLayer || corruptedLayerSuspected)) {
     releasePdfjsDocument(bookId);
     throw new ScannedPdfError(
       corruptedLayerSuspected
-        ? 'В этом PDF обнаружен повреждённый текстовый слой (псевдокириллица или сдвинутая кириллица старого OCR). Для качественного чтения нужно оптическое распознавание: встроенный OCR (Tesseract) или AI (Gemini).'
-        : `PDF-файл не содержит текстового слоя. Скорее всего это скан. Рекомендуется оптическое распознавание: ${isSidecarEngineAvailable() ? 'встроенный OCR или ' : ''}AI (Gemini).`,
+        ? 'В этом PDF обнаружен повреждённый текстовый слой (псевдокириллица или сдвинутая кириллица старого OCR). Для качественного чтения рекомендуется преобразовать файл в FB2/EPUB онлайн или использовать распознавание.'
+        : `PDF-файл не содержит текстового слоя (скан книги). Для качественного чтения рекомендуется преобразовать файл в FB2/EPUB онлайн или использовать распознавание.`,
       info.pageCount,
       0,
       corruptedLayerSuspected,

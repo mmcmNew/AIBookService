@@ -15,6 +15,7 @@ import { createPagedPdfBook } from '../pdf/createPagedBook';
 import { resolvePdfTarget } from '../pdf/engineChoice';
 import { isSidecarAvailable } from './pdfSidecar';
 import { useSettingsStore } from '../../store/settingsStore';
+import { normalizeBookFile } from './formatDetector';
 
 const DEFAULT_SERVER_URL: string =
   (import.meta as any).env?.VITE_SERVER_URL ?? 'http://localhost:4000';
@@ -29,6 +30,8 @@ function withPdfMode(book: ParsedBook, mode: 'pdfjs' | 'pymupdf' | 'gemini'): Pa
 
 export interface ParseOptions {
   pdfMode?: 'pdfjs' | 'pymupdf' | 'gemini' | 'ocr';
+  /** Принудительно открыть PDF через pdfjs даже при подозрении на скан/битый слой */
+  pdfForce?: boolean;
   /** true — старый режим «целиком» (pdfjs/PyMuPDF/Gemini за один проход) вместо постраничного */
   pdfLegacy?: boolean;
   serverUrl?: string;
@@ -43,10 +46,11 @@ export interface ParseOptions {
  * - TXT (структурированный текстовый парсер)
  */
 export async function parseBookFile(
-  file: File,
+  rawFile: File,
   userRules: ReplacementRule[] = [],
   options: ParseOptions = {}
 ): Promise<ParsedBook> {
+  const file = await normalizeBookFile(rawFile);
   const fileNameLower = file.name.toLowerCase();
 
   // 1. PDF файлы
@@ -60,7 +64,7 @@ export async function parseBookFile(
       if (target.kind === 'unavailable') throw new Error(target.reason);
       if (target.kind === 'paged') {
         try {
-          return await createPagedPdfBook(file, target.engine);
+          return await createPagedPdfBook(file, target.engine, options.pdfForce);
         } catch (err) {
           // Запасной путь: sidecar недоступен (нет exe) — старый режим «целиком»
           const sidecarEngine = target.engine === 'auto' || target.engine === 'ocr' || target.engine === 'text';
@@ -104,8 +108,12 @@ export async function parseBookFile(
     } catch (foliateErr) {
       console.warn('Foliate-js парсинг завершился ошибкой, запуск fallback парсера:', foliateErr);
 
-      // Fallback для FB2
-      if (fileNameLower.endsWith('.fb2')) {
+      // Fallback для FB2 / FB2.ZIP
+      if (
+        fileNameLower.endsWith('.fb2') ||
+        fileNameLower.endsWith('.fb2.zip') ||
+        fileNameLower.endsWith('.fbz')
+      ) {
         const buffer = await file.arrayBuffer();
         return parseFB2(buffer, file.name, userRules);
       }

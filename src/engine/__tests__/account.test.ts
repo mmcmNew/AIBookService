@@ -11,8 +11,16 @@ import {
   requestTopUp,
   clearTopUpRequest,
   setServerUrl,
+  login,
+  register,
+  logout,
+  requestPasswordReset,
+  saveEncryptedApiKeys,
+  loadEncryptedApiKeys,
+  syncUserData,
 } from '../account';
 import { useUserStore } from '../../store/userStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { CloudTTSProvider, InsufficientFundsError, AuthExpiredError } from '../providers/cloudTts';
 import { synthesizeOnce } from '../audio/audioFetch';
 import { getProvider } from '../providers';
@@ -322,6 +330,8 @@ test('userStore: стор не содержит HTTP логики, только 
   assert.equal(typeof state.setLoadingBalance, 'function');
   assert.equal(typeof state.setServerUrl, 'function');
   assert.equal(typeof state.setTopUpRequest, 'function');
+  assert.equal(typeof state.setLastSyncTime, 'function');
+  assert.equal(typeof state.logout, 'function');
 
   // Проверка работы сеттеров
   state.setAuth('user-1', 'tok-1');
@@ -337,3 +347,381 @@ test('userStore: стор не содержит HTTP логики, только 
   clearTopUpRequest();
   assert.equal(useUserStore.getState().topUpRequest, false);
 });
+
+// ---------------------------------------------------------------------------
+// 8. account: login обновляет стор, выставляет isGuest: false и баланс
+// ---------------------------------------------------------------------------
+
+test('account: login обновляет стор, выставляет isGuest: false и баланс', async () => {
+  useUserStore.setState({
+    userId: 'guest_1',
+    token: 'guest_tok',
+    email: '',
+    refreshToken: '',
+    isGuest: true,
+    balance: 0,
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = String(url);
+    if (urlStr.includes('/api/auth/login')) {
+      const body = JSON.parse(init?.body as string);
+      assert.equal(body.email, 'user@test.com');
+      assert.equal(body.password, 'secret123');
+      return new Response(
+        JSON.stringify({
+          user: { id: 'user_99', email: 'user@test.com', balance: 15000 },
+          token: 'token_jwt_99',
+          refreshToken: 'refresh_jwt_99',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (urlStr.includes('/api/user/keys')) {
+      return new Response(
+        JSON.stringify({ encryptedBlob: null, iv: null }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (urlStr.includes('/api/user/sync')) {
+      return new Response(
+        JSON.stringify({ success: true, serverTime: 123456789 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    throw new Error(`Unexpected request: ${urlStr}`);
+  }) as any;
+
+  try {
+    const res = await login('user@test.com', 'secret123');
+    assert.equal(res.success, true);
+    assert.equal(res.balance, 15000);
+
+    const state = useUserStore.getState();
+    assert.equal(state.userId, 'user_99');
+    assert.equal(state.token, 'token_jwt_99');
+    assert.equal(state.refreshToken, 'refresh_jwt_99');
+    assert.equal(state.email, 'user@test.com');
+    assert.equal(state.isGuest, false);
+    assert.equal(state.balance, 15000);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 9. account: register передаёт guestToken если пользователь был гостем
+// ---------------------------------------------------------------------------
+
+test('account: register передаёт guestToken если пользователь был гостем', async () => {
+  useUserStore.setState({
+    userId: 'guest_42',
+    token: 'guest_tok_42',
+    email: '',
+    refreshToken: '',
+    isGuest: true,
+    balance: 500,
+  });
+
+  let capturedGuestToken: string | undefined;
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = String(url);
+    if (urlStr.includes('/api/auth/register')) {
+      const body = JSON.parse(init?.body as string);
+      capturedGuestToken = body.guestToken;
+      return new Response(
+        JSON.stringify({
+          user: { id: 'reg_user_1', email: 'reg@test.com', balance: 500 },
+          token: 'reg_tok_1',
+          refreshToken: 'reg_refresh_1',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (urlStr.includes('/api/user/keys')) {
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (urlStr.includes('/api/user/sync')) {
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`Unexpected request: ${urlStr}`);
+  }) as any;
+
+  try {
+    const res = await register('reg@test.com', 'mypassword');
+    assert.equal(res.success, true);
+    assert.equal(capturedGuestToken, 'guest_tok_42');
+
+    const state = useUserStore.getState();
+    assert.equal(state.userId, 'reg_user_1');
+    assert.equal(state.token, 'reg_tok_1');
+    assert.equal(state.refreshToken, 'reg_refresh_1');
+    assert.equal(state.email, 'reg@test.com');
+    assert.equal(state.isGuest, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 10. account: logout сбрасывает данные сессии
+// ---------------------------------------------------------------------------
+
+test('account: logout сбрасывает данные сессии', () => {
+  useUserStore.setState({
+    userId: 'user_active',
+    token: 'tok_active',
+    refreshToken: 'ref_active',
+    email: 'user@active.com',
+    balance: 9999,
+    isGuest: false,
+    lastSyncTime: 1234567,
+  });
+
+  logout();
+
+  const state = useUserStore.getState();
+  assert.equal(state.userId, '');
+  assert.equal(state.token, '');
+  assert.equal(state.refreshToken, '');
+  assert.equal(state.email, '');
+  assert.equal(state.balance, 0);
+  assert.equal(state.isGuest, true);
+  assert.equal(state.lastSyncTime, null);
+});
+
+// ---------------------------------------------------------------------------
+// 11. account: 401 при наличии refreshToken вызывает authRefresh и повторяет запрос
+// ---------------------------------------------------------------------------
+
+test('account: 401 при наличии refreshToken вызывает authRefresh и повторяет запрос', async () => {
+  useUserStore.setState({
+    userId: 'u_auth',
+    token: 'expired_access_token',
+    refreshToken: 'valid_refresh_token',
+    email: 'u@test.com',
+    isGuest: false,
+    balance: 100,
+  });
+
+  const calls: string[] = [];
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = String(url);
+    calls.push(urlStr);
+
+    if (urlStr.includes('/api/auth/refresh')) {
+      const body = JSON.parse(init?.body as string);
+      assert.equal(body.refreshToken, 'valid_refresh_token');
+      return new Response(
+        JSON.stringify({
+          token: 'new_fresh_token',
+          refreshToken: 'new_fresh_refresh_token',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (urlStr.includes('/api/user/balance')) {
+      const authHeader = (init?.headers as Record<string, string>)?.['Authorization'] ||
+        (init?.headers as Headers)?.get?.('Authorization');
+      if (authHeader === 'Bearer expired_access_token') {
+        return new Response(JSON.stringify({ error: 'Token expired' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (authHeader === 'Bearer new_fresh_token') {
+        return new Response(JSON.stringify({ balance: 8888 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    throw new Error(`Unexpected request: ${urlStr}`);
+  }) as any;
+
+  try {
+    const bal = await fetchBalance();
+    assert.equal(bal, 8888);
+    assert.equal(useUserStore.getState().token, 'new_fresh_token');
+    assert.equal(useUserStore.getState().refreshToken, 'new_fresh_refresh_token');
+    assert.equal(useUserStore.getState().balance, 8888);
+    assert.equal(calls.length, 3, 'Запросы: balance (401) -> refresh (200) -> balance (200)');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 12. account: saveEncryptedApiKeys и loadEncryptedApiKeys корректно шифруют и расшифровывают ключи
+// ---------------------------------------------------------------------------
+
+test('account: saveEncryptedApiKeys и loadEncryptedApiKeys корректно шифруют и расшифровывают ключи', async () => {
+  useUserStore.setState({
+    userId: 'crypto_user_1',
+    token: 'tok_crypto',
+    email: 'crypto@test.com',
+    isGuest: false,
+  });
+
+  useSettingsStore.setState({
+    apiKeys: {
+      gemini: 'AIza-test-gemini-key',
+      openai: 'sk-test-openai-key',
+      elevenlabs: 'xi-test-eleven-key',
+      openrouter: 'sk-or-test-key',
+    },
+    aggregatorKeys: {
+      'https://routerai.ru/api/v1': 'routerai-secret-key',
+    },
+  });
+
+  const captured = {
+    savedEncryptedBlob: null as string | null,
+    savedIv: null as string | null,
+  };
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = String(url);
+
+    if (urlStr.includes('/api/user/keys')) {
+      if (init?.method === 'POST') {
+        const body = JSON.parse(init.body as string);
+        captured.savedEncryptedBlob = body.encryptedBlob;
+        captured.savedIv = body.iv;
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } else {
+        return new Response(
+          JSON.stringify({
+            encryptedBlob: captured.savedEncryptedBlob,
+            iv: captured.savedIv,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    throw new Error(`Unexpected request: ${urlStr}`);
+  }) as any;
+
+  try {
+    const password = 'StrongMasterPassword!2026';
+
+    // 1. Сохраняем ключи
+    await saveEncryptedApiKeys(password);
+    assert.ok(captured.savedEncryptedBlob, 'encryptedBlob должен быть сохранен на сервере');
+    assert.ok(captured.savedIv, 'iv должен быть сохранен на сервере');
+
+    const blobStr = captured.savedEncryptedBlob;
+    // Убедимся, что открытый текст ключей не содержится в зашифрованном блобе
+    assert.ok(!blobStr.includes('AIza-test-gemini-key'));
+    assert.ok(!blobStr.includes('routerai-secret-key'));
+
+    // 2. Сбрасываем ключи в settingsStore
+    useSettingsStore.setState({
+      apiKeys: {},
+      aggregatorKeys: {},
+    });
+    assert.equal(useSettingsStore.getState().apiKeys.gemini, undefined);
+
+    // 3. Загружаем и расшифровываем ключи обратно
+    await loadEncryptedApiKeys(password);
+
+    const loadedSettings = useSettingsStore.getState();
+    assert.equal(loadedSettings.apiKeys.gemini, 'AIza-test-gemini-key');
+    assert.equal(loadedSettings.apiKeys.openai, 'sk-test-openai-key');
+    assert.equal(loadedSettings.apiKeys.elevenlabs, 'xi-test-eleven-key');
+    assert.equal(loadedSettings.apiKeys.openrouter, 'sk-or-test-key');
+    assert.equal(loadedSettings.aggregatorKeys?.['https://routerai.ru/api/v1'], 'routerai-secret-key');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 13. account: requestPasswordReset отправляет запрос на сервер
+// ---------------------------------------------------------------------------
+
+test('account: requestPasswordReset отправляет email для сброса пароля', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = String(url);
+    if (urlStr.includes('/api/auth/forgot-password')) {
+      const body = JSON.parse(init?.body as string);
+      assert.equal(body.email, 'reset@example.com');
+      return new Response(JSON.stringify({ success: true, message: 'Ссылка отправлена' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`Unexpected request: ${urlStr}`);
+  }) as any;
+
+  try {
+    const res = await requestPasswordReset('reset@example.com');
+    assert.equal(res.success, true);
+    assert.equal(res.message, 'Ссылка отправлена');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 14. account: syncUserData отправляет полезную нагрузку и обновляет lastSyncTime
+// ---------------------------------------------------------------------------
+
+test('account: syncUserData собирает настройки и обновляет lastSyncTime', async () => {
+  useUserStore.setState({
+    userId: 'u_sync',
+    token: 'tok_sync',
+    serverUrl: 'http://localhost:4000',
+    lastSyncTime: null,
+  });
+
+  const originalFetch = globalThis.fetch;
+  let sentPayload: any = null;
+
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = String(url);
+    if (urlStr.includes('/api/user/sync')) {
+      sentPayload = JSON.parse(init?.body as string);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          serverTime: 1700000000,
+          settings: { fontSize: 24 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    throw new Error(`Unexpected request: ${urlStr}`);
+  }) as any;
+
+  try {
+    await syncUserData();
+    assert.ok(sentPayload, 'Payload должен быть отправлен');
+    assert.ok(sentPayload.settings, 'Settings должны быть в payload');
+    assert.ok(Array.isArray(sentPayload.positions), 'Positions должны быть массивом');
+    assert.equal(useSettingsStore.getState().fontSize, 24);
+    assert.equal(useUserStore.getState().lastSyncTime, 1700000000);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+

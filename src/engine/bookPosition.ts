@@ -254,8 +254,8 @@ function applyChapter(index: number, announceChange: boolean): void {
 // ---------------------------------------------------------------------------
 
 /** Текущая фраза (позиция не сдвигается; если позиция указывала в пустоту — исправляется на найденную фразу) */
-export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
-  const phrase = sourceCurrentPhrase(autoAdvanceChapter);
+export function currentPhrase(autoAdvanceChapter: boolean, prefetchCount?: number): CurrentPhrase {
+  const phrase = sourceCurrentPhrase(autoAdvanceChapter, prefetchCount);
   if (phrase.kind === 'phrase' && phrase.positionFix) setSentenceId(phrase.sentence.id);
   return phrase;
 }
@@ -302,4 +302,48 @@ export function stepPhrase(delta: 1 | -1): void {
   const result = delta > 0 ? nextPhrase(true) : previousPhrase();
   if (result.kind === 'none') return;
   announce({ kind: 'step', result });
+}
+
+export async function getBookPositionsForSync(): Promise<any[]> {
+  const savedBooks = useBookStore.getState().savedBooks || [];
+  let positions: any[] = savedBooks.map((b) => ({
+    bookId: b.id,
+    lastChapterId: b.lastChapterId,
+    lastSentenceId: b.lastSentenceId,
+    lastPage: b.lastPage,
+    lastReadAt: b.lastReadAt,
+  }));
+
+  const currentBook = useBookStore.getState().currentBook;
+  if (currentBook) {
+    const curChapter = useBookStore.getState().getCurrentChapter();
+    const curPos = {
+      bookId: currentBook.metadata.id,
+      lastChapterId: curChapter?.id || currentBook.metadata.lastChapterId,
+      lastSentenceId: useBookStore.getState().currentSentenceId ?? currentBook.metadata.lastSentenceId,
+      lastPage: useBookStore.getState().currentPage ?? currentBook.metadata.lastPage,
+      lastReadAt: Date.now(),
+    };
+    const idx = positions.findIndex((p) => p.bookId === currentBook.metadata.id);
+    if (idx >= 0) {
+      positions[idx] = { ...positions[idx], ...curPos };
+    } else {
+      positions.push(curPos);
+    }
+  }
+  return positions;
+}
+
+export async function applySyncedBookPositions(positions: any[]): Promise<void> {
+  if (!Array.isArray(positions)) return;
+  const currentBook = useBookStore.getState().currentBook;
+  for (const pos of positions) {
+    if (currentBook && currentBook.metadata.id === pos.bookId) {
+      useBookStore.setState((state) => ({
+        ...state,
+        currentSentenceId: typeof pos.lastSentenceId === 'number' ? pos.lastSentenceId : state.currentSentenceId,
+        currentPage: typeof pos.lastPage === 'number' ? pos.lastPage : state.currentPage,
+      }));
+    }
+  }
 }

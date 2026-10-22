@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import { Chapter, Footnote, ParsedBook, SentenceItem } from '../../types/book';
 import { ReplacementRule } from '../../types/settings';
 import { tokenizeSentences } from '../tokenizer/sentenceTokenizer';
@@ -12,6 +13,22 @@ export async function parseFB2(
   if (typeof fileContent === 'string') {
     text = fileContent;
   } else {
+    // Проверка на ZIP-архив (.fb2.zip / .fbz / .zip)
+    const sig = new Uint8Array(fileContent.slice(0, 4));
+    if (sig.length >= 4 && sig[0] === 0x50 && sig[1] === 0x4b && sig[2] === 0x03 && sig[3] === 0x04) {
+      try {
+        const zip = await JSZip.loadAsync(fileContent);
+        const fb2Entry =
+          Object.values(zip.files).find((f) => !f.dir && f.name.toLowerCase().endsWith('.fb2')) ||
+          Object.values(zip.files).find((f) => !f.dir && !f.name.startsWith('__MACOSX') && !f.name.startsWith('.'));
+        if (fb2Entry) {
+          fileContent = await fb2Entry.async('arraybuffer');
+        }
+      } catch (zipErr) {
+        console.warn('[FB2Parser] Ошибка распаковки ZIP для FB2:', zipErr);
+      }
+    }
+
     const bytes = new Uint8Array(fileContent.slice(0, 500));
     const headerAscii = String.fromCharCode(...bytes);
     const match = headerAscii.match(/<\?xml[^>]+encoding=["']([^"']+)["']/i);

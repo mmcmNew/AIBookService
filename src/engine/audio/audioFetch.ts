@@ -272,40 +272,69 @@ export interface PrepareKeepTarget {
 let prepareAbort: AbortController | null = null;
 let currentPrepareKey: string | null = null;
 
+export interface PrepareAudioJob {
+  bookId: string;
+  chapterId: string;
+  sentence: SentenceItem;
+  providerType: TTSProviderType;
+  options: SynthesisOptions;
+}
+
 /**
- * Команда «приготовь»: готовит аудио фразы заранее (в кэш), пока играет предыдущая.
- * Ключ кэша тот же, что у запроса Оркестратора «возьми аудио» (параметры синтеза одни и те же). Ошибки игнорируются:
- * если подготовка не удалась, Оркестратор получит аудио обычным запросом.
+ * Команда «приготовь»: готовит аудио фраз заранее (в кэш), пока играет предыдущая.
+ * Поддерживает как одиночное задание (для совместимости), так и очередь из нескольких предложений наперёд.
+ * Задания выполняются последовательно в фоне с возможностью безопасной отмены.
  */
 export function prepareAudio(
-  bookId: string,
-  chapterId: string,
-  sentence: SentenceItem,
-  providerType: TTSProviderType,
-  options: SynthesisOptions
+  jobsOrBookId: PrepareAudioJob[] | string,
+  chapterId?: string,
+  sentence?: SentenceItem,
+  providerType?: TTSProviderType,
+  options?: SynthesisOptions
 ): void {
-  if (providerType === 'webspeech') return;
+  const jobs: PrepareAudioJob[] = Array.isArray(jobsOrBookId)
+    ? jobsOrBookId
+    : [
+        {
+          bookId: jobsOrBookId,
+          chapterId: chapterId!,
+          sentence: sentence!,
+          providerType: providerType!,
+          options: options!,
+        },
+      ];
+
+  if (jobs.length === 0) return;
+  const validJobs = jobs.filter((j) => j.providerType !== 'webspeech');
+  if (validJobs.length === 0) return;
+
   prepareAbort?.abort();
   prepareAbort = new AbortController();
-
-  const { key } = resolveSentenceJob(bookId, chapterId, sentence, providerType, options);
-  currentPrepareKey = key;
   const signal = prepareAbort.signal;
 
-  getOrFetchAudio({
-    bookId,
-    chapterId,
-    sentence,
-    providerType,
-    options,
-    signal,
-  })
-    .catch(() => undefined)
-    .finally(() => {
-      if (prepareAbort?.signal === signal) {
-        currentPrepareKey = null;
+  (async () => {
+    for (const job of validJobs) {
+      if (signal.aborted) break;
+      const { key } = resolveSentenceJob(job.bookId, job.chapterId, job.sentence, job.providerType, job.options);
+      currentPrepareKey = key;
+      try {
+        await getOrFetchAudio({
+          bookId: job.bookId,
+          chapterId: job.chapterId,
+          sentence: job.sentence,
+          providerType: job.providerType,
+          options: job.options,
+          signal,
+        });
+      } catch {
+        // Ошибки предзагрузки игнорируем: плеер запросит обычным путём
+      } finally {
+        if (currentPrepareKey === key) {
+          currentPrepareKey = null;
+        }
       }
-    });
+    }
+  })();
 }
 
 /** Команда «отмени»: бросает подготовку (при прыжке, остановке, ошибке). Если передан keep и его ключ совпадает — не отменяет. */

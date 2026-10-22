@@ -568,8 +568,8 @@ export async function replaceBookChapters(chapters: Chapter[], options?: { title
 // ---------------------------------------------------------------------------
 
 /** Текущая фраза (позиция не сдвигается): фраза | ждём страницу | конец (внутри — Поставщик фраз) */
-export function currentPhrase(autoAdvanceChapter: boolean): CurrentPhrase {
-  return positionCurrentPhrase(autoAdvanceChapter);
+export function currentPhrase(autoAdvanceChapter: boolean, prefetchCount?: number): CurrentPhrase {
+  return positionCurrentPhrase(autoAdvanceChapter, prefetchCount);
 }
 
 /** Следующая фраза: позиция сдвигается сразу, ответ — фраза | ждём страницу | конец */
@@ -661,11 +661,6 @@ export function setPdfViewMode(mode: 'original' | 'reflow'): void {
 
 export function clearBookError(): void {
   useBookStore.setState({ error: null });
-}
-
-/** Исходный PDF книги из базы данных (db.pdfFiles / db.books) */
-export async function getPdfBuffer(bookId: string): Promise<ArrayBuffer | undefined> {
-  return loadPdfBuffer(bookId);
 }
 
 /** Загружает и кэширует документ pdf.js для оригинального просмотра страниц */
