@@ -130,9 +130,9 @@ test('confirm-mock работает в dev и отказывает в production
 
 test('нельзя списать больше баланса', async () => {
   const u = await register();
-  assert.equal(db.deductBalance(u.userId, 15001), false);
-  assert.equal(db.deductBalance(u.userId, 15000), true);
-  assert.equal(db.deductBalance(u.userId, 1), false);
+  assert.equal(db.deductBalance(u.userId, 15001), null);
+  assert.deepEqual(db.deductBalance(u.userId, 15000), { balance: 0 });
+  assert.equal(db.deductBalance(u.userId, 1), null);
   assert.equal(db.getUser(u.userId)!.balance, 0);
   assert.throws(() => db.deductBalance(u.userId, NaN));
   assert.throws(() => db.deductBalance(u.userId, -5));

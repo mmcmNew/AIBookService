@@ -4,13 +4,13 @@ import path from 'path';
 import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { Database } from '../db.js';
+import { Database, IDatabase } from '../db.js';
 import { config } from '../config.js';
-import { authedUser } from '../middleware.js';
+import { authedUser, asyncHandler } from '../middleware.js';
 
 const execFileAsync = promisify(execFile);
 
-export function createPdfRouter(db: Database): Router {
+export function createPdfRouter(db: IDatabase | Database): Router {
   const router = Router();
 
   /**
@@ -21,7 +21,7 @@ export function createPdfRouter(db: Database): Router {
     const TEMP_DIR = path.resolve('temp');
     fs.mkdirSync(TEMP_DIR, { recursive: true });
 
-    router.post('/parse-python', async (req: Request, res: Response) => {
+    router.post('/parse-python', asyncHandler(async (req: Request, res: Response) => {
       const { fileBase64, fileName } = req.body ?? {};
       if (typeof fileBase64 !== 'string' || typeof fileName !== 'string' || !fileBase64 || !fileName) {
         res.status(400).json({ error: 'Поля fileBase64 и fileName обязательны.' });
@@ -47,13 +47,13 @@ export function createPdfRouter(db: Database): Router {
         await fs.promises.unlink(tempPdfPath).catch(() => {});
         await fs.promises.unlink(tempJsonPath).catch(() => {});
       }
-    });
+    }));
   }
 
   /**
    * 2. AI OCR через Gemini. Списывает фиксированную стоимость, при ошибке возвращает.
    */
-  router.post('/parse-gemini', async (req: Request, res: Response) => {
+  router.post('/parse-gemini', asyncHandler(async (req: Request, res: Response) => {
     const user = authedUser(res);
     const { fileBase64, fileName } = req.body ?? {};
     const apiKey = config.geminiApiKey();
@@ -68,9 +68,20 @@ export function createPdfRouter(db: Database): Router {
     }
 
     const cost = config.pdfGeminiCost();
-    if (cost > 0 && !db.deductBalance(user.id, cost)) {
-      res.status(402).json({ error: 'Недостаточно символов на балансе.', balance: user.balance, required: cost });
-      return;
+    if (cost > 0) {
+      let deductResult: { balance: number } | null;
+      try {
+        deductResult = await db.deductBalance(user.id, cost);
+      } catch (err) {
+        console.error('Ошибка списания баланса перед OCR:', err);
+        res.setHeader('Retry-After', '5');
+        res.status(503).json({ error: 'Сервис временно недоступен. Попробуйте позже.' });
+        return;
+      }
+      if (deductResult === null) {
+        res.status(402).json({ error: 'Недостаточно символов на балансе.', balance: user.balance, required: cost });
+        return;
+      }
     }
 
     try {
@@ -133,10 +144,16 @@ export function createPdfRouter(db: Database): Router {
       });
     } catch (err) {
       console.error('Ошибка Gemini OCR парсинга PDF:', err);
-      if (cost > 0) db.refundBalance(user.id, cost);
+      if (cost > 0) {
+        try {
+          await db.refundBalance(user.id, cost);
+        } catch (refundErr) {
+          console.error(`[BILLING] возврат не выполнен user=${user.id} chars=${cost}`, refundErr);
+        }
+      }
       res.status(500).json({ error: 'Ошибка распознавания PDF.', refunded: cost });
     }
-  });
+  }));
 
   return router;
 }

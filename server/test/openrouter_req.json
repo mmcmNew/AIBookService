@@ -1,0 +1,5 @@
+{
+  "provider": "openrouter",
+  "voiceId": "alloy",
+  "text": "Привет! Это проверка синтеза через OpenRouter на сервере."
+}

@@ -3,11 +3,12 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
+import { PostgresDatabase } from './postgresDb.js';
 
 export interface UserRecord {
   id: string;
-  tokenHash: string;      // sha256(token) в hex; сам токен не хранится
-  balance: number;        // Остаток символов
+  tokenHash: string; // sha256(token) в hex; сам токен не хранится
+  balance: number; // Остаток символов
   totalPurchased: number;
   createdAt: number;
   lastActiveAt: number;
@@ -21,6 +22,20 @@ export interface PaymentRecord {
   status: 'pending' | 'succeeded' | 'canceled';
   createdAt: number;
   updatedAt: number;
+}
+
+export interface IDatabase {
+  createUser(): Promise<{ user: UserRecord; token: string }> | { user: UserRecord; token: string };
+  authenticate(token: string): Promise<UserRecord | null> | UserRecord | null;
+  getUser(userId: string): Promise<UserRecord | null> | UserRecord | null;
+  deductBalance(userId: string, chars: number): Promise<{ balance: number } | null> | { balance: number } | null;
+  refundBalance(userId: string, chars: number): Promise<void> | void;
+  savePayment(payment: PaymentRecord): Promise<void> | void;
+  getPayment(paymentId: string): Promise<PaymentRecord | null> | PaymentRecord | null;
+  settlePayment(paymentId: string): Promise<number | null> | number | null;
+  cancelPayment(paymentId: string): Promise<boolean> | boolean;
+  flush(): Promise<void>;
+  close?(): Promise<void>;
 }
 
 export function hashToken(token: string): string {
@@ -87,7 +102,7 @@ class JsonFile<T extends object> {
   }
 }
 
-export class Database {
+export class JsonDatabase implements IDatabase {
   private users: Record<string, UserRecord> = {};
   private payments: Record<string, PaymentRecord> = {};
   private byTokenHash = new Map<string, string>();
@@ -104,7 +119,7 @@ export class Database {
     const u = this.usersFile.load();
     if (u) {
       for (const [id, rec] of Object.entries(u)) {
-        if (!rec || typeof rec.tokenHash !== 'string') continue; // записи старого формата без токена не поддерживаются
+        if (!rec || typeof rec.tokenHash !== 'string') continue;
         rec.balance = safeInt(rec.balance);
         rec.totalPurchased = safeInt(rec.totalPurchased);
         this.users[id] = rec;
@@ -115,7 +130,6 @@ export class Database {
     if (p) this.payments = p;
   }
 
-  /** Создаёт пользователя; токен возвращается один раз. */
   public createUser(): { user: UserRecord; token: string } {
     const token = crypto.randomBytes(32).toString('hex');
     const id = crypto.randomUUID();
@@ -151,18 +165,16 @@ export class Database {
     return this.users[userId] || null;
   }
 
-  /** Атомарно (синхронно) списывает символы. */
-  public deductBalance(userId: string, chars: number): boolean {
+  public deductBalance(userId: string, chars: number): { balance: number } | null {
     assertChars(chars);
     const user = this.users[userId];
-    if (!user || user.balance < chars) return false;
+    if (!user || user.balance < chars) return null;
     user.balance -= chars;
     user.lastActiveAt = Date.now();
     this.usersFile.markDirty();
-    return true;
+    return { balance: user.balance };
   }
 
-  /** Возврат ранее списанных символов (не считается покупкой). */
   public refundBalance(userId: string, chars: number): void {
     assertChars(chars);
     const user = this.users[userId];
@@ -180,10 +192,6 @@ export class Database {
     return this.payments[paymentId] || null;
   }
 
-  /**
-   * Идемпотентно проводит платёж: pending -> succeeded + начисление.
-   * Возвращает новый баланс или null, если платёж не найден / уже обработан.
-   */
   public settlePayment(paymentId: string): number | null {
     const payment = this.payments[paymentId];
     if (!payment || payment.status !== 'pending') return null;
@@ -213,3 +221,67 @@ export class Database {
     await Promise.all([this.usersFile.flush(), this.paymentsFile.flush()]);
   }
 }
+
+/**
+ * Единый фасад базы данных:
+ * Если задан DATABASE_URL — подключается к PostgreSQL.
+ * Иначе — использует локальное JSON-хранилище.
+ */
+export class Database implements IDatabase {
+  public readonly backend: IDatabase;
+
+  constructor(dataDir?: string, databaseUrl?: string) {
+    const connStr = databaseUrl || config.databaseUrl();
+    if (connStr) {
+      this.backend = new PostgresDatabase(connStr);
+    } else {
+      this.backend = new JsonDatabase(dataDir);
+    }
+  }
+
+  public createUser() {
+    return this.backend.createUser();
+  }
+
+  public authenticate(token: string) {
+    return this.backend.authenticate(token);
+  }
+
+  public getUser(userId: string) {
+    return this.backend.getUser(userId);
+  }
+
+  public deductBalance(userId: string, chars: number) {
+    return this.backend.deductBalance(userId, chars);
+  }
+
+  public refundBalance(userId: string, chars: number) {
+    return this.backend.refundBalance(userId, chars);
+  }
+
+  public savePayment(payment: PaymentRecord) {
+    return this.backend.savePayment(payment);
+  }
+
+  public getPayment(paymentId: string) {
+    return this.backend.getPayment(paymentId);
+  }
+
+  public settlePayment(paymentId: string) {
+    return this.backend.settlePayment(paymentId);
+  }
+
+  public cancelPayment(paymentId: string) {
+    return this.backend.cancelPayment(paymentId);
+  }
+
+  public flush() {
+    return this.backend.flush();
+  }
+
+  public close() {
+    return this.backend.close?.() ?? Promise.resolve();
+  }
+}
+
+export { PostgresDatabase };

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Database } from '../db.js';
+import { Database, IDatabase } from '../db.js';
 import { config } from '../config.js';
 
 export interface CreatePaymentParams {
@@ -13,7 +13,7 @@ export interface CreatePaymentParams {
 export type FetchLike = typeof fetch;
 
 export class YooKassaService {
-  constructor(private db: Database, private fetchImpl: FetchLike = fetch) {}
+  constructor(private db: IDatabase | Database, private fetchImpl: FetchLike = fetch) {}
 
   isConfigured(): boolean {
     return config.yookassaConfigured();
@@ -32,7 +32,7 @@ export class YooKassaService {
         throw new Error('YooKassa is not configured in production');
       }
       const mockPaymentId = `mock_pay_${crypto.randomUUID()}`;
-      this.db.savePayment({
+      await this.db.savePayment({
         id: mockPaymentId,
         userId,
         amountRub,
@@ -76,7 +76,7 @@ export class YooKassaService {
       throw new Error('YooKassa API returned unexpected payload');
     }
 
-    this.db.savePayment({
+    await this.db.savePayment({
       id: data.id,
       userId,
       amountRub,
@@ -113,7 +113,7 @@ export class YooKassaService {
       return { success: false, message: 'Invalid webhook payload' };
     }
 
-    const payment = this.db.getPayment(paymentId);
+    const payment = await this.db.getPayment(paymentId);
     if (!payment) return { success: true, message: 'Unknown payment ignored' };
     if (payment.status !== 'pending') return { success: true, message: 'Already processed' };
 
@@ -132,7 +132,7 @@ export class YooKassaService {
         console.error(`Payment ${paymentId}: amount mismatch (remote ${value} ${currency}, stored ${payment.amountRub})`);
         return { success: true, message: 'Amount mismatch ignored' };
       }
-      const newBalance = this.db.settlePayment(paymentId);
+      const newBalance = await this.db.settlePayment(paymentId);
       if (newBalance !== null) {
         console.log(`Платеж ${paymentId} успешен, начислено ${payment.characters} символов`);
         return { success: true, message: 'Balance credited successfully' };
@@ -141,7 +141,7 @@ export class YooKassaService {
     }
 
     if (remote.status === 'canceled') {
-      this.db.cancelPayment(paymentId);
+      await this.db.cancelPayment(paymentId);
       return { success: true, message: 'Payment marked as canceled' };
     }
 
@@ -149,11 +149,11 @@ export class YooKassaService {
   }
 
   /** Тестовое подтверждение (только mock_pay_, без ключей ЮKassa, не production). */
-  confirmMockPayment(mockPaymentId: string, userId: string): number | null {
+  async confirmMockPayment(mockPaymentId: string, userId: string): Promise<number | null> {
     if (this.isConfigured() || config.isProduction()) return null;
     if (!mockPaymentId.startsWith('mock_pay_')) return null;
-    const payment = this.db.getPayment(mockPaymentId);
+    const payment = await this.db.getPayment(mockPaymentId);
     if (!payment || payment.userId !== userId) return null;
-    return this.db.settlePayment(mockPaymentId);
+    return await this.db.settlePayment(mockPaymentId);
   }
 }

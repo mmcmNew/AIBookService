@@ -1,0 +1,58 @@
+services:
+  aibookreader-web:
+    image: aibookreader-web:latest
+    container_name: aibookreader-web
+    restart: unless-stopped
+    depends_on:
+      - aibookreader-api
+    networks:
+      - n8n_with_https_default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=n8n_with_https_default"
+      # HTTPS роутер
+      - "traefik.http.routers.aibookreader.rule=Host(`books.ndomen.ru`)"
+      - "traefik.http.routers.aibookreader.entrypoints=websecure"
+      - "traefik.http.routers.aibookreader.tls.certresolver=mytlschallenge"
+      - "traefik.http.routers.aibookreader.middlewares=aibookreader-compress"
+      # HTTP -> HTTPS редирект
+      - "traefik.http.routers.aibookreader-http.rule=Host(`books.ndomen.ru`)"
+      - "traefik.http.routers.aibookreader-http.entrypoints=web"
+      - "traefik.http.routers.aibookreader-http.middlewares=aibookreader-https"
+      - "traefik.http.middlewares.aibookreader-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.aibookreader-https.redirectscheme.permanent=true"
+      # Сжатие gzip/brotli
+      - "traefik.http.middlewares.aibookreader-compress.compress=true"
+      - "traefik.http.services.aibookreader.loadbalancer.server.port=80"
+
+  aibookreader-api:
+    image: aibookreader-api:latest
+    container_name: aibookreader-api
+    restart: unless-stopped
+    networks:
+      - n8n_with_https_default
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=${DATABASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_TTS_MODEL=${OPENAI_TTS_MODEL:-tts-1}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_TTS_MODEL=${GEMINI_TTS_MODEL:-gemini-3.8-flash-tts}
+      - GEMINI_OCR_MODEL=${GEMINI_OCR_MODEL:-gemini-2.5-flash}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - EDGE_TTS_ENABLED=${EDGE_TTS_ENABLED:-true}
+      - TRUST_PROXY=loopback,linklocal,uniquelocal
+      - CORS_ORIGINS=https://books.ndomen.ru,http://localhost:5173,http://localhost:3000,tauri://localhost,http://tauri.localhost
+      - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+      - ALLOWED_RETURN_ORIGINS=${ALLOWED_RETURN_ORIGINS:-https://books.ndomen.ru}
+      - FREE_CHARACTERS=${FREE_CHARACTERS:-15000}
+      - REGISTER_LIMIT_PER_HOUR=${REGISTER_LIMIT_PER_HOUR:-5}
+      - PDF_GEMINI_COST_CHARS=${PDF_GEMINI_COST_CHARS:-10000}
+
+networks:
+  n8n_with_https_default:
+    external: true

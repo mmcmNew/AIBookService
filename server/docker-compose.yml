@@ -9,9 +9,15 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - DATA_DIR=/app/data
+      - DATABASE_URL=${DATABASE_URL:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_TTS_MODEL=${GEMINI_TTS_MODEL:-gemini-3.8-flash-tts}
       - GEMINI_OCR_MODEL=${GEMINI_OCR_MODEL:-gemini-2.5-flash}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_TTS_MODEL=${OPENAI_TTS_MODEL:-tts-1}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - EDGE_TTS_ENABLED=${EDGE_TTS_ENABLED:-true}
       - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID}
       - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY}
       - ALLOWED_RETURN_ORIGINS=${ALLOWED_RETURN_ORIGINS:-http://localhost:3000,http://localhost:5173,tauri://localhost,http://tauri.localhost}

@@ -3,12 +3,15 @@ dotenv.config();
 
 const { createApp } = await import('./app.js');
 const { config } = await import('./config.js');
+const { createGracefulShutdown } = await import('./shutdown.js');
+const { collectConfigWarnings } = await import('./startupChecks.js');
 
 const port = process.env.PORT || 4000;
 const { app, db } = createApp();
 
-if (!config.yookassaConfigured() && config.isProduction()) {
-  console.warn('YooKassa не настроена: в production создание платежей отключено.');
+const warnings = collectConfigWarnings(process.env);
+for (const warn of warnings) {
+  console.warn(`[config warning] ${warn}`);
 }
 
 const server = app.listen(port, () => {
@@ -16,10 +19,17 @@ const server = app.listen(port, () => {
   console.log(`YooKassa: ${config.yookassaConfigured() ? 'боевой режим' : 'DEV-симуляция'}`);
 });
 
-async function shutdown() {
-  server.close();
-  await db.flush();
-  process.exit(0);
-}
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+const shutdown = createGracefulShutdown(server, db);
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err);
+  void shutdown('uncaughtException', 1);
+});
+
+process.on('SIGTERM', () => void shutdown('SIGTERM', 0));
+process.on('SIGINT', () => void shutdown('SIGINT', 0));
+

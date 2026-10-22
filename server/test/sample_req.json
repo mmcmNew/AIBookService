@@ -1,0 +1,5 @@
+{
+  "provider": "edge-tts",
+  "voiceId": "ru-RU-SvetlanaNeural",
+  "text": "Привет, мир! Сервер озвучки запущен и работает отлично."
+}
