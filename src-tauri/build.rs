@@ -3,5 +3,7 @@ fn main() {
   if let Ok(target) = std::env::var("TARGET") {
     println!("cargo:rustc-env=AIBR_TARGET_TRIPLE={}", target);
   }
+  println!("cargo:rerun-if-changed=icons/icon.ico");
+  println!("cargo:rerun-if-changed=tauri.conf.json");
   tauri_build::build()
 }
