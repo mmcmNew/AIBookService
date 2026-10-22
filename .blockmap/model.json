@@ -1261,8 +1261,7 @@
           "from": "b_infra_ai",
           "to": "b_dom_cleanup",
           "label": "ответ ИИ: исправленные абзацы",
-          "kind": "return",
-          "planned": true
+          "kind": "return"
         }
       ],
       "zoneOrder": [
@@ -1905,6 +1904,109 @@
         "z_audio",
         "z_shell"
       ]
+    },
+    {
+      "id": "sc_auth",
+      "title": "Авторизация, профиль и синхронизация",
+      "desc": "Полноценная авторизация (Email + пароль) и синхронизация данных. Гость может читать локальные книги без входа; для сохранения API-ключей, Cloud TTS и синхронизации прогресса чтения требуется вход. Окно AuthModal вызывает Домен Аккаунта; Аккаунт обращается к адаптеру сервера (JWT auth/login, register, refresh, sync), шифрует API-ключи алгоритмом AES-GCM на клиенте через Web Crypto и обновляет состояние st_user. Шапка Header отображает Email/статус гостя и меню профиля; Настройки защищают ввод ключей гостевым баннером.",
+      "cols": {
+        "b_ui_header": 0,
+        "b_ui_settings": 0,
+        "b_ui_auth": 0,
+        "b_dom_account": 0,
+        "b_state_user": 0,
+        "b_infra_server": 0,
+        "b_dom_settings": 0,
+        "b_state_settings": 0,
+        "b_dom_library": 0,
+        "b_state_book": 0
+      },
+      "edges": [
+        {
+          "from": "b_ui_header",
+          "to": "b_ui_auth",
+          "label": "открыть окно входа / профиль",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_settings",
+          "to": "b_ui_auth",
+          "label": "войти для сохранения API-ключей",
+          "kind": "call"
+        },
+        {
+          "from": "b_ui_auth",
+          "to": "b_dom_account",
+          "label": "вход (email, пароль), регистрация, сброс пароля",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_account",
+          "to": "b_infra_server",
+          "label": "HTTP-запросы auth (login, register, refresh, sync, keys)",
+          "kind": "call"
+        },
+        {
+          "from": "b_infra_server",
+          "to": "b_dom_account",
+          "label": "токены, профиль, зашифрованные ключи, данные",
+          "kind": "return"
+        },
+        {
+          "from": "b_dom_account",
+          "to": "b_state_user",
+          "label": "записать профиль (email, token, refreshToken, isGuest)",
+          "kind": "write"
+        },
+        {
+          "from": "b_state_user",
+          "to": "b_ui_header",
+          "label": "email, статус гостя, баланс",
+          "kind": "data"
+        },
+        {
+          "from": "b_state_user",
+          "to": "b_ui_auth",
+          "label": "состояние авторизации и ошибки",
+          "kind": "data"
+        },
+        {
+          "from": "b_ui_header",
+          "to": "b_dom_account",
+          "label": "выход из аккаунта (logout), синхронизация",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_account",
+          "to": "b_dom_settings",
+          "label": "применить синхронизированные настройки и словарь",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_settings",
+          "to": "b_state_settings",
+          "label": "записать настройки и правила словаря",
+          "kind": "write"
+        },
+        {
+          "from": "b_dom_account",
+          "to": "b_dom_library",
+          "label": "применить сохранённую позицию чтения",
+          "kind": "call"
+        },
+        {
+          "from": "b_dom_library",
+          "to": "b_state_book",
+          "label": "установить позицию книги и главы",
+          "kind": "write"
+        }
+      ],
+      "zoneOrder": [
+        "z_shell",
+        "z_account",
+        "z_settings",
+        "z_library"
+      ]
     }
   ],
   "blocks": {
@@ -1928,7 +2030,17 @@
       "file": "src/engine/library.ts",
       "line": 313,
       "symbol": "loadBook",
-      "members": [
+      "summary": "Управляет книгами: открытие, сохранение, удаление, сохранение прогресса. Владелец состояния st_book и таблицы db.books. Единственный вход зоны и владелец состояния «книга и позиция»: открывает и сохраняет книги, принимает навигацию (предложение, глава, страница, шаг), сам двигает позицию и сохраняет прогресс. Отдаёт фразу или «ждём страницу / конец» и сообщает Координатору о внешних переходах.",
+      "res": [
+        "res_booksDb",
+        "res_bookStore",
+        "res_settingsStore"
+      ],
+      "zone": "z_library",
+      "files": [
+        "src/engine/bookPosition.ts"
+      ],
+      "api": [
         "loadBook",
         "loadBookFromFile",
         "selectSavedBook",
@@ -1956,17 +2068,8 @@
         "stepPhrase",
         "reparsePdfBook",
         "getPdfDocument",
-        "getPdfBuffer"
-      ],
-      "summary": "Управляет книгами: открытие, сохранение, удаление, сохранение прогресса. Владелец состояния st_book и таблицы db.books. Единственный вход зоны и владелец состояния «книга и позиция»: открывает и сохраняет книги, принимает навигацию (предложение, глава, страница, шаг), сам двигает позицию и сохраняет прогресс. Отдаёт фразу или «ждём страницу / конец» и сообщает Координатору о внешних переходах.",
-      "res": [
-        "res_booksDb",
-        "res_bookStore",
-        "res_settingsStore"
-      ],
-      "zone": "z_library",
-      "files": [
-        "src/engine/bookPosition.ts"
+        "getBookPositionsForSync",
+        "applySyncedBookPositions"
       ]
     },
     "b_dom_parser": {
@@ -2082,7 +2185,7 @@
       "title": "TTS-провайдеры (адаптеры)",
       "layer": "Infra",
       "file": "src/engine/providers/openRouterTts.ts",
-      "line": 315,
+      "line": 367,
       "symbol": "synthesize",
       "summary": "WebSpeech, Edge, Gemini, OpenAI, ElevenLabs, OpenRouter. OpenRouter сам выбирает эндпоинт speech или chat и повторяет один раз через другой. Про кэш и состояние не знает.",
       "risk": "Сторонние шлюзы часто без /audio/speech.",
@@ -2262,7 +2365,7 @@
       "title": "Поставщик фраз (книга: текст и PDF)",
       "layer": "Domain",
       "file": "src/engine/phrases.ts",
-      "line": 145,
+      "line": 165,
       "symbol": "nextPhrase",
       "summary": "Работает с книгами и поставляет фразы: текущую, следующую, предыдущую — ответом «фраза», «ждём страницу» или «конец». Читает текст книги и готовность страниц PDF; что внутри (PDF или текст) видно только в его блок-схеме.",
       "risk": "Нельзя перескакивать через нераспознанную страницу.",
@@ -2286,7 +2389,7 @@
       "title": "Настройки читалки",
       "layer": "State",
       "file": "src/store/settingsStore.ts",
-      "line": 40,
+      "line": 115,
       "symbol": "useSettingsStore",
       "summary": "Автоскролл вкл/выкл, шрифт, тема. Хранятся постоянно, экраны только читают. Пауза автоскролла после ручной прокрутки сюда не входит: она временная и живёт внутри экрана.",
       "res": [
@@ -2400,7 +2503,11 @@
         "fetchAggregatorModels",
         "getAggregatorVoiceOptions",
         "isAggregatorVoiceValid",
-        "stopVoiceCheck"
+        "stopVoiceCheck",
+        "getSettingsForSync",
+        "applySyncedSettings",
+        "getApiKeysForEncryption",
+        "applyRestoredApiKeys"
       ],
       "summary": "Единственный писатель настроек читалки: по команде из окна настроек, шапки, панели плеера и словаря записывает значение в стор настроек; по команде «проверить озвучку» делает разовый синтез через Поставщика озвучки. Валидация и ограничения остаются в сеттерах стора.",
       "risk": "Команда должна лишь передавать значение сеттеру стора: смена темы и ограничения скорости и громкости живут в сторе.",
@@ -2454,7 +2561,7 @@
       "title": "Аккаунт и баланс",
       "layer": "Domain",
       "file": "src/engine/account.ts",
-      "line": 19,
+      "line": 96,
       "symbol": "ensureRegistered",
       "members": [
         "ensureRegistered",
@@ -2465,7 +2572,14 @@
         "reportBalance",
         "requestTopUp",
         "clearTopUpRequest",
-        "setServerUrl"
+        "setServerUrl",
+        "login",
+        "register",
+        "logout",
+        "requestPasswordReset",
+        "saveEncryptedApiKeys",
+        "loadEncryptedApiKeys",
+        "syncUserData"
       ],
       "api": [
         "ensureRegistered",
@@ -2476,7 +2590,14 @@
         "reportBalance",
         "requestTopUp",
         "clearTopUpRequest",
-        "setServerUrl"
+        "setServerUrl",
+        "login",
+        "register",
+        "logout",
+        "requestPasswordReset",
+        "saveEncryptedApiKeys",
+        "loadEncryptedApiKeys",
+        "syncUserData"
       ],
       "zone": "z_account",
       "summary": "Единственный, кто ходит к серверу AIBookReader и меняет состояние «пользователь и баланс»: регистрация, токен, баланс, создание платежа, авторизованные запросы. Остальные просят его. Сейчас эта логика живёт внутри userStore."
@@ -2485,21 +2606,35 @@
       "title": "Сервер AIBookReader (адаптер)",
       "layer": "Infra",
       "file": "src/infra/serverApi.ts",
-      "line": 13,
+      "line": 28,
       "symbol": "registerUser",
       "members": [
         "ServerError",
         "registerUser",
         "getBalance",
         "createPayment",
-        "confirmMockPayment"
+        "confirmMockPayment",
+        "authRegister",
+        "authLogin",
+        "authRefresh",
+        "authForgotPassword",
+        "syncUserData",
+        "fetchUserKeys",
+        "saveUserKeys"
       ],
       "api": [
         "ServerError",
         "registerUser",
         "getBalance",
         "createPayment",
-        "confirmMockPayment"
+        "confirmMockPayment",
+        "authRegister",
+        "authLogin",
+        "authRefresh",
+        "authForgotPassword",
+        "syncUserData",
+        "fetchUserKeys",
+        "saveUserKeys"
       ],
       "zone": "z_account",
       "summary": "Адаптер к серверу AIBookReader: регистрация, баланс, создание платежа (ЮKassa). Решений не принимает и состояния не знает; ответственный — Аккаунт, другие блоки к нему не ходят. Облачный синтез остаётся в провайдере озвучки и получает токен параметром."
@@ -2508,7 +2643,7 @@
       "title": "Пользователь и баланс",
       "layer": "State",
       "file": "src/store/userStore.ts",
-      "line": 19,
+      "line": 34,
       "symbol": "useUserStore",
       "slice": "st_user",
       "zone": "z_account",
@@ -2655,7 +2790,16 @@
       "line": 24,
       "symbol": "requestGeminiCleanup",
       "zone": "z_library",
-      "summary": "Адаптер к внешнему ИИ: один запрос к Gemini с пачкой абзацев и ключом пользователя, ответ текстом. Не решает, какие правки принять, и не знает про книги; пачки, проверку разумности правок и разбор ответа делает «Очистка». Сейчас запрос уходит из функции Домена."
+      "summary": "Адаптер к внешнему ИИ: один запрос к Gemini с пачкой абзацев и ключом пользователя, ответ текстом. Не решает, какие правки принять, и не знает про книги; пачки, проверку разумности правок и разбор ответа делает «Очистка» (aiCleanParagraphs)."
+    },
+    "b_ui_auth": {
+      "title": "Окно авторизации и профиля",
+      "layer": "UI",
+      "file": "src/components/auth/AuthModal.tsx",
+      "line": 28,
+      "symbol": "AuthModal",
+      "zone": "z_account",
+      "summary": "Лицо зоны «Аккаунт»: вход и регистрация по Email и паролю, сброс пароля, привязка гостевого прогресса, управление сессией."
     }
   },
   "resources": {
@@ -2793,12 +2937,14 @@
           "row": 0,
           "covers": [
             [
-              330,
-              330
+              367,
+              377
             ]
           ],
           "bind": [
-            "2af12666db#0"
+            "0f67c0cd20#0",
+            "d8f5a557d1#0",
+            "c9a5a693ae#0"
           ]
         },
         {
@@ -2809,12 +2955,12 @@
           "row": 1,
           "covers": [
             [
-              331,
-              331
+              368,
+              368
             ]
           ],
           "bind": [
-            "2af12666db#0"
+            "0f67c0cd20#0"
           ]
         },
         {
@@ -2825,12 +2971,12 @@
           "row": 1,
           "covers": [
             [
-              332,
-              332
+              369,
+              370
             ]
           ],
           "bind": [
-            "2af12666db#0"
+            "d8f5a557d1#0"
           ]
         },
         {
@@ -2841,24 +2987,12 @@
           "row": 2,
           "covers": [
             [
-              335,
-              358
+              401,
+              401
             ]
           ],
           "bind": [
-            "2af12666db#0",
-            "d2a09e65bf#0",
-            "08a4f7cd38#0",
-            "b476bfdaf9#0",
-            "39e43bc8e8#0",
-            "c9d0403581#0",
-            "82e45e922c#0",
-            "d69d140ad3#0",
-            "08a4f7cd38#1",
-            "4fac579169#0",
-            "7ba203b23e#0",
-            "d8f593fd5d#0",
-            "9040317a66#0"
+            "d2a09e65bf#0"
           ]
         },
         {
@@ -2870,17 +3004,17 @@
           "via": "external",
           "covers": [
             [
-              359,
-              365
+              401,
+              408
             ]
           ],
           "bind": [
-            "3978a4146c#0",
-            "08a4f7cd38#2",
-            "7b982bacf6#0",
-            "7ba203b23e#1",
-            "f3e23a10ef#0",
-            "e4cb99264b#0"
+            "d2a09e65bf#0",
+            "08a4f7cd38#0",
+            "b476bfdaf9#0",
+            "39e43bc8e8#0",
+            "c9d0403581#0",
+            "82e45e922c#0"
           ]
         },
         {
@@ -2892,12 +3026,15 @@
           "via": "external",
           "covers": [
             [
-              367,
-              371
+              410,
+              415
             ]
           ],
           "bind": [
-            "1af438b76f#0"
+            "d69d140ad3#0",
+            "08a4f7cd38#1",
+            "4fac579169#0",
+            "7ba203b23e#0"
           ]
         },
         {
@@ -2908,11 +3045,14 @@
           "row": 4,
           "covers": [
             [
-              373,
-              373
+              416,
+              416
             ]
           ],
-          "bind": []
+          "bind": [
+            "d8f593fd5d#0",
+            "9040317a66#0"
+          ]
         },
         {
           "id": "n_retry",
@@ -2923,11 +3063,16 @@
           "via": "external",
           "covers": [
             [
-              374,
-              378
+              417,
+              422
             ]
           ],
-          "bind": []
+          "bind": [
+            "3978a4146c#0",
+            "08a4f7cd38#2",
+            "7b982bacf6#0",
+            "7ba203b23e#1"
+          ]
         },
         {
           "id": "e_fail",
@@ -2937,11 +3082,15 @@
           "row": 5,
           "covers": [
             [
-              380,
-              384
+              423,
+              427
             ]
           ],
-          "bind": []
+          "bind": [
+            "f3e23a10ef#0",
+            "e4cb99264b#0",
+            "1af438b76f#0"
+          ]
         },
         {
           "id": "e_ok",
@@ -2951,15 +3100,23 @@
           "row": 5,
           "covers": [
             [
-              371,
-              371
+              403,
+              403
             ],
             [
-              378,
-              378
+              414,
+              414
+            ],
+            [
+              421,
+              421
             ]
           ],
-          "bind": []
+          "bind": [
+            "b476bfdaf9#0",
+            "7ba203b23e#0",
+            "7ba203b23e#1"
+          ]
         }
       ],
       "edges": [
@@ -3640,6 +3797,39 @@
           "row": 0,
           "covers": [
             [
+              236,
+              236
+            ]
+          ],
+          "bind": []
+        },
+        {
+          "id": "p1",
+          "t": "cond",
+          "label": "Между текущей и следующей есть нераспознанная страница?",
+          "col": 0,
+          "row": 2,
+          "covers": [
+            [
+              251,
+              253
+            ]
+          ],
+          "bind": [
+            "b49d0d6246#0",
+            "3bdbd665bd#0",
+            "e4919bb5f9#0",
+            "b4d6d42a59#0"
+          ]
+        },
+        {
+          "id": "p2",
+          "t": "end",
+          "label": "ждём страницу P, поднять приоритет распознавания",
+          "col": -0.4,
+          "row": 3,
+          "covers": [
+            [
               253,
               253
             ]
@@ -3650,44 +3840,6 @@
           ]
         },
         {
-          "id": "c1",
-          "t": "cond",
-          "label": "Книга постраничная (PDF)?",
-          "col": 1.5,
-          "row": 1,
-          "covers": [],
-          "bind": [],
-          "impl": "src/engine/phrases.ts#isPaged"
-        },
-        {
-          "id": "p1",
-          "t": "cond",
-          "label": "Между текущей и следующей есть нераспознанная страница?",
-          "col": 0,
-          "row": 2,
-          "covers": [
-            [
-              268,
-              270
-            ]
-          ],
-          "bind": []
-        },
-        {
-          "id": "p2",
-          "t": "end",
-          "label": "ждём страницу P, поднять приоритет распознавания",
-          "col": -0.4,
-          "row": 3,
-          "covers": [
-            [
-              270,
-              270
-            ]
-          ],
-          "bind": []
-        },
-        {
           "id": "p3",
           "t": "cond",
           "label": "Есть следующая фраза?",
@@ -3695,11 +3847,14 @@
           "row": 3,
           "covers": [
             [
-              272,
-              272
+              255,
+              255
             ]
           ],
-          "bind": []
+          "bind": [
+            "18b79c98ae#0",
+            "692b219f44#0"
+          ]
         },
         {
           "id": "p4",
@@ -3709,11 +3864,13 @@
           "row": 4,
           "covers": [
             [
-              273,
-              273
+              256,
+              256
             ]
           ],
-          "bind": []
+          "bind": [
+            "7c23da041f#0"
+          ]
         },
         {
           "id": "p5",
@@ -3723,51 +3880,14 @@
           "row": 4,
           "covers": [
             [
-              272,
-              272
+              255,
+              255
             ]
           ],
-          "bind": []
-        },
-        {
-          "id": "t1",
-          "t": "step",
-          "label": "следующая фраза в главе / следующая глава / конец",
-          "col": 3,
-          "row": 2,
-          "covers": [],
-          "impl": "src/engine/audio/textSource.ts#nextTextStep",
-          "bind": []
-        },
-        {
-          "id": "t2",
-          "t": "end",
-          "label": "фраза",
-          "col": 2.6,
-          "row": 3,
-          "covers": [],
-          "bind": [],
-          "impl": "src/engine/audio/textSource.ts#nextTextStep"
-        },
-        {
-          "id": "t3",
-          "t": "end",
-          "label": "следующая глава",
-          "col": 3.4,
-          "row": 3,
-          "covers": [],
-          "bind": [],
-          "impl": "src/engine/audio/textSource.ts#nextTextStep"
-        },
-        {
-          "id": "t4",
-          "t": "end",
-          "label": "конец главы / книги",
-          "col": 4.2,
-          "row": 3,
-          "covers": [],
-          "bind": [],
-          "impl": "src/engine/audio/textSource.ts#nextTextStep"
+          "bind": [
+            "18b79c98ae#0",
+            "692b219f44#0"
+          ]
         },
         {
           "id": "n_pos",
@@ -3777,14 +3897,12 @@
           "row": 1,
           "covers": [
             [
-              254,
-              257
+              237,
+              240
             ]
           ],
           "bind": [
-            "18b79c98ae#0",
-            "692b219f44#0",
-            "7c23da041f#0"
+            "69067adf89#0"
           ]
         },
         {
@@ -3795,11 +3913,14 @@
           "row": 1.5,
           "covers": [
             [
-              258,
-              258
+              241,
+              241
             ]
           ],
-          "bind": []
+          "bind": [
+            "c59c9de61d#0",
+            "74e62be600#0"
+          ]
         },
         {
           "id": "n_inc",
@@ -3809,11 +3930,14 @@
           "row": 2,
           "covers": [
             [
-              258,
-              258
+              241,
+              241
             ]
           ],
-          "bind": []
+          "bind": [
+            "c59c9de61d#0",
+            "74e62be600#0"
+          ]
         },
         {
           "id": "n_emp",
@@ -3823,11 +3947,14 @@
           "row": 2,
           "covers": [
             [
-              259,
-              259
+              242,
+              242
             ]
           ],
-          "bind": []
+          "bind": [
+            "68ab885579#0",
+            "59947da019#0"
+          ]
         },
         {
           "id": "n_zero",
@@ -3837,11 +3964,14 @@
           "row": 2.5,
           "covers": [
             [
-              259,
-              259
+              242,
+              242
             ]
           ],
-          "bind": []
+          "bind": [
+            "68ab885579#0",
+            "59947da019#0"
+          ]
         },
         {
           "id": "n_loc",
@@ -3851,11 +3981,13 @@
           "row": 2.5,
           "covers": [
             [
-              261,
-              262
+              244,
+              245
             ]
           ],
-          "bind": []
+          "bind": [
+            "a975f420cd#0"
+          ]
         },
         {
           "id": "n_nx",
@@ -3865,22 +3997,19 @@
           "row": 3,
           "covers": [
             [
-              264,
-              267
+              247,
+              250
             ]
           ],
-          "bind": []
+          "bind": [
+            "c1c3565a9e#0"
+          ]
         }
       ],
       "edges": [
         {
           "from": "s",
-          "to": "c1"
-        },
-        {
-          "from": "c1",
-          "to": "t1",
-          "label": "Нет (текст)"
+          "to": "n_pos"
         },
         {
           "from": "p1",
@@ -3901,23 +4030,6 @@
           "from": "p3",
           "to": "p5",
           "label": "Нет"
-        },
-        {
-          "from": "t1",
-          "to": "t2"
-        },
-        {
-          "from": "t1",
-          "to": "t3"
-        },
-        {
-          "from": "t1",
-          "to": "t4"
-        },
-        {
-          "from": "c1",
-          "to": "n_pos",
-          "label": "Да (PDF)"
         },
         {
           "from": "n_pos",
@@ -3976,8 +4088,8 @@
           "row": 0,
           "covers": [
             [
-              515,
-              515
+              527,
+              527
             ]
           ],
           "bind": []
@@ -3991,11 +4103,13 @@
           "via": "external",
           "covers": [
             [
-              516,
-              516
+              528,
+              528
             ]
           ],
-          "bind": []
+          "bind": [
+            "52c0ef248d#0"
+          ]
         },
         {
           "id": "c_paged",
@@ -4005,11 +4119,14 @@
           "row": 2,
           "covers": [
             [
-              517,
-              517
+              529,
+              529
             ]
           ],
-          "bind": []
+          "bind": [
+            "c16bf32128#0",
+            "02f1cdb7b3#0"
+          ]
         },
         {
           "id": "e_err",
@@ -4019,11 +4136,14 @@
           "row": 2,
           "covers": [
             [
-              517,
-              517
+              529,
+              529
             ]
           ],
-          "bind": []
+          "bind": [
+            "c16bf32128#0",
+            "02f1cdb7b3#0"
+          ]
         },
         {
           "id": "n_init",
@@ -4033,11 +4153,13 @@
           "row": 3,
           "covers": [
             [
-              518,
-              519
+              530,
+              531
             ]
           ],
-          "bind": []
+          "bind": [
+            "762d0e6e01#0"
+          ]
         },
         {
           "id": "n_db",
@@ -4046,8 +4168,15 @@
           "col": 0,
           "row": 4,
           "via": "external",
-          "covers": [],
-          "bind": [],
+          "covers": [
+            [
+              532,
+              532
+            ]
+          ],
+          "bind": [
+            "762d0e6e01#0"
+          ],
           "impl": "src/engine/pdf/pagedSession.ts#PagedSession.open"
         },
         {
@@ -4056,8 +4185,15 @@
           "label": "Инициализировать планировщик PageScheduler",
           "col": 0,
           "row": 5,
-          "covers": [],
-          "bind": [],
+          "covers": [
+            [
+              532,
+              532
+            ]
+          ],
+          "bind": [
+            "762d0e6e01#0"
+          ],
           "impl": "src/engine/pdf/pagedSession.ts#PagedSession.open"
         },
         {
@@ -4070,11 +4206,13 @@
           "rw": "write",
           "covers": [
             [
-              520,
-              520
+              532,
+              532
             ]
           ],
-          "bind": []
+          "bind": [
+            "762d0e6e01#0"
+          ]
         },
         {
           "id": "n_start",
@@ -4084,11 +4222,13 @@
           "row": 7,
           "covers": [
             [
-              521,
-              521
+              533,
+              534
             ]
           ],
-          "bind": []
+          "bind": [
+            "762d0e6e01#0"
+          ]
         }
       ],
       "edges": [
@@ -4370,12 +4510,12 @@
           "row": 0,
           "covers": [
             [
-              41,
-              42
+              35,
+              36
             ]
           ],
           "bind": [
-            "05f625ef82#0"
+            "bdc62fc61f#0"
           ]
         },
         {
@@ -4386,11 +4526,14 @@
           "row": 1,
           "covers": [
             [
-              43,
-              43
+              37,
+              37
             ]
           ],
-          "bind": []
+          "bind": [
+            "772e273af5#0",
+            "042a136cd3#0"
+          ]
         },
         {
           "id": "e_noel",
@@ -4400,11 +4543,14 @@
           "row": 1,
           "covers": [
             [
-              43,
-              43
+              37,
+              37
             ]
           ],
-          "bind": []
+          "bind": [
+            "772e273af5#0",
+            "042a136cd3#0"
+          ]
         },
         {
           "id": "c_old",
@@ -4414,11 +4560,14 @@
           "row": 2,
           "covers": [
             [
-              44,
-              44
+              38,
+              38
             ]
           ],
-          "bind": []
+          "bind": [
+            "66014cd2da#0",
+            "7c1dca5e22#0"
+          ]
         },
         {
           "id": "n_revoke",
@@ -4428,11 +4577,14 @@
           "row": 2,
           "covers": [
             [
-              44,
-              44
+              38,
+              38
             ]
           ],
-          "bind": []
+          "bind": [
+            "66014cd2da#0",
+            "7c1dca5e22#0"
+          ]
         },
         {
           "id": "n_blob",
@@ -4443,11 +4595,13 @@
           "via": "input",
           "covers": [
             [
-              45,
-              45
+              39,
+              39
             ]
           ],
-          "bind": []
+          "bind": [
+            "05f625ef82#0"
+          ]
         },
         {
           "id": "n_apply",
@@ -4457,11 +4611,13 @@
           "row": 4,
           "covers": [
             [
-              46,
-              48
+              40,
+              43
             ]
           ],
-          "bind": []
+          "bind": [
+            "05f625ef82#0"
+          ]
         }
       ],
       "edges": [
@@ -4520,7 +4676,7 @@
             ]
           ],
           "bind": [
-            "26a276f9ad#0"
+            "2ac53b6395#0"
           ]
         },
         {
@@ -4537,7 +4693,7 @@
             ]
           ],
           "bind": [
-            "26a276f9ad#0"
+            "2ac53b6395#0"
           ]
         },
         {
@@ -4629,7 +4785,7 @@
             ]
           ],
           "bind": [
-            "ae0a09e5a8#0"
+            "9ff3ffec56#0"
           ]
         },
         {
@@ -4645,7 +4801,7 @@
             ]
           ],
           "bind": [
-            "ae0a09e5a8#0"
+            "9ff3ffec56#0"
           ]
         },
         {
@@ -4663,7 +4819,7 @@
             ]
           ],
           "bind": [
-            "ae0a09e5a8#0"
+            "9ff3ffec56#0"
           ],
           "block": "b_dom_settings"
         },
@@ -4681,7 +4837,7 @@
             ]
           ],
           "bind": [
-            "ae0a09e5a8#0"
+            "9ff3ffec56#0"
           ]
         },
         {
@@ -4698,7 +4854,7 @@
             ]
           ],
           "bind": [
-            "ae0a09e5a8#0"
+            "9ff3ffec56#0"
           ]
         }
       ],
@@ -4739,7 +4895,7 @@
           "to": "n_prep"
         },
         {
-          "from": "n_opts",
+          "from": "n_prep",
           "to": "n2"
         },
         {
@@ -4758,108 +4914,110 @@
     "b_dom_fetch": {
       "codeHash": "c213201f21",
       "schemaHash": "234bd68330",
-      "at": "2026-10-16"
+      "at": "2026-10-21"
     },
     "b_dom_audio": {
       "codeHash": "96b937dfc7",
       "schemaHash": "c4a07343e3",
-      "at": "2026-10-16"
+      "at": "2026-10-22"
     },
     "b_dom_tokenize": {
       "codeHash": "67dea76532",
       "schemaHash": "1707c775dd",
-      "at": "2026-10-16"
+      "at": "2026-10-21"
     },
     "b_dom_source": {
       "codeHash": "e84dd8f0b2",
-      "schemaHash": "e4b3e24e82",
-      "at": "2026-10-16"
+      "schemaHash": "9ead86aa4d",
+      "at": "2026-10-21"
     },
     "b_dom_pdf": {
       "codeHash": "ca1c56c39d",
-      "schemaHash": "84d2c52c94",
-      "at": "2026-10-16"
+      "schemaHash": "e30bfbf4de",
+      "at": "2026-10-21"
     },
     "b_infra_router": {
-      "codeHash": "04ea0cb757",
-      "schemaHash": "7073b4c4f0",
-      "at": "2026-10-16"
+      "codeHash": "76a39436ff",
+      "schemaHash": "f76412f0ec",
+      "at": "2026-10-21"
     },
     "b_infra_audioel": {
       "codeHash": "e49c65f48f",
-      "schemaHash": "9ab3116973",
-      "at": "2026-10-16"
+      "schemaHash": "f3074ea38f",
+      "at": "2026-10-21"
     },
     "b_dom_coord": {
-      "codeHash": "baef0b015e",
-      "schemaHash": "5f02536ec6",
-      "at": "2026-10-16"
+      "codeHash": "9938f0b4f8",
+      "schemaHash": "dcc2f26a55",
+      "at": "2026-10-21"
     }
   },
   "approvedBlocks": {
     "b_state_pos": "e1c56ee76b",
     "b_dom_tokenize": "8e7a6d65cc",
     "b_data_cache": "05a2ef2e3a",
-    "b_infra_audioel": "df5dc21010",
-    "b_infra_router": "b6b5e2574a",
+    "b_infra_audioel": "e6f077f787",
+    "b_infra_router": "c4397e3f4e",
     "b_state_player": "591321626b",
-    "b_dom_audio": "aac0e32764",
+    "b_dom_audio": "d868f48fb5",
     "b_ui_router": "b66d7d218c",
     "b_ui_text": "fc04250090",
     "b_ui_pdf": "5fad08fae8",
-    "b_dom_pdf": "fe83156cfe",
-    "b_dom_fetch": "95d493d48d",
+    "b_dom_pdf": "284d94bba5",
+    "b_dom_fetch": "afa2c87a2d",
     "b_ui_play": "738a0c76f5",
-    "b_dom_source": "17a687b8c0",
-    "b_state_settings": "d8a99631a8",
+    "b_dom_source": "4294b0e8d2",
+    "b_state_settings": "8786330292",
     "b_state_orch": "305e51b3f2",
     "b_dom_nav": "bed97175b0",
     "b_state_book": "e1c56ee76b",
     "b_state_paged": "a6eb5056b4",
-    "b_dom_coord": "7551406938",
-    "b_ui_library": "f9cb1077c0",
-    "b_dom_library": "70787391fd",
-    "b_dom_parser": "6fabb3a9ca",
+    "b_dom_coord": "581898967c",
+    "b_ui_library": "c6bd6a3fc1",
+    "b_dom_library": "f082e16644",
+    "b_dom_parser": "86e1f17113",
     "b_data_db": "05a2ef2e3a",
-    "b_ui_header": "06df40c6db",
-    "b_dom_settings": "ed6246afa2",
-    "b_ui_settings": "9143de721f",
+    "b_ui_header": "e8f6f6587e",
+    "b_dom_settings": "b5a5d530e5",
+    "b_ui_settings": "65a8a243cb",
     "b_ui_book": "62a542a7e9",
-    "b_dom_account": "8ce56bfe22",
-    "b_infra_server": "e32289e624",
-    "b_state_user": "c2d58bc400",
+    "b_dom_account": "4071ea5d26",
+    "b_infra_server": "e8c795686f",
+    "b_state_user": "ee3d03b5c6",
     "b_ui_topup": "452a25556d",
     "b_ui_dictionary": "dfef81b150",
     "b_infra_proxy": "c1ae5ac416",
     "b_dom_cleanup": "277546199b",
     "b_ui_editor": "c081003fdc",
-    "b_ui_pdfdialogs": "eb1a75b23c",
+    "b_ui_pdfdialogs": "67a15d404a",
     "b_infra_recog": "a2f053a5c5",
     "b_data_pdf": "05a2ef2e3a",
-    "b_infra_ai": "07888fbe1f"
+    "b_infra_ai": "07888fbe1f",
+    "b_ui_auth": "77f42df7dd"
   },
   "approvedScenarios": {
-    "sc_tts": "8bf08b30a2",
-    "sc_read": "1ca452f55b",
-    "sc_open": "0d40304923",
-    "sc_settings": "c4eec6cafd",
-    "sc_phrases": "7fc72b32e4",
-    "sc_start": "4552827dfe",
-    "sc_transport": "c950126e4f",
-    "sc_navigate": "f4d1270c03",
-    "sc_wait": "5db8729168",
-    "sc_failure": "ca1b225223",
-    "sc_announce": "dcda6c943d",
-    "sc_live": "2620af12ae",
-    "sc_pdf": "cd8c8778c2",
-    "sc_pdfchoice": "0b8b4c0c4b",
-    "sc_edit": "c1345a5743",
-    "sc_quality": "3be11c7b3a",
-    "sc_dictionary": "6b158e84a3",
-    "sc_voices": "ee1c69e679",
-    "sc_net": "72384f438e",
-    "sc_cloud": "f8ddab8ff9",
-    "sc_delete": "63d17a68e0"
+    "sc_tts": "f05ea34886",
+    "sc_read": "1d16964373",
+    "sc_open": "afc196bb54",
+    "sc_settings": "827e950150",
+    "sc_phrases": "9323b0fcd5",
+    "sc_start": "5197fd8b70",
+    "sc_transport": "54060d2908",
+    "sc_navigate": "2b0b8ba578",
+    "sc_wait": "7341b74b54",
+    "sc_failure": "396bbac862",
+    "sc_announce": "4587397540",
+    "sc_live": "098a035d9f",
+    "sc_pdf": "b29078bf28",
+    "sc_pdfchoice": "e4216048fa",
+    "sc_edit": "62d4283eb8",
+    "sc_quality": "6ad41d4e16",
+    "sc_dictionary": "6a39bce75b",
+    "sc_voices": "6830d78904",
+    "sc_net": "06cba34fe0",
+    "sc_cloud": "663d3d2179",
+    "sc_delete": "a38640d59a",
+    "sc_auth": "bca9184043"
   },
   "riskAcks": {
     "11b0ba5a0a": {
@@ -4891,6 +5049,12 @@
       "at": "2026-10-14",
       "where": "src/engine/library.ts:366",
       "kind": "catch"
+    },
+    "037fee2b93": {
+      "reason": "фоновая запись в кэш не должна прерывать воспроизведение при сбое хранилища",
+      "at": "2026-10-21",
+      "where": "src/engine/audio/audioFetch.ts:120",
+      "kind": "promise.catch"
     }
   },
   "states": {
@@ -5078,5 +5242,7 @@
       }
     ]
   },
-  "realityAcks": {}
+  "realityAcks": {
+    "b_dom_library>b_infra_recog": "оригинальный просмотр PDF через pdfjsDoc"
+  }
 }
